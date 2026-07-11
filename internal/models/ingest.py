@@ -1,0 +1,31 @@
+"""Ingest request/result schemas for knowbase."""
+
+from __future__ import annotations
+
+from pydantic import BaseModel, Field
+
+from internal.models.case import KnowbaseCaseDraft
+
+
+class IngestRequest(BaseModel):
+    """External ingest request accepted by the knowbase product interface."""
+
+    title: str = ""
+    source_content: str = ""
+    source_refs: list[str] = Field(default_factory=list)
+    partition_name: str = ""
+    author: str = ""
+    source: str = "user"
+
+
+class IngestResult(BaseModel):
+    """Result returned after one ingest operation."""
+
+    case_id: str = ""
+    partition: str = ""
+    accepted: bool = True
+    processing_status: str = "queued"
+    backlog_event_ids: list[str] = Field(default_factory=list)
+    draft: KnowbaseCaseDraft | None = None
+    facet_resolution_summary: str = ""
+    resolved_facets: dict[str, list[str]] = Field(default_factory=dict)

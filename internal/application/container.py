@@ -1,0 +1,59 @@
+"""Dependency assembly for the integrated Knowbase application."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+from internal.api import KnowbaseRouteDeps
+from internal.application.indices import ensure_indices
+from internal.application.modules import build_ingest_service, build_query_flow, build_runtime_module
+from internal.application.providers import build_core_providers, build_ingest_providers
+from internal.application.registries import build_skill_registry, build_tool_registry
+from internal.skills import SkillRuntime
+from internal.tools import ToolRuntime
+
+
+@dataclass(slots=True)
+class KnowbaseAppContainer:
+    """Assembled service graph for one app instance."""
+
+    route_deps: KnowbaseRouteDeps
+
+
+def build_app_container() -> KnowbaseAppContainer:
+    core = build_core_providers()
+    ingest = build_ingest_providers()
+    skill_registry = build_skill_registry(
+        case_repository=core.case_repository,
+        partition_service=core.partition_service,
+    )
+    tool_registry = build_tool_registry(
+        case_repository=core.case_repository,
+        partition_service=core.partition_service,
+    )
+    skill_runtime = SkillRuntime(registry=skill_registry)
+    tool_runtime = ToolRuntime(registry=tool_registry)
+    runtime_module = build_runtime_module(
+        core=core,
+        tool_runtime=tool_runtime,
+        skill_runtime=skill_runtime,
+    )
+    ingest_service = build_ingest_service(core=core, ingest=ingest)
+    query_flow = build_query_flow(core=core)
+    ensure_indices(core=core)
+
+    return KnowbaseAppContainer(
+        route_deps=KnowbaseRouteDeps(
+            partition_service=core.partition_service,
+            partition_schema_suggester=core.partition_schema_suggester,
+            case_repository=core.case_repository,
+            case_write_service=core.case_write_service,
+            runtime_service=runtime_module.runtime_service,
+            event_publisher=core.event_publisher,
+            event_backlog_service=runtime_module.event_backlog_service,
+            event_worker=runtime_module.event_worker,
+            skill_runtime=skill_runtime,
+            ingest_service=ingest_service,
+            query_flow=query_flow,
+        )
+    )

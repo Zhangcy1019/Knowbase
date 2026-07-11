@@ -1,0 +1,29 @@
+[project]
+name = "knowbase"
+version = "0.1.0"
+description = "Standalone knowbase service"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "pydantic",
+    "langchain-core",
+    "langchain-openai",
+    "openai",
+    "elasticsearch",
+    "pyyaml",
+]
+
+[project.scripts]
+knowbase = "main:main"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "internal"}
+py-modules = ["main", "bootstrap"]
+
+[tool.setuptools.packages.find]
+where = ["internal"]

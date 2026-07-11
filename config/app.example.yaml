@@ -1,0 +1,51 @@
+# Knowbase 独立服务配置样例
+
+startup:
+  api:
+    host: 0.0.0.0
+    port: 8000
+  default_partition: "CI"
+
+web:
+  ui:
+    enabled: true
+    mode: build # build or dev
+    auto_build: true
+    dist_dir: ""
+    dev_host: 127.0.0.1
+    dev_port: 5173
+
+llm:
+  provider: openai
+  model: gpt-4o-mini
+  temperature: 0.0
+  openai:
+    api_key: ""
+    base_url: ""
+
+logging:
+  level: INFO
+  json_format: false
+
+es:
+  url: ""
+  api_key: ""
+  partitions_index: "ci_knowbase_partitions_v1"
+  cases_index: "ci_knowbase_cases_v1"
+  agent_runs_index: "ci_knowbase_agent_runs_v1"
+  run_steps_index: "ci_knowbase_run_steps_v1"
+  run_artifacts_index: "ci_knowbase_run_artifacts_v1"
+  partition_facet_schemas_index: "ci_knowbase_partition_facet_schemas_v1"
+  event_records_index: "ci_knowbase_event_records_v1"
+  verify_certs: true
+
+embedding:
+  provider: "openai_compatible"
+  model_name: ""
+  endpoint: ""
+  base_url: ""
+  api_key: ""
+  dimensions: 1024
+  query_prefix: "search_query: "
+  document_prefix: "search_document: "
+  timeout_seconds: 30

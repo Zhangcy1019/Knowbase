@@ -1,0 +1,6 @@
+.history/
+__pycache__/
+node_modules/
+
+config/app.yaml
+docs/test_doc/

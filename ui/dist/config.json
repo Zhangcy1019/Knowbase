@@ -1,0 +1,15 @@
+{
+  "defaultEnvironment": "preview",
+  "environments": [
+    {
+      "id": "preview",
+      "label": "Preview",
+      "websocketUrl": "/ws/chat"
+    },
+    {
+      "id": "release",
+      "label": "Release",
+      "websocketUrl": "/ws/chat"
+    }
+  ]
+}

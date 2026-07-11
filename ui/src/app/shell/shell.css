@@ -1,0 +1,322 @@
+:root {
+  font-family:
+    "Source Sans 3", "IBM Plex Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+  color: #172534;
+  background:
+    radial-gradient(circle at top left, rgba(244, 174, 74, 0.15), transparent 28%),
+    radial-gradient(circle at top right, rgba(84, 138, 217, 0.14), transparent 30%),
+    linear-gradient(180deg, #f6f1e8 0%, #f3f7fb 45%, #eef4f8 100%);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  --surface-1: rgba(255, 255, 255, 0.78);
+  --surface-2: rgba(248, 251, 254, 0.82);
+  --surface-3: rgba(18, 37, 56, 0.86);
+  --line-soft: rgba(40, 71, 104, 0.14);
+  --line-strong: rgba(33, 66, 101, 0.26);
+  --text-muted: #61758a;
+  --text-strong: #13283b;
+  --accent: #dd7f1f;
+  --accent-soft: rgba(221, 127, 31, 0.16);
+  --blue-soft: rgba(60, 112, 181, 0.12);
+  --shadow-soft: 0 18px 48px rgba(34, 58, 84, 0.12);
+  --font-display:
+    "IBM Plex Sans Condensed", "IBM Plex Sans", "PingFang SC",
+    "Microsoft YaHei", sans-serif;
+  --font-body:
+    "Source Sans 3", "IBM Plex Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-mono:
+    "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  height: 100vh;
+  overflow: hidden;
+  font-family: var(--font-body);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.app-shell {
+  height: 100vh;
+  display: grid;
+  grid-template-columns: 224px minmax(0, 1fr);
+  gap: 24px;
+  padding: 22px;
+  overflow: hidden;
+}
+
+.app-sidebar,
+.app-shell-main {
+  min-height: 0;
+  height: calc(100vh - 44px);
+  border: 1px solid var(--line-soft);
+  background: var(--surface-1);
+  box-shadow: var(--shadow-soft);
+  backdrop-filter: blur(24px);
+}
+
+.app-sidebar {
+  display: flex;
+  flex-direction: column;
+  border-radius: 8px;
+  padding: 24px 18px 18px;
+  overflow: auto;
+}
+
+.app-sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 8px 18px;
+}
+
+.app-sidebar-brand-mark {
+  display: block;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  background: #c67a2b;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.32);
+}
+
+.app-sidebar-brand strong {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  color: var(--text-strong);
+}
+
+.app-sidebar-nav {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.app-sidebar-active-partition {
+  display: grid;
+  gap: 3px;
+  margin: 0 8px 10px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.58);
+  border: 1px solid var(--line-soft);
+}
+
+.app-sidebar-active-partition span {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.app-sidebar-active-partition strong {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text-strong);
+}
+
+.app-sidebar-nav a {
+  position: relative;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: center;
+  column-gap: 12px;
+  border-radius: 6px;
+  padding: 11px 12px;
+  border: 1px solid transparent;
+  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+
+.app-sidebar-nav a:hover {
+  background: rgba(255, 255, 255, 0.64);
+  border-color: var(--line-soft);
+}
+
+.app-sidebar-nav a.is-active {
+  background: rgba(59, 130, 166, 0.1);
+  border-color: rgba(59, 130, 166, 0.18);
+  color: #143149;
+}
+
+.app-sidebar-nav-icon {
+  width: 18px;
+  height: 18px;
+  color: #5d7287;
+}
+
+.app-sidebar-nav a.is-active .app-sidebar-nav-icon {
+  color: #1f435e;
+}
+
+.app-sidebar-nav span {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+.app-sidebar-footer {
+  margin-top: auto;
+  padding: 12px 8px 2px;
+}
+
+.app-shell-main {
+  border-radius: 8px;
+  padding: 22px;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 20px;
+  overflow: hidden;
+}
+
+.app-shell-main.is-topbar-hidden {
+  grid-template-rows: minmax(0, 1fr);
+  gap: 0;
+}
+
+.app-topbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  border-bottom: 1px solid var(--line-soft);
+  padding-bottom: 14px;
+}
+
+.app-topbar h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: -0.04em;
+}
+
+.app-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.context-chip {
+  display: grid;
+  gap: 4px;
+  min-width: 144px;
+  border-radius: 6px;
+  padding: 12px 14px;
+  border: 1px solid var(--line-soft);
+  background: var(--surface-2);
+}
+
+.context-chip span {
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+}
+
+.context-chip strong {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.ghost-button {
+  border: 1px solid var(--line-strong);
+  background: rgba(255, 255, 255, 0.62);
+  color: var(--text-strong);
+  border-radius: 6px;
+  padding: 12px 16px;
+  font-family: var(--font-body);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.app-shell-content {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+@media (max-width: 1080px) {
+  html,
+  body,
+  #root,
+  .app-shell {
+    height: auto;
+  }
+
+  body {
+    overflow: auto;
+  }
+
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .app-sidebar,
+  .app-shell-main {
+    min-height: auto;
+    height: auto;
+  }
+
+  .app-shell-main,
+  .app-shell-content,
+  .app-sidebar {
+    overflow: visible;
+  }
+}
+
+@media (max-width: 720px) {
+  .app-shell {
+    padding: 10px;
+    gap: 10px;
+  }
+
+  .app-shell-main,
+  .app-sidebar {
+    border-radius: 8px;
+  }
+
+  .app-topbar {
+    flex-direction: column;
+  }
+
+  .app-topbar h1 {
+    font-size: 28px;
+  }
+
+  .app-topbar-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+}

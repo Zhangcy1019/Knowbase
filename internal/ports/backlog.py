@@ -1,0 +1,61 @@
+"""Cross-module ports for backlog/dispatch-facing capabilities."""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Protocol
+
+from internal.models import EventRecord
+from internal.runtime.contracts import RuntimeRunRequest
+
+if TYPE_CHECKING:
+    from backlog.worker import EventWorkerRunResult
+
+
+class EventBacklogPort(Protocol):
+    """Stable backlog event admin surface used by runtime API routes."""
+
+    def list_events(
+        self,
+        *,
+        partition: str = "",
+        status: str = "",
+        disposition: str = "",
+        event_type: str = "",
+    ) -> list[EventRecord]:
+        ...
+
+    def get_event(self, event_id: str) -> EventRecord | None:
+        ...
+
+    def retry_event(self, *, event_id: str) -> EventRecord:
+        ...
+
+    def delete_event(self, event_id: str) -> None:
+        ...
+
+
+class EventWorkerPort(Protocol):
+    """Stable backlog drain surface used by runtime API routes."""
+
+    async def run_once(
+        self,
+        *,
+        partition: str = "",
+        limit: int = 200,
+        trigger_source: str = "manual",
+    ) -> EventWorkerRunResult:
+        ...
+
+
+class BacklogDispatchPort(Protocol):
+    """Dispatch surface that turns ready backlog state into one runtime request."""
+
+    def build_runtime_request(self, *, batch) -> RuntimeRunRequest:
+        ...
+
+
+__all__ = [
+    "BacklogDispatchPort",
+    "EventBacklogPort",
+    "EventWorkerPort",
+]
