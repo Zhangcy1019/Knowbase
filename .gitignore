@@ -2,6 +2,7 @@
 .pytest_cache/
 __pycache__/
 node_modules/
+dist/
 
 config/app.yaml
 docs/test_doc/
