@@ -6,6 +6,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
+from internal.models.semantic_fields import SemanticFieldSet
+
 
 class PartitionFacetDefinition(BaseModel):
     """Definition of one stable facet key inside a partition."""
@@ -22,6 +24,51 @@ class PartitionFacetSchema(BaseModel):
 
     definitions: list[PartitionFacetDefinition] = Field(default_factory=list)
     metadata: dict[str, str | int | float | bool] = Field(default_factory=dict)
+
+
+class PartitionFacetSchemaDocument(BaseModel):
+    """Persisted facet schema linked to one partition by name."""
+
+    partition_name: str
+    facet_schema: PartitionFacetSchema = Field(default_factory=PartitionFacetSchema)
+    created_at: datetime
+    updated_at: datetime
+
+
+class CaseFacetProfile(SemanticFieldSet):
+    """Stable semantic-field projection under the current partition facet schema."""
+
+    @classmethod
+    def from_semantic_profile(
+        cls,
+        values: dict[str, list[str]] | BaseModel | None = None,
+    ) -> "CaseFacetProfile":
+        return cls.model_validate(values or {})
+
+
+class PartitionFacetValueStat(BaseModel):
+    value: str = ""
+    count: int = 0
+
+
+class PartitionFacetKeyStat(BaseModel):
+    key: str = ""
+    count: int = 0
+    sample_values: list[PartitionFacetValueStat] = Field(default_factory=list)
+    last_seen_at: datetime | None = None
+
+
+class PartitionFacetIndex(BaseModel):
+    partition_name: str
+    key_stats: list[PartitionFacetKeyStat] = Field(default_factory=list)
+    metadata: dict[str, str | int | float | bool] = Field(default_factory=dict)
+
+
+class PartitionFacetIndexDocument(BaseModel):
+    partition_name: str
+    facet_index: PartitionFacetIndex = Field(default_factory=lambda: PartitionFacetIndex(partition_name=""))
+    created_at: datetime
+    updated_at: datetime
 
 
 class CaseFacetValuesChangeRecord(BaseModel):

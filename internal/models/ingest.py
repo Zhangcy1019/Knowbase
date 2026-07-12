@@ -5,6 +5,7 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 
 from internal.models.case import KnowbaseCaseDraft
+from internal.models.facet import CaseFacetProfile
 
 
 class IngestRequest(BaseModel):
@@ -28,4 +29,4 @@ class IngestResult(BaseModel):
     backlog_event_ids: list[str] = Field(default_factory=list)
     draft: KnowbaseCaseDraft | None = None
     facet_resolution_summary: str = ""
-    resolved_facets: dict[str, list[str]] = Field(default_factory=dict)
+    resolved_facets: CaseFacetProfile = Field(default_factory=CaseFacetProfile)

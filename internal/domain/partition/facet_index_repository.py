@@ -1,4 +1,4 @@
-"""Repository for partition facet schemas."""
+"""Repository for partition facet indices."""
 
 from __future__ import annotations
 
@@ -7,21 +7,21 @@ from typing import Any
 
 from internal.connectors.es.client import BaseElasticsearchClient
 from _es import build_knowbase_es_client
-from internal.models.facet import PartitionFacetSchemaDocument
+from internal.models.facet import PartitionFacetIndex, PartitionFacetIndexDocument
 
 
-class PartitionFacetSchemaRepository:
-    """Persist and load partition facet schemas."""
+class PartitionFacetIndexRepository:
+    """Persist and load partition facet indices."""
 
     def __init__(self, *, client: BaseElasticsearchClient, index_name: str):
         self._client = client
         self._index_name = index_name
 
     @classmethod
-    def from_env(cls) -> "PartitionFacetSchemaRepository":
+    def from_env(cls) -> "PartitionFacetIndexRepository":
         client, index_name = build_knowbase_es_client(
-            index_env="CIAGENT_KNOWBASE_PARTITION_FACET_SCHEMAS_INDEX",
-            default_index="ci_knowbase_partition_facet_schemas_v1",
+            index_env="CIAGENT_KNOWBASE_PARTITION_FACET_INDEX_INDEX",
+            default_index="ci_knowbase_partition_facet_index_v1",
         )
         return cls(client=client, index_name=index_name)
 
@@ -30,7 +30,7 @@ class PartitionFacetSchemaRepository:
             return {"acknowledged": True, "index": self._index_name, "created": False}
         return self._client.create_index(index=self._index_name, body=self.build_index_mapping())
 
-    def upsert(self, document: PartitionFacetSchemaDocument) -> PartitionFacetSchemaDocument:
+    def upsert(self, document: PartitionFacetIndexDocument) -> PartitionFacetIndexDocument:
         self._client.index_document(
             index=self._index_name,
             doc_id=document.partition_name,
@@ -39,19 +39,20 @@ class PartitionFacetSchemaRepository:
         )
         return document
 
-    def get(self, partition_name: str) -> PartitionFacetSchemaDocument | None:
+    def get(self, partition_name: str) -> PartitionFacetIndexDocument | None:
         response = self._client.get_document_or_none(index=self._index_name, doc_id=partition_name)
         if response is None:
             return None
-        return PartitionFacetSchemaDocument.model_validate(response.get("_source") or {})
+        return PartitionFacetIndexDocument.model_validate(response.get("_source") or {})
 
-    def get_or_create(self, partition_name: str) -> PartitionFacetSchemaDocument:
+    def get_or_create(self, partition_name: str) -> PartitionFacetIndexDocument:
         existing = self.get(partition_name)
         if existing is not None:
             return existing
         now = datetime.now(timezone.utc)
-        document = PartitionFacetSchemaDocument(
+        document = PartitionFacetIndexDocument(
             partition_name=partition_name,
+            facet_index=PartitionFacetIndex(partition_name=partition_name),
             created_at=now,
             updated_at=now,
         )
@@ -67,7 +68,7 @@ class PartitionFacetSchemaRepository:
             "mappings": {
                 "properties": {
                     "partition_name": {"type": "keyword"},
-                    "facet_schema": {"type": "flattened"},
+                    "facet_index": {"type": "flattened"},
                     "created_at": {"type": "date"},
                     "updated_at": {"type": "date"},
                 }

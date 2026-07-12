@@ -1,0 +1,347 @@
+.partition-page,
+.partition-status-strip,
+.partition-workspace,
+.partition-left-stack {
+  display: grid;
+  gap: 12px;
+}
+
+.partition-page {
+  min-height: 100%;
+  height: 100%;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.partition-page-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.partition-page-copy h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.04em;
+}
+
+.partition-page-copy p {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.partition-status-strip {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.partition-status-card {
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.72);
+  padding: 12px 14px;
+}
+
+.partition-status-card span,
+.partition-inline-status,
+.partition-inline-note,
+.partition-schema-item-line span,
+.partition-detail-block p,
+.partition-detail-meta span,
+.partition-empty-state p,
+.partition-value-table-header,
+.partition-value-table-row code {
+  font-family: var(--font-body);
+}
+
+.partition-status-card span {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.partition-status-card strong {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.05em;
+  line-height: 1;
+}
+
+.partition-status-card small {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.partition-workspace {
+  min-height: 0;
+  grid-template-columns: minmax(0, 0.86fr) minmax(360px, 1.14fr);
+}
+
+.partition-left-stack {
+  min-height: 0;
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+}
+
+.partition-schema-card,
+.partition-detail-card {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  padding: 16px 18px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.partition-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.partition-panel-head h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+.partition-inline-note {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  border-radius: 6px;
+  padding: 0 8px;
+  background: rgba(59, 130, 166, 0.1);
+  color: #235d7a;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.partition-schema-list-scroll,
+.partition-detail-scroll {
+  min-height: 0;
+  overflow: auto;
+}
+
+.partition-schema-list {
+  display: grid;
+  gap: 6px;
+}
+
+.partition-schema-item {
+  display: block;
+  border-radius: 6px;
+  border: 1px solid rgba(40, 71, 104, 0.08);
+  background: rgba(255, 255, 255, 0.54);
+  padding: 9px 12px;
+  text-align: left;
+  cursor: pointer;
+  color: #31485f;
+}
+
+.partition-schema-item.is-active {
+  border-color: rgba(198, 122, 43, 0.22);
+  box-shadow: inset 0 0 0 1px rgba(198, 122, 43, 0.16);
+}
+
+.partition-schema-item-line {
+  display: grid;
+  align-items: center;
+  grid-template-columns: minmax(0, 1.1fr) 88px 84px 110px;
+  min-width: 0;
+  gap: 10px;
+}
+
+.partition-schema-item-line strong {
+  font-size: 14px;
+  font-weight: 600;
+  color: #17314a;
+  min-width: 0;
+}
+
+.partition-schema-item-line span {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  text-align: left;
+}
+
+.partition-inline-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  min-height: 24px;
+  border-radius: 6px;
+  padding: 0 8px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.partition-inline-status.is-stable {
+  background: rgba(61, 133, 98, 0.12);
+  color: #2c6a52;
+}
+
+.partition-inline-status.is-review {
+  background: rgba(59, 130, 166, 0.14);
+  color: #235d7a;
+}
+
+.partition-inline-status.is-elevated {
+  background: rgba(198, 122, 43, 0.14);
+  color: #8a561f;
+}
+
+.partition-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.partition-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  border-radius: 6px;
+  padding: 0 8px;
+  background: rgba(244, 247, 251, 0.92);
+  border: 1px solid rgba(40, 71, 104, 0.08);
+  color: #31485f;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.partition-detail-block {
+  display: grid;
+  gap: 8px;
+  border-radius: 6px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(40, 71, 104, 0.08);
+}
+
+.partition-detail-block p {
+  margin: 0;
+  color: #31485f;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.partition-detail-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.partition-detail-meta span {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.partition-value-table {
+  display: grid;
+  gap: 4px;
+  margin-top: 12px;
+}
+
+.partition-value-table-header,
+.partition-value-table-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 88px;
+  align-items: center;
+  gap: 12px;
+}
+
+.partition-value-table-header {
+  padding: 8px 10px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.partition-value-table-row {
+  border-radius: 6px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.56);
+  border: 1px solid rgba(40, 71, 104, 0.08);
+}
+
+.partition-value-table-row strong {
+  font-size: 13px;
+  color: #17314a;
+}
+
+.partition-value-table-row code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: #51667e;
+}
+
+.partition-empty-state {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  min-height: 0;
+  text-align: center;
+  gap: 8px;
+  border-radius: 6px;
+  border: 1px dashed rgba(40, 71, 104, 0.18);
+  background: rgba(255, 255, 255, 0.42);
+  color: #31485f;
+  padding: 24px;
+}
+
+.partition-empty-state strong {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  color: #17314a;
+}
+
+.partition-empty-state p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  max-width: 320px;
+}
+
+@media (max-width: 1280px) {
+  .partition-page {
+    height: auto;
+    grid-template-rows: auto;
+    overflow: visible;
+  }
+
+  .partition-status-strip,
+  .partition-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .partition-left-stack {
+    grid-template-rows: auto;
+  }
+
+  .partition-schema-card,
+  .partition-detail-card,
+  .partition-schema-list-scroll,
+  .partition-detail-scroll {
+    overflow: visible;
+  }
+}

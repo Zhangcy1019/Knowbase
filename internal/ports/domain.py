@@ -5,15 +5,17 @@ from __future__ import annotations
 from typing import Any, Protocol
 
 from internal.models import (
+    CaseFacetProfile,
     KnowbaseCaseDocument,
     KnowbaseCaseSearchHit,
     KnowbaseCaseSearchQuery,
     KnowbaseEvent,
     PartitionDocument,
     PartitionFacetDefinition,
+    PartitionFacetIndex,
     PartitionFacetSchema,
 )
-from internal.models.partition_facet_schema import PartitionFacetSchemaDocument
+from internal.models.facet import PartitionFacetIndexDocument, PartitionFacetSchemaDocument
 from internal.models.partition_semantic_index import PartitionSemanticIndex, PartitionSemanticIndexDocument
 
 
@@ -27,6 +29,12 @@ class PartitionAccessPort(Protocol):
         ...
 
     def save_partition(self, document: PartitionDocument) -> PartitionDocument:
+        ...
+
+    def get_facet_index(self, partition_name: str) -> PartitionFacetIndex | None:
+        ...
+
+    def get_facet_index_document(self, partition_name: str) -> PartitionFacetIndexDocument | None:
         ...
 
     def get_facet_schema_document(self, partition_name: str) -> PartitionFacetSchemaDocument | None:
@@ -55,6 +63,14 @@ class PartitionAccessPort(Protocol):
         partition_name: str,
         case_documents: list[KnowbaseCaseDocument],
     ) -> PartitionSemanticIndexDocument:
+        ...
+
+    def refresh_facet_index(
+        self,
+        *,
+        partition_name: str,
+        case_documents: list[KnowbaseCaseDocument],
+    ) -> PartitionFacetIndexDocument:
         ...
 
     def delete_partition(self, partition_name: str):
@@ -138,7 +154,7 @@ class CaseWritePort(Protocol):
         summary_text: str,
         semantic_profile: Any,
         metadata: Any,
-        facets: dict[str, list[str]] | None = None,
+        facets: CaseFacetProfile | dict[str, list[str]] | None = None,
     ) -> KnowbaseCaseDocument:
         ...
 
@@ -152,7 +168,7 @@ class CaseWritePort(Protocol):
         summary_text: str | None = None,
         semantic_profile: Any = None,
         metadata: Any = None,
-        facets: dict[str, list[str]] | None = None,
+        facets: CaseFacetProfile | dict[str, list[str]] | None = None,
         raw_text: str | None = None,
         case_detail: str | None = None,
     ) -> tuple[KnowbaseCaseDocument, KnowbaseCaseDocument, list[str]]:
@@ -206,9 +222,9 @@ class CaseFacetResolutionPort(Protocol):
     def normalize(
         self,
         *,
-        facets: dict[str, list[str]],
+        facets: CaseFacetProfile | dict[str, list[str]],
         facet_definitions: list[PartitionFacetDefinition],
-    ) -> dict[str, list[str]]:
+    ) -> CaseFacetProfile:
         ...
 
     def project_from_semantic_profile(
@@ -216,7 +232,7 @@ class CaseFacetResolutionPort(Protocol):
         *,
         semantic_profile: Any,
         facet_definitions: list[PartitionFacetDefinition],
-    ) -> dict[str, list[str]]:
+    ) -> CaseFacetProfile:
         ...
 
 

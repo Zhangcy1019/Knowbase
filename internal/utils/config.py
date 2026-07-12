@@ -34,7 +34,9 @@ class KnowbaseElasticsearchConfig:
     agent_runs_index: str
     run_steps_index: str
     run_artifacts_index: str
+    partition_semantic_index_index: str
     partition_facet_schemas_index: str
+    partition_facet_index_index: str
     event_records_index: str
     verify_certs: bool = True
 
@@ -214,9 +216,17 @@ def load_runtime_config(config_path: str | None) -> RuntimeConfig:
             "CIAGENT_KNOWBASE_RUN_ARTIFACTS_INDEX",
             str(_get_nested(file_cfg, "es", "run_artifacts_index", default="ci_knowbase_run_artifacts_v1")),
         ),
+        partition_semantic_index_index=_str_env(
+            "CIAGENT_KNOWBASE_PARTITION_SEMANTIC_INDEX_INDEX",
+            str(_get_nested(file_cfg, "es", "partition_semantic_index_index", default="ci_knowbase_partition_semantic_index_v1")),
+        ),
         partition_facet_schemas_index=_str_env(
             "CIAGENT_KNOWBASE_PARTITION_FACET_SCHEMAS_INDEX",
             str(_get_nested(file_cfg, "es", "partition_facet_schemas_index", default="ci_knowbase_partition_facet_schemas_v1")),
+        ),
+        partition_facet_index_index=_str_env(
+            "CIAGENT_KNOWBASE_PARTITION_FACET_INDEX_INDEX",
+            str(_get_nested(file_cfg, "es", "partition_facet_index_index", default="ci_knowbase_partition_facet_index_v1")),
         ),
         event_records_index=_str_env(
             "CIAGENT_KNOWBASE_EVENT_RECORDS_INDEX",
