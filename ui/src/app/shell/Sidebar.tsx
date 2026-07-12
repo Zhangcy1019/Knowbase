@@ -3,6 +3,7 @@ import type { SVGProps } from "react";
 
 const navItems = [
   { href: "/overview", label: "Overview", icon: OverviewIcon },
+  { href: "/ingest", label: "Ingest", icon: IngestIcon },
   { href: "/explore", label: "Explore", icon: CasesIcon },
   { href: "/partition", label: "Partition", icon: PartitionIcon },
   { href: "/query", label: "Query", icon: QueryIcon },
@@ -65,6 +66,16 @@ function CasesIcon(props: SVGProps<SVGSVGElement>) {
       <path d="M12 3.5v3h3" />
       <path d="M7.5 10h5" />
       <path d="M7.5 13h5" />
+    </NavIcon>
+  );
+}
+
+function IngestIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <NavIcon {...props}>
+      <path d="M10 3.5v9" />
+      <path d="M6.8 9.3 10 12.5l3.2-3.2" />
+      <path d="M4.5 14.5v1a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1v-1" />
     </NavIcon>
   );
 }
