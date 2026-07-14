@@ -15,6 +15,7 @@ from internal.domain.case.write_service import KnowbaseCaseWriteService
 from internal.domain.event.event_repository import EventRecordRepository
 from internal.domain.event.inbox_service import KnowbaseEventInboxService
 from internal.domain.event.publisher import KnowbaseEventPublisher
+from internal.domain.partition.facet_index_repository import PartitionFacetIndexRepository
 from internal.domain.partition.facet_schema_repository import PartitionFacetSchemaRepository
 from internal.domain.partition.repository import PartitionRepository
 from internal.domain.partition.schema_suggester import PartitionSchemaSuggester
@@ -60,6 +61,7 @@ class IngestProviders:
 def build_core_providers() -> CoreProviders:
     partition_service = PartitionService(
         repository=PartitionRepository.from_env(),
+        facet_index_repository=PartitionFacetIndexRepository.from_env(),
         facet_schema_repository=PartitionFacetSchemaRepository.from_env(),
         semantic_index_repository=PartitionSemanticIndexRepository.from_env(),
     )

@@ -8,6 +8,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from internal.models.common import normalize_string_list
+from internal.models.facet import CaseFacetProfile
 from internal.models.semantic_profile import CaseSemanticProfile
 from internal.models.types import KnowbaseSource, KnowbaseStatus
 
@@ -32,7 +33,7 @@ class KnowbaseCaseDraft(BaseModel):
     summary_text: str = ""
     semantic_profile: CaseSemanticProfile = Field(default_factory=CaseSemanticProfile)
     metadata: KnowbaseCaseMetadata = Field(default_factory=KnowbaseCaseMetadata)
-    facets: dict[str, list[str]] = Field(default_factory=dict)
+    facets: CaseFacetProfile = Field(default_factory=CaseFacetProfile)
 
     @field_validator("source_refs", mode="before")
     @classmethod
@@ -59,7 +60,7 @@ class KnowbaseCaseDocument(BaseModel):
     summary_text: str = ""
     semantic_profile: CaseSemanticProfile = Field(default_factory=CaseSemanticProfile)
     # facet info
-    facets: dict[str, list[str]] = Field(default_factory=dict)
+    facets: CaseFacetProfile = Field(default_factory=CaseFacetProfile)
 
     # for search
     search_text: str = ""  # built from title, facets, and semantic profile
@@ -104,6 +105,6 @@ class KnowbaseCaseSearchHit(BaseModel):
     title: str = ""
     summary_text: str = ""
     source_excerpt: str = ""
-    facets: dict[str, list[str]] = Field(default_factory=dict)
+    facets: CaseFacetProfile = Field(default_factory=CaseFacetProfile)
     explain: KnowbaseCaseSearchExplain = Field(default_factory=KnowbaseCaseSearchExplain)
     document: dict[str, Any] = Field(default_factory=dict)

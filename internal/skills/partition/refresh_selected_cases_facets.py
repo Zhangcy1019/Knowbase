@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 
 from internal.models.skill import SkillInvocation, SkillResult, SkillSpec
 from internal.models.skill_context import SkillExecutionContext
-from internal.ports import CaseFacetResolutionPort, CaseRepositoryPort, PartitionLookupPort
+from internal.ports import CaseFacetResolutionPort, CaseRepositoryPort, PartitionAccessPort
 from internal.utils.logger import get_logger
 
 
@@ -20,7 +20,7 @@ class RefreshSelectedCasesFacetsSkill:
         self,
         *,
         case_repository: CaseRepositoryPort,
-        partition_service: PartitionLookupPort,
+        partition_service: PartitionAccessPort,
         facet_resolver: CaseFacetResolutionPort,
     ):
         self._case_repository = case_repository
@@ -68,6 +68,11 @@ class RefreshSelectedCasesFacetsSkill:
             self._case_repository.upsert(updated)
             updated_objects.append(case_id)
             changed_case_ids.append(case_id)
+        partition_cases = self._case_repository.list_by_partition(partition) if partition else []
+        self._partition_service.refresh_facet_index(
+            partition_name=partition,
+            case_documents=partition_cases,
+        )
         logger.info(
             "Executed partition-level facet refresh.",
             extra={
@@ -75,6 +80,7 @@ class RefreshSelectedCasesFacetsSkill:
                 "requested_case_count": len(case_ids),
                 "changed_case_count": len(changed_case_ids),
                 "unchanged_case_count": len(unchanged_case_ids),
+                "partition_case_count": len(partition_cases),
             },
         )
         return SkillResult(
@@ -87,6 +93,7 @@ class RefreshSelectedCasesFacetsSkill:
                 "requested_case_ids": case_ids,
                 "changed_case_ids": changed_case_ids,
                 "unchanged_case_ids": unchanged_case_ids,
+                "partition_case_count": len(partition_cases),
                 "reasoning_summary": f"refresh_selected_cases_facets completed for {partition}",
             },
             started_at=started_at,

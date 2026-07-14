@@ -3,7 +3,9 @@ import type { SVGProps } from "react";
 
 const navItems = [
   { href: "/overview", label: "Overview", icon: OverviewIcon },
+  { href: "/ingest", label: "Ingest", icon: IngestIcon },
   { href: "/explore", label: "Explore", icon: CasesIcon },
+  { href: "/partition", label: "Partition", icon: PartitionIcon },
   { href: "/query", label: "Query", icon: QueryIcon },
   { href: "/backlog", label: "Backlog", icon: BacklogIcon },
   { href: "/runs", label: "Runs", icon: RunsIcon },
@@ -68,6 +70,16 @@ function CasesIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+function IngestIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <NavIcon {...props}>
+      <path d="M10 3.5v9" />
+      <path d="M6.8 9.3 10 12.5l3.2-3.2" />
+      <path d="M4.5 14.5v1a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1v-1" />
+    </NavIcon>
+  );
+}
+
 function BacklogIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <NavIcon {...props}>
@@ -86,6 +98,19 @@ function QueryIcon(props: SVGProps<SVGSVGElement>) {
       <path d="M4.5 5.5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H9l-3.5 3v-3H6.5a2 2 0 0 1-2-2v-5Z" />
       <path d="M7.4 8h5.2" />
       <path d="M7.4 10.5h3.6" />
+    </NavIcon>
+  );
+}
+
+function PartitionIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <NavIcon {...props}>
+      <path d="M4.5 5.5h11" />
+      <path d="M4.5 10h11" />
+      <path d="M4.5 14.5h7.5" />
+      <path d="M15.5 5.5v9" />
+      <path d="M9.5 5.5v9" />
+      <path d="M4.5 5.5v9" />
     </NavIcon>
   );
 }

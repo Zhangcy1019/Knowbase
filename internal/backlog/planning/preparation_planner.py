@@ -13,6 +13,7 @@ from internal.models import (
     PartitionFacetSchemaProposal,
     PartitionRebuildRecommendation,
 )
+from internal.models.facet import PartitionFacetIndex
 from internal.models.partition_semantic_index import PartitionSemanticIndex
 from internal.ports import CaseReadPort, PartitionAccessPort
 
@@ -23,6 +24,7 @@ class GovernanceAssessmentInputs:
     partition_scenario_description: str
     enabled_facet_keys: list[str]
     affected_cases: list[KnowbaseCaseDocument]
+    facet_index: PartitionFacetIndex | None
     semantic_index: PartitionSemanticIndex | None
 
 
@@ -44,6 +46,8 @@ class BacklogPreparationPlanner:
         existing_keys = list(dict.fromkeys(inputs.enabled_facet_keys))
         sampled_case_ids = [item.case_id for item in inputs.affected_cases]
         sampled_profile_key_counts = self._collect_observed_profile_key_counts(cases=inputs.affected_cases)
+        sampled_facet_key_counts = self._collect_observed_facet_key_counts(cases=inputs.affected_cases)
+        facet_index_key_counts = self._collect_facet_index_key_counts(facet_index=inputs.facet_index)
         index_key_counts = self._collect_index_key_counts(semantic_index=inputs.semantic_index)
         index_case_count = self._resolve_index_case_count(semantic_index=inputs.semantic_index)
 
@@ -66,7 +70,8 @@ class BacklogPreparationPlanner:
         demotable_keys = self._resolve_demotable_keys(
             existing_keys=existing_keys,
             touched_keys=touched_keys,
-            index_key_counts=index_key_counts,
+            semantic_index_key_counts=index_key_counts,
+            facet_index_key_counts=facet_index_key_counts,
         )
         coverage_score = self._resolve_coverage_score(
             sampled_case_ids=sampled_case_ids,
@@ -78,7 +83,12 @@ class BacklogPreparationPlanner:
         stable_key_gaps = [
             key
             for key in existing_keys
-            if sampled_profile_key_counts.get(key, 0) == 0 and index_key_counts.get(key, 0) == 0
+            if (
+                sampled_profile_key_counts.get(key, 0) == 0
+                and sampled_facet_key_counts.get(key, 0) == 0
+                and index_key_counts.get(key, 0) == 0
+                and facet_index_key_counts.get(key, 0) == 0
+            )
         ]
         ambiguous_keys = list(
             dict.fromkeys(
@@ -104,6 +114,7 @@ class BacklogPreparationPlanner:
                 f"partition_status={inputs.partition_status}",
                 f"enabled_facet_key_count={len(inputs.enabled_facet_keys)}",
                 f"semantic_index_key_count={len(index_key_counts)}",
+                f"facet_index_key_count={len(facet_index_key_counts)}",
                 f"semantic_index_case_count={index_case_count}",
                 f"promotable_key_count={len(promotable_keys)}",
                 f"demotable_key_count={len(demotable_keys)}",
@@ -240,6 +251,7 @@ class BacklogPreparationPlanner:
             partition_scenario_description="" if partition is None else partition.scenario_description,
             enabled_facet_keys=enabled_facet_keys,
             affected_cases=affected_cases,
+            facet_index=self._partition_service.get_facet_index(batch_working_set.partition),
             semantic_index=self._partition_service.get_semantic_index(batch_working_set.partition),
         )
 
@@ -252,6 +264,28 @@ class BacklogPreparationPlanner:
                 if not normalized_key or not raw_values:
                     continue
                 counts[normalized_key] = counts.get(normalized_key, 0) + 1
+        return counts
+
+    @staticmethod
+    def _collect_observed_facet_key_counts(*, cases: list[KnowbaseCaseDocument]) -> dict[str, int]:
+        counts: dict[str, int] = {}
+        for case in cases:
+            for key, raw_values in case.facets.ordered_items():
+                normalized_key = str(key).strip()
+                if not normalized_key or not raw_values:
+                    continue
+                counts[normalized_key] = counts.get(normalized_key, 0) + 1
+        return counts
+
+    @staticmethod
+    def _collect_facet_index_key_counts(*, facet_index: PartitionFacetIndex | None) -> dict[str, int]:
+        if facet_index is None:
+            return {}
+        counts: dict[str, int] = {}
+        for item in facet_index.key_stats:
+            normalized_key = item.key.strip()
+            if normalized_key:
+                counts[normalized_key] = int(item.count)
         return counts
 
     @staticmethod
@@ -288,9 +322,18 @@ class BacklogPreparationPlanner:
         *,
         existing_keys: list[str],
         touched_keys: list[str],
-        index_key_counts: dict[str, int],
+        semantic_index_key_counts: dict[str, int],
+        facet_index_key_counts: dict[str, int],
     ) -> list[str]:
-        return sorted(key for key in existing_keys if key not in touched_keys and index_key_counts.get(key, 0) == 0)
+        return sorted(
+            key
+            for key in existing_keys
+            if (
+                key not in touched_keys
+                and semantic_index_key_counts.get(key, 0) == 0
+                and facet_index_key_counts.get(key, 0) == 0
+            )
+        )
 
     @staticmethod
     def _resolve_coverage_score(

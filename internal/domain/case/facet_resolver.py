@@ -1,7 +1,7 @@
 """Project stable case facets from the dynamic semantic profile."""
 
 from __future__ import annotations
-from internal.models import DynamicSemanticProfile, PartitionFacetDefinition
+from internal.models import CaseFacetProfile, DynamicSemanticProfile, PartitionFacetDefinition
 
 
 class KnowbaseCaseFacetResolver:
@@ -12,7 +12,7 @@ class KnowbaseCaseFacetResolver:
         *,
         semantic_profile: DynamicSemanticProfile | dict[str, list[str]],
         facet_definitions: list[PartitionFacetDefinition],
-    ) -> dict[str, list[str]]:
+    ) -> CaseFacetProfile:
         if isinstance(semantic_profile, DynamicSemanticProfile):
             profile_map = semantic_profile.model_dump()
         else:
@@ -29,9 +29,9 @@ class KnowbaseCaseFacetResolver:
     def normalize(
         self,
         *,
-        facets: dict[str, list[str]],
+        facets: CaseFacetProfile | dict[str, list[str]],
         facet_definitions: list[PartitionFacetDefinition],
-    ) -> dict[str, list[str]]:
+    ) -> CaseFacetProfile:
         definition_map = {
             definition.key.strip().lower(): definition
             for definition in facet_definitions
@@ -53,4 +53,4 @@ class KnowbaseCaseFacetResolver:
                     values.append(value)
             if values:
                 resolved[key] = values
-        return resolved
+        return CaseFacetProfile.model_validate(resolved)

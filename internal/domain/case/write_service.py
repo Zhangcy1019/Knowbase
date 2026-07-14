@@ -9,7 +9,7 @@ from internal.llm.embeddings import create_embedding_provider
 from internal.domain.case.facet_resolver import KnowbaseCaseFacetResolver
 from internal.domain.case.ingestor import KnowbaseCaseIngestor
 from internal.domain.case.repository import KnowbaseCaseRepository
-from internal.models import CaseSemanticProfile, KnowbaseCaseDocument, KnowbaseCaseDraft, KnowbaseCaseMetadata
+from internal.models import CaseFacetProfile, CaseSemanticProfile, KnowbaseCaseDocument, KnowbaseCaseDraft, KnowbaseCaseMetadata
 from internal.domain.partition.service import PartitionService
 from internal.utils.logger import get_logger
 
@@ -43,7 +43,7 @@ class KnowbaseCaseWriteService:
         summary_text: str,
         semantic_profile: CaseSemanticProfile,
         metadata: KnowbaseCaseMetadata,
-        facets: dict[str, list[str]] | None = None,
+        facets: CaseFacetProfile | dict[str, list[str]] | None = None,
     ) -> KnowbaseCaseDocument:
         partition = self._partition_service.get_partition(partition_name)
         if partition is None:
@@ -84,7 +84,7 @@ class KnowbaseCaseWriteService:
         summary_text: str | None = None,
         semantic_profile: CaseSemanticProfile | None = None,
         metadata: KnowbaseCaseMetadata | None = None,
-        facets: dict[str, list[str]] | None = None,
+        facets: CaseFacetProfile | dict[str, list[str]] | None = None,
         raw_text: str | None = None,
         case_detail: str | None = None,
     ) -> tuple[KnowbaseCaseDocument, KnowbaseCaseDocument, list[str]]:
@@ -113,7 +113,7 @@ class KnowbaseCaseWriteService:
             else CaseSemanticProfile.model_validate(semantic_profile)
         )
         next_metadata = existing.metadata if metadata is None else metadata
-        resolved_facets = dict(existing.facets)
+        resolved_facets = CaseFacetProfile.model_validate(existing.facets)
         if facets is not None:
             resolved_facets = self._normalize_facets(facets=facets)
         changed_fields: list[str] = []
@@ -149,7 +149,7 @@ class KnowbaseCaseWriteService:
         return existing, persisted, changed_fields
 
     @staticmethod
-    def _normalize_facets(*, facets: dict[str, list[str]]) -> dict[str, list[str]]:
+    def _normalize_facets(*, facets: CaseFacetProfile | dict[str, list[str]]) -> CaseFacetProfile:
         normalized: dict[str, list[str]] = {}
         for key, values in facets.items():
             normalized_key = str(key).strip()
@@ -158,7 +158,7 @@ class KnowbaseCaseWriteService:
             cleaned = [str(item).strip() for item in values if str(item).strip()]
             if cleaned:
                 normalized[normalized_key] = list(dict.fromkeys(cleaned))
-        return normalized
+        return CaseFacetProfile.model_validate(normalized)
 
     def _enrich_document(self, document: KnowbaseCaseDocument) -> None:
         draft = KnowbaseCaseDraft(

@@ -8,6 +8,7 @@ from internal.application.providers import CoreProviders
 def ensure_indices(*, core: CoreProviders) -> None:
     for repository in (
         core.partition_service._repository,
+        core.partition_service._facet_index_repository,
         core.partition_service._facet_schema_repository,
         core.partition_service._semantic_index_repository,
         core.case_repository,

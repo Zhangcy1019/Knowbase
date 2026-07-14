@@ -6,6 +6,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 from internal.models import (
+    CaseFacetProfile,
     CaseSemanticProfile,
     EventDisposition,
     EventRecordStatus,
@@ -77,7 +78,7 @@ class CaseCreateRequest(BaseModel):
     summary_text: str = ""
     semantic_profile: CaseSemanticProfile = Field(default_factory=CaseSemanticProfile)
     metadata: KnowbaseCaseMetadata = Field(default_factory=KnowbaseCaseMetadata)
-    facets: dict[str, list[str]] = Field(default_factory=dict)
+    facets: CaseFacetProfile = Field(default_factory=CaseFacetProfile)
 
 
 class CaseUpdateRequest(BaseModel):
@@ -87,7 +88,7 @@ class CaseUpdateRequest(BaseModel):
     summary_text: str | None = None
     semantic_profile: CaseSemanticProfile | None = None
     metadata: KnowbaseCaseMetadata | None = None
-    facets: dict[str, list[str]] | None = None
+    facets: CaseFacetProfile | None = None
     raw_text: str | None = None
     case_detail: str | None = None
 

@@ -39,8 +39,16 @@ def apply_runtime_config_to_env(runtime_cfg: RuntimeConfig) -> None:
     os.environ.setdefault("CIAGENT_KNOWBASE_RUN_STEPS_INDEX", runtime_cfg.es.run_steps_index)
     os.environ.setdefault("CIAGENT_KNOWBASE_RUN_ARTIFACTS_INDEX", runtime_cfg.es.run_artifacts_index)
     os.environ.setdefault(
+        "CIAGENT_KNOWBASE_PARTITION_SEMANTIC_INDEX_INDEX",
+        runtime_cfg.es.partition_semantic_index_index,
+    )
+    os.environ.setdefault(
         "CIAGENT_KNOWBASE_PARTITION_FACET_SCHEMAS_INDEX",
         runtime_cfg.es.partition_facet_schemas_index,
+    )
+    os.environ.setdefault(
+        "CIAGENT_KNOWBASE_PARTITION_FACET_INDEX_INDEX",
+        runtime_cfg.es.partition_facet_index_index,
     )
     os.environ.setdefault("CIAGENT_KNOWBASE_EVENT_RECORDS_INDEX", runtime_cfg.es.event_records_index)
 
