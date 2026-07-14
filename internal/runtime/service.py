@@ -16,7 +16,7 @@ from internal.runtime.engine import RuntimeLoopEngine
 from internal.runtime.executor import RuntimeExecutor
 from internal.runtime.memory import RuntimeMemoryManager
 from internal.runtime.policy import RuntimePolicy
-from internal.runtime.session import RuntimeLoopState, RuntimeSession
+from internal.runtime.state import RuntimeRunState
 from internal.runtime.termination import RuntimeTerminationPolicy
 from internal.tools.runtime import ToolRuntime
 from internal.utils.logger import get_logger
@@ -87,23 +87,19 @@ class KnowbaseRuntimeService:
                 content=request.model_dump(mode="json"),
             )
         )
-        session = RuntimeSession(run=run, request=request)
-        loop_state = RuntimeLoopState(artifacts=[request_artifact])
-        loop_state, memory, final_status = self._engine.run(
-            session=session,
-            loop_state=loop_state,
+        state = RuntimeRunState(artifacts=[request_artifact])
+        state, final_status = self._engine.run(
+            run=run,
+            request=request,
+            state=state,
             persist_artifact=self._artifact_repository.save,
         )
-        final_summary = self._memory_manager.build_final_summary(session=session, loop_state=loop_state)
+        final_summary = self._memory_manager.build_final_summary(request=request, state=state)
         finished_run = self._run_repository.save(
             run.model_copy(
                 update={
                     "status": final_status,
-                    "reasoning_summary": self._memory_manager.build_reasoning_summary(
-                        session=session,
-                        loop_state=loop_state,
-                        memory=memory,
-                    ),
+                    "reasoning_summary": self._memory_manager.build_reasoning_summary(request=request, state=state),
                     "final_summary": final_summary,
                 }
             )
@@ -111,9 +107,9 @@ class KnowbaseRuntimeService:
         return self._build_run_result(
             request=request,
             run=finished_run,
-            tool_results=loop_state.tool_results,
-            skill_results=loop_state.skill_results,
-            applied_actions=loop_state.applied_actions,
+            tool_results=state.tool_results,
+            skill_results=state.skill_results,
+            applied_actions=state.applied_actions,
         )
 
     def list_runs(self, *, partition: str = "", status: str = "") -> list[AgentRun]:

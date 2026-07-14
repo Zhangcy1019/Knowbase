@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from internal.runtime.contracts import RuntimeDecision, RuntimeExecutionStatus
-from internal.runtime.session import RuntimeLoopState, RuntimeSession
+from internal.models import AgentRun
+from internal.runtime.contracts import RuntimeDecision, RuntimeExecutionStatus, RuntimeRunRequest
+from internal.runtime.state import RuntimeRunState
 
 
 @dataclass(slots=True)
@@ -21,15 +22,16 @@ class RuntimeTerminationPolicy:
     def should_stop(
         self,
         *,
-        session: RuntimeSession,
-        loop_state: RuntimeLoopState,
+        run: AgentRun,
+        request: RuntimeRunRequest,
+        state: RuntimeRunState,
         decision: RuntimeDecision | None = None,
     ) -> RuntimeTerminationDecision:
-        if loop_state.failure_messages:
-            return RuntimeTerminationDecision(should_stop=True, status="failed", reason=loop_state.failure_messages[-1])
+        if state.failure_messages:
+            return RuntimeTerminationDecision(should_stop=True, status="failed", reason=state.failure_messages[-1])
         if decision is not None and decision.requires_review:
             return RuntimeTerminationDecision(should_stop=True, status="requires_review", reason="planner requested review")
         if decision is not None and decision.should_stop:
-            status: RuntimeExecutionStatus = "requires_review" if session.request.requires_review else "completed"
+            status: RuntimeExecutionStatus = "requires_review" if request.requires_review else "completed"
             return RuntimeTerminationDecision(should_stop=True, status=status, reason="planner requested stop")
         return RuntimeTerminationDecision()
