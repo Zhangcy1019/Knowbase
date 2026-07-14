@@ -2,7 +2,15 @@
 
 from __future__ import annotations
 
-from internal.runtime.contracts import RuntimeMemorySnapshot, RuntimeObservation, RuntimeTurnInput
+from internal.runtime.contracts import (
+    RuntimeAgentHints,
+    RuntimeExecutionBounds,
+    RuntimeMemorySnapshot,
+    RuntimeObservation,
+    RuntimeProgressSnapshot,
+    RuntimeTaskContext,
+    RuntimeTurnInput,
+)
 from internal.runtime.state import RuntimeRunState
 
 
@@ -47,24 +55,41 @@ class RuntimeMemoryManager:
             run_id=run.run_id,
             request_id=request.request_id,
             turn_index=state.turn_count,
-            objective=request.objective,
-            prompt=request.prompt,
-            partition=request.partition,
-            source_type=request.source_type,
-            source_ref=request.source_ref,
-            context=request.context,
+            task=RuntimeTaskContext(
+                objective=request.objective,
+                prompt=request.prompt,
+                partition=request.partition,
+                source_type=request.source_type,
+                source_ref=request.source_ref,
+                payload=dict(request.context),
+            ),
             memory=self.build_memory_snapshot(state=state),
-            prior_decisions=list(state.decision_history),
-            allowed_tools=list(request.allowed_tools),
-            allowed_skills=list(request.allowed_skills),
-            risk_level=request.risk_level,
-            requires_review=request.requires_review,
-            remaining_step_budget=max(run.max_steps - run.step_count, 0),
-            remaining_tool_budget=max(run.max_tool_calls - run.tool_call_count, 0),
-            remaining_skill_budget=max(run.max_skill_calls - run.skill_call_count, 0),
-            failure_messages=list(state.failure_messages),
-            response_messages=list(state.response_messages),
-            metadata=dict(request.metadata),
+            bounds=RuntimeExecutionBounds(
+                allowed_tools=list(request.allowed_tools),
+                allowed_skills=list(request.allowed_skills),
+                risk_level=request.risk_level,
+                requires_review=request.requires_review,
+                remaining_step_budget=max(run.max_steps - run.step_count, 0),
+                remaining_tool_budget=max(run.max_tool_calls - run.tool_call_count, 0),
+                remaining_skill_budget=max(run.max_skill_calls - run.skill_call_count, 0),
+            ),
+            progress=RuntimeProgressSnapshot(
+                completed_actions=list(state.applied_actions),
+                recent_decisions=[
+                    item.reasoning_summary or item.decision_id
+                    for item in state.decision_history[-3:]
+                ],
+                recent_failures=[item for item in state.failure_messages[-3:] if item],
+                latest_response=state.response_messages[-1] if state.response_messages else "",
+            ),
+            hints=RuntimeAgentHints(
+                actions=[item for item in request.metadata.get("actions", []) if isinstance(item, dict)],
+                metadata={
+                    key: value
+                    for key, value in request.metadata.items()
+                    if key != "actions"
+                },
+            ),
         )
 
     def build_reasoning_summary(

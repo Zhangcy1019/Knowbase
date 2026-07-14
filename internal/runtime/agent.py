@@ -37,7 +37,7 @@ class DeterministicRuntimeAgent:
         if state.turn_count > 0:
             return RuntimeDecision(
                 decision_id=f"{run.run_id}:decision:{state.turn_count}",
-                objective=turn_input.objective,
+                objective=turn_input.task.objective,
                 reasoning_summary="No further deterministic actions are available.",
                 actions=[],
                 should_stop=True,
@@ -45,13 +45,11 @@ class DeterministicRuntimeAgent:
                 metadata={"stop_reason": "no_action", "turn_index": turn_input.turn_index},
             )
 
-        metadata = dict(turn_input.metadata)
-        explicit_actions = metadata.get("actions")
-        if isinstance(explicit_actions, list):
-            actions = [RuntimeAction.model_validate(item) for item in explicit_actions if isinstance(item, dict)]
+        if turn_input.hints.actions:
+            actions = [RuntimeAction.model_validate(item) for item in turn_input.hints.actions]
             return RuntimeDecision(
                 decision_id=f"{run.run_id}:decision:0",
-                objective=turn_input.objective,
+                objective=turn_input.task.objective,
                 reasoning_summary="Using explicit actions from request metadata.",
                 actions=actions,
                 should_stop=not actions,
@@ -60,7 +58,7 @@ class DeterministicRuntimeAgent:
             )
 
         actions: list[RuntimeAction] = []
-        for index, tool_id in enumerate(turn_input.allowed_tools):
+        for index, tool_id in enumerate(turn_input.bounds.allowed_tools):
             actions.append(
                 RuntimeAction(
                     action_id=f"{run.run_id}:tool:{index}",
@@ -69,9 +67,9 @@ class DeterministicRuntimeAgent:
                     summary=f"Observe context using tool {tool_id}",
                     tool_id=tool_id,
                     inputs={
-                        "partition": turn_input.partition,
-                        "resource_id": turn_input.source_ref,
-                        "objective": turn_input.objective,
+                        "partition": turn_input.task.partition,
+                        "resource_id": turn_input.task.source_ref,
+                        "objective": turn_input.task.objective,
                     },
                     metadata={"observation": True},
                     risk_level=request.risk_level,
@@ -79,7 +77,7 @@ class DeterministicRuntimeAgent:
                 )
             )
         if not actions:
-            for index, skill_id in enumerate(turn_input.allowed_skills):
+            for index, skill_id in enumerate(turn_input.bounds.allowed_skills):
                 actions.append(
                     RuntimeAction(
                         action_id=f"{run.run_id}:skill:{index}",
@@ -87,21 +85,21 @@ class DeterministicRuntimeAgent:
                         title=skill_id,
                         summary=f"Execute preferred skill {skill_id}",
                         skill_id=skill_id,
-                        inputs={"objective": turn_input.objective, "context": turn_input.context},
+                        inputs={"objective": turn_input.task.objective, "context": turn_input.task.payload},
                         metadata={"preferred": True},
                         risk_level=request.risk_level,
                         requires_review=request.requires_review,
                     )
                 )
-        if not actions and turn_input.prompt.strip():
+        if not actions and turn_input.task.prompt.strip():
             actions.append(
                 RuntimeAction(
                     action_id=f"{run.run_id}:respond:0",
                     kind="respond",
                     title="respond",
-                    summary=turn_input.prompt,
-                    prompt=turn_input.prompt,
-                    inputs={"objective": turn_input.objective},
+                    summary=turn_input.task.prompt,
+                    prompt=turn_input.task.prompt,
+                    inputs={"objective": turn_input.task.objective},
                     metadata={"source": "prompt"},
                     risk_level=request.risk_level,
                     requires_review=request.requires_review,
@@ -109,7 +107,7 @@ class DeterministicRuntimeAgent:
             )
         return RuntimeDecision(
             decision_id=f"{run.run_id}:decision:0",
-            objective=turn_input.objective,
+            objective=turn_input.task.objective,
             reasoning_summary="Built deterministic actions from request constraints.",
             actions=actions,
             should_stop=not actions,

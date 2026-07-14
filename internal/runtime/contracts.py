@@ -77,20 +77,20 @@ class RuntimeMemorySnapshot(BaseModel):
     observations: list[RuntimeObservation] = Field(default_factory=list)
 
 
-class RuntimeTurnInput(BaseModel):
-    """Structured per-turn payload passed into the agent."""
+class RuntimeTaskContext(BaseModel):
+    """Static task context exposed to the current agent turn."""
 
-    run_id: str = ""
-    request_id: str = ""
-    turn_index: int = 0
     objective: str = ""
     prompt: str = ""
     partition: str = ""
     source_type: RuntimeRequestSource = "manual"
     source_ref: str = ""
-    context: dict[str, Any] = Field(default_factory=dict)
-    memory: RuntimeMemorySnapshot = Field(default_factory=RuntimeMemorySnapshot)
-    prior_decisions: list[RuntimeDecision] = Field(default_factory=list)
+    payload: dict[str, Any] = Field(default_factory=dict)
+
+
+class RuntimeExecutionBounds(BaseModel):
+    """Execution boundaries and budgets for the current turn."""
+
     allowed_tools: list[str] = Field(default_factory=list)
     allowed_skills: list[str] = Field(default_factory=list)
     risk_level: str = "medium"
@@ -98,9 +98,40 @@ class RuntimeTurnInput(BaseModel):
     remaining_step_budget: int = 0
     remaining_tool_budget: int = 0
     remaining_skill_budget: int = 0
-    failure_messages: list[str] = Field(default_factory=list)
-    response_messages: list[str] = Field(default_factory=list)
+
+
+class RuntimeProgressSnapshot(BaseModel):
+    """Condensed progress summary retained for agent planning."""
+
+    completed_actions: list[str] = Field(default_factory=list)
+    recent_decisions: list[str] = Field(default_factory=list)
+    recent_failures: list[str] = Field(default_factory=list)
+    latest_response: str = ""
+
+
+class RuntimeAgentHints(BaseModel):
+    """Planner hints explicitly surfaced to the runtime agent."""
+
+    actions: list[dict[str, Any]] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class RuntimeTurnInput(BaseModel):
+    """Structured agent-facing view for one loop turn."""
+
+    run_id: str = ""
+    request_id: str = ""
+    turn_index: int = 0
+    # task: static context for the current turn
+    task: RuntimeTaskContext = Field(default_factory=RuntimeTaskContext)
+    # memory: working memory snapshot for the current turn
+    memory: RuntimeMemorySnapshot = Field(default_factory=RuntimeMemorySnapshot)
+    # bounds: execution boundaries and budgets for the current turn
+    bounds: RuntimeExecutionBounds = Field(default_factory=RuntimeExecutionBounds)
+    # progress: condensed progress summary for the current turn
+    progress: RuntimeProgressSnapshot = Field(default_factory=RuntimeProgressSnapshot)
+    # hints: planner hints explicitly surfaced to the runtime agent
+    hints: RuntimeAgentHints = Field(default_factory=RuntimeAgentHints)
 
 
 class RuntimeRunResult(BaseModel):
