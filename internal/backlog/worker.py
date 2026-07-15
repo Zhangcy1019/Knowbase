@@ -6,7 +6,7 @@ from datetime import timedelta
 
 from pydantic import BaseModel, Field
 
-from internal.ports import BacklogDispatchPort, RuntimeHarnessPort
+from internal.ports import KnowledgeDispatchPort, RuntimeHarnessPort
 from internal.runtime.contracts import RuntimeRunResult
 from internal.utils.logger import get_logger
 
@@ -28,13 +28,13 @@ class EventWorkerRunResult(BaseModel):
 
 
 class KnowbaseEventWorker:
-    """Drain ready backlog events by assembling one runtime request."""
+    """Drain ready backlog events by handing one batch to the knowledge layer."""
 
     def __init__(
         self,
         *,
         backlog_service: KnowbaseEventBacklogService,
-        dispatch_service: BacklogDispatchPort,
+        dispatch_service: KnowledgeDispatchPort,
         runtime_service: RuntimeHarnessPort,
     ):
         self._backlog_service = backlog_service

@@ -25,6 +25,8 @@ def apply_runtime_config_to_env(runtime_cfg: RuntimeConfig) -> None:
     os.environ.setdefault("CIAGENT_LEAD_AGENT_PROVIDER", runtime_cfg.llm.provider)
     os.environ.setdefault("CIAGENT_LEAD_AGENT_MODEL", runtime_cfg.llm.model)
     os.environ.setdefault("CIAGENT_LEAD_AGENT_TEMPERATURE", str(runtime_cfg.llm.temperature))
+    os.environ.setdefault("CIAGENT_LEAD_AGENT_MAX_OUTPUT_TOKENS", str(runtime_cfg.llm.max_output_tokens))
+    os.environ.setdefault("CIAGENT_LEAD_AGENT_TIMEOUT_SECONDS", str(runtime_cfg.llm.timeout_seconds))
     if runtime_cfg.llm.openai_api_key:
         os.environ.setdefault("OPENAI_API_KEY", runtime_cfg.llm.openai_api_key)
     if runtime_cfg.llm.openai_base_url:

@@ -21,8 +21,10 @@ _RUNTIME_CFG: RuntimeConfig | None = None
 
 def create_app(*, runtime_cfg: RuntimeConfig | None = None) -> FastAPI:
     resolved_runtime_cfg = runtime_cfg or _RUNTIME_CFG or load_application_runtime_config()
+    if resolved_runtime_cfg is None:
+        raise RuntimeError("runtime config could not be loaded")
     app = FastAPI(title="Knowbase API", version="0.1.0")
-    container = build_application_container()
+    container = build_application_container(runtime_cfg=resolved_runtime_cfg)
 
     @app.get("/health")
     async def health() -> dict[str, str]:

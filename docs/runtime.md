@@ -59,43 +59,62 @@ runtime 的统一输出是 `RuntimeRunResult`。
 - `tool_results`
 - `skill_results`
 
+## 目录结构
+
+```text
+internal/runtime/
+  __init__.py
+  contracts.py
+  service.py
+  core/
+    state.py
+    memory.py
+    policy.py
+    termination.py
+  llm/
+    decision_parser.py
+    decisioning.py
+    prompt_builder.py
+  providers/
+    openai_client.py
+    openai_runtime_adapter.py
+  loop/
+    agent.py
+    engine.py
+    turn_planner.py
+    planner_components.py
+  actions/
+    capability_executor.py
+    action_runner.py
+```
+
 ## 核心对象
 
-### `RuntimeSession`
+### `RuntimeRunRequest`
 
-描述这次 run 的静态上下文：
+一次 run 的静态任务定义。
 
-- 当前 `AgentRun`
-- 当前 `RuntimeRunRequest`
+### `RuntimeRunState`
 
-### `RuntimeLoopState`
+一次 run 的动态运行状态：
 
-描述 loop 过程中的运行状态：
-
-- 已产出的 decisions
-- 已执行的 tool / skill results
+- decisions
+- tool / skill results
 - applied actions
 - failure messages
 - response messages
-- 当前 artifacts
-
-### `RuntimeWorkingMemory`
-
-描述提供给 agent 的工作记忆：
-
-- facts
-- observations
+- observations / facts
+- artifacts
 
 ### `RuntimeTurnInput`
 
-每轮传给 agent 的结构化输入：
+每轮传给 agent 的结构化视图：
 
-- objective
-- prompt
-- context
-- memory
-- prior decisions
-- budgets
+- `task`
+- `memory`
+- `bounds`
+- `progress`
+- `hints`
 
 ### `RuntimeDecision`
 
@@ -119,16 +138,14 @@ agent 每轮输出的决策：
 ```text
 RuntimeRunRequest
   -> create AgentRun
-  -> create RuntimeSession
-  -> initialize RuntimeLoopState
-  -> initialize RuntimeWorkingMemory
+  -> create RuntimeRunState
   -> loop:
        build RuntimeTurnInput
        agent.decide()
        persist decision step
        check termination
        execute actions
-       update loop state
+       update run state
   -> build final summary
   -> persist final run
   -> return RuntimeRunResult
@@ -156,11 +173,93 @@ loop orchestrator。
 - execute
 - terminate
 
-### `agent.py`
+### `loop/agent.py`
 
-agent protocol 和当前默认 agent。
+loop agent 外壳。
 
-### `executor.py`
+### `loop/turn_planner.py`
+
+每轮 planner 入口。
+
+### `llm/decisioning.py`
+
+decision generator 的输出约束和 draft 归一化层。
+
+当前默认使用 `DefaultRuntimeDecisionGenerator`，它已经打通：
+
+- prompt builder
+- model adapter
+- decision parser
+- decision normalizer
+
+其中 `RuntimeDecisionDraft` 用于承接模型或生成器的候选决策，当前重点字段包括：
+
+- `reasoning_summary`
+- `action_plan_summary`
+- `actions`
+- `should_stop`
+- `stop_reason`
+- `requires_review`
+- `review_reason`
+- `notes`
+
+其中 `RuntimeProposedAction` 也已收紧为更明确的 action draft 协议，当前重点约束包括：
+
+- `kind` 只允许 `tool_call / skill_call / respond / stop`
+- `summary` 必填
+- `tool_call` 必须提供 `tool_id`
+- `skill_call` 必须提供 `skill_id`
+- `respond` 必须提供 `prompt`
+
+当 stop evaluator 先判定本轮应结束时，generator 也会直接生成 stop decision，而不会继续调用模型。
+
+### `llm/prompt_builder.py`
+
+把 `RuntimePlannerContext` 转成模型输入。
+
+### `providers/openai_runtime_adapter.py`
+
+负责把 runtime prompt 适配到通用 OpenAI 风格接口，并返回结构化 payload。
+
+### `providers/openai_client.py`
+
+定义通用 OpenAI 风格 chat client 协议：
+
+- `OpenAIChatRequest`
+- `OpenAIChatResponse`
+- `OpenAIClientPort`
+
+当前默认实现使用官方 `openai` Python SDK，并通过应用配置注入：
+
+- `llm.model`
+- `llm.temperature`
+- `llm.max_output_tokens`
+- `llm.timeout_seconds`
+- `llm.openai.api_key`
+- `llm.openai.base_url`
+
+### `llm/decision_parser.py`
+
+把模型输出转成 `RuntimeDecisionDraft`。
+
+当前 parser 期望模型侧先产出标准 payload，再映射到 draft：
+
+- `RuntimeDecisionPayload`
+- `RuntimeDecisionActionPayload`
+
+这份 payload schema 现在集中定义在这里，供 prompt builder、model adapter 和 parser 共享：
+
+- `RUNTIME_DECISION_PAYLOAD_JSON_SCHEMA`
+- `build_runtime_decision_payload_schema()`
+
+### `loop/planner_components.py`
+
+planner 内部组件：
+
+- observation assembly
+- stop evaluation
+
+### `actions/capability_executor.py`
 
 负责真实执行：
 
@@ -168,20 +267,19 @@ agent protocol 和当前默认 agent。
 - tool 调用
 - skill 调用
 
-### `action_executor.py`
+### `actions/action_runner.py`
 
 负责把一轮 `RuntimeDecision` 编排成实际 action 执行。
 
-### `memory.py`
+### `core/memory.py`
 
 负责：
 
-- 初始 memory
-- turn input memory snapshot
+- turn input snapshot
 - reasoning summary
 - final summary
 
-### `termination.py`
+### `core/termination.py`
 
 负责 stop 判定：
 
@@ -217,7 +315,23 @@ runtime = loop executor + audit
 
 runtime 不直接把业务逻辑写死在 loop 里，而是通过 tool / skill 扩展能力。
 
+## 当前主线
+
+```text
+service
+  -> loop/engine.RuntimeLoopEngine
+  -> loop/agent.RuntimeLoopAgent
+  -> loop/turn_planner.RuntimeTurnPlanner
+  -> loop/planner_components.*
+  -> actions/action_runner.RuntimeActionRunner
+  -> actions/capability_executor.RuntimeCapabilityExecutor
+```
+
 ## 后续演进方向
+
+- 在 `loop/planner_components.py` 中接入真正的 decision generator
+- 把真实 LLM provider 接到 `providers/openai_runtime_adapter.py`
+- 继续收敛 execution outcome 和 state update 边界
 
 后续如果引入真正的 LLM agent loop，应继续沿着当前接口扩展：
 

@@ -9,16 +9,16 @@ from internal.domain.run.artifact_repository import RunArtifactRepository
 from internal.domain.run.run_repository import AgentRunRepository
 from internal.domain.run.step_repository import RunStepRepository
 from internal.ports import PartitionAccessPort, SkillExecutionPort
-from internal.runtime.action_executor import RuntimeActionExecutor
-from internal.runtime.agent import DeterministicRuntimeAgent
+from internal.runtime.actions.action_runner import RuntimeActionRunner
+from internal.runtime.actions.capability_executor import RuntimeCapabilityExecutor
 from internal.runtime.contracts import RuntimeRunRequest, RuntimeRunResult
-from internal.runtime.engine import RuntimeLoopEngine
-from internal.runtime.executor import RuntimeExecutor
-from internal.runtime.memory import RuntimeMemoryManager
-from internal.runtime.policy import RuntimePolicy
-from internal.runtime.session import RuntimeLoopState, RuntimeSession
-from internal.runtime.termination import RuntimeTerminationPolicy
-from internal.tools.runtime import ToolRuntime
+from internal.runtime.core.memory import RuntimeMemoryManager
+from internal.runtime.core.policy import RuntimePolicy
+from internal.runtime.core.state import RuntimeRunState
+from internal.runtime.core.termination import RuntimeTerminationPolicy
+from internal.runtime.loop.agent import RuntimeAgentPort
+from internal.runtime.loop.engine import RuntimeLoopEngine
+from internal.runtime.tools.runtime import ToolRuntime
 from internal.utils.logger import get_logger
 
 
@@ -38,6 +38,7 @@ class KnowbaseRuntimeService:
         artifact_repository: RunArtifactRepository,
         tool_runtime: ToolRuntime,
         skill_runtime: SkillExecutionPort,
+        agent: RuntimeAgentPort,
     ):
         self._partition_service = partition_service
         self._case_repository = case_repository
@@ -46,25 +47,25 @@ class KnowbaseRuntimeService:
         self._artifact_repository = artifact_repository
         self._tool_runtime = tool_runtime
         self._skill_runtime = skill_runtime
-        self._executor = RuntimeExecutor(
+        self._capability_executor = RuntimeCapabilityExecutor(
             run_repository=self._run_repository,
             step_repository=self._step_repository,
             tool_runtime=self._tool_runtime,
             skill_runtime=self._skill_runtime,
         )
         self._memory_manager = RuntimeMemoryManager()
-        self._policy = RuntimePolicy(executor=self._executor)
+        self._policy = RuntimePolicy(capability_executor=self._capability_executor)
         self._termination_policy = RuntimeTerminationPolicy()
-        self._agent = DeterministicRuntimeAgent()
-        self._action_executor = RuntimeActionExecutor(
-            executor=self._executor,
+        self._agent = agent
+        self._action_runner = RuntimeActionRunner(
+            capability_executor=self._capability_executor,
             policy=self._policy,
             memory_manager=self._memory_manager,
         )
         self._engine = RuntimeLoopEngine(
-            executor=self._executor,
+            capability_executor=self._capability_executor,
             agent=self._agent,
-            action_executor=self._action_executor,
+            action_runner=self._action_runner,
             memory_manager=self._memory_manager,
             termination_policy=self._termination_policy,
         )
@@ -87,23 +88,19 @@ class KnowbaseRuntimeService:
                 content=request.model_dump(mode="json"),
             )
         )
-        session = RuntimeSession(run=run, request=request)
-        loop_state = RuntimeLoopState(artifacts=[request_artifact])
-        loop_state, memory, final_status = self._engine.run(
-            session=session,
-            loop_state=loop_state,
+        state = RuntimeRunState(artifacts=[request_artifact])
+        state, final_status = self._engine.run(
+            run=run,
+            request=request,
+            state=state,
             persist_artifact=self._artifact_repository.save,
         )
-        final_summary = self._memory_manager.build_final_summary(session=session, loop_state=loop_state)
+        final_summary = self._memory_manager.build_final_summary(request=request, state=state)
         finished_run = self._run_repository.save(
             run.model_copy(
                 update={
                     "status": final_status,
-                    "reasoning_summary": self._memory_manager.build_reasoning_summary(
-                        session=session,
-                        loop_state=loop_state,
-                        memory=memory,
-                    ),
+                    "reasoning_summary": self._memory_manager.build_reasoning_summary(request=request, state=state),
                     "final_summary": final_summary,
                 }
             )
@@ -111,9 +108,9 @@ class KnowbaseRuntimeService:
         return self._build_run_result(
             request=request,
             run=finished_run,
-            tool_results=loop_state.tool_results,
-            skill_results=loop_state.skill_results,
-            applied_actions=loop_state.applied_actions,
+            tool_results=state.tool_results,
+            skill_results=state.skill_results,
+            applied_actions=state.applied_actions,
         )
 
     def list_runs(self, *, partition: str = "", status: str = "") -> list[AgentRun]:

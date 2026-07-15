@@ -12,8 +12,8 @@ from internal.application.ui import register_ui_routes
 from internal.utils.config import RuntimeConfig
 
 
-def build_application_container() -> KnowbaseAppContainer:
-    return build_app_container()
+def build_application_container(*, runtime_cfg: RuntimeConfig) -> KnowbaseAppContainer:
+    return build_app_container(runtime_cfg=runtime_cfg)
 
 
 def configure_runtime_environment(runtime_cfg: RuntimeConfig) -> None:

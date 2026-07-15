@@ -5,8 +5,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Protocol
 
 from internal.models import EventRecord
-from internal.runtime.contracts import RuntimeRunRequest
-
 if TYPE_CHECKING:
     from backlog.worker import EventWorkerRunResult
 
@@ -47,15 +45,7 @@ class EventWorkerPort(Protocol):
         ...
 
 
-class BacklogDispatchPort(Protocol):
-    """Dispatch surface that turns ready backlog state into one runtime request."""
-
-    def build_runtime_request(self, *, batch) -> RuntimeRunRequest:
-        ...
-
-
 __all__ = [
-    "BacklogDispatchPort",
     "EventBacklogPort",
     "EventWorkerPort",
 ]

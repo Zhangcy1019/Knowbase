@@ -31,7 +31,6 @@ internal/
     product/
   application/
   backlog/
-    planning/
   connectors/
     es/
   domain/
@@ -39,19 +38,23 @@ internal/
     event/
     partition/
     run/
-  llm/
+  embedding/
+  knowledge/
+    planning/
+    skills/
+      case/
+      partition/
+    tools/
+      case/
+      partition/
   models/
   ports/
   product/
     ingest/
     query/
   runtime/
-  skills/
-    case/
-    partition/
-  tools/
-    case/
-    partition/
+    skills/
+    tools/
   utils/
 ```
 
@@ -89,12 +92,21 @@ HTTP 适配层。
 后台事件编排层。
 
 - backlog queue
-- batch working set
-- preparation planner
-- runtime request dispatch
 - worker drain
 
-它负责把事件变成可执行请求，不负责执行 loop。
+它负责管理事件与批次，不负责任务塑形与执行 loop。
+
+### `knowledge`
+
+知识整理业务层。
+
+- batch working set
+- preparation planner
+- knowledge task
+- runtime request dispatch
+- knowledge tools / skills
+
+它负责把 backlog batch 变成 knowledge-owned runtime request。
 
 ### `runtime`
 
@@ -121,7 +133,15 @@ agent harness 层。
 
 负责核心资源、领域服务、仓储。
 
-### `skills`
+### `runtime/skills` 和 `runtime/tools`
+
+runtime capability 基建层。
+
+- registry
+- runtime executor
+- capability protocol
+
+### `knowledge/skills`
 
 有副作用的可执行能力。
 
@@ -131,7 +151,7 @@ agent harness 层。
 - `case.refresh_case_facets`
 - `partition.refresh_selected_cases_facets`
 
-### `tools`
+### `knowledge/tools`
 
 只读观察能力。
 
@@ -153,11 +173,16 @@ agent harness 层。
 
 ## 核心接口
 
-### backlog -> runtime
+### backlog -> knowledge -> runtime
 
-`BacklogDispatchPort`
+`KnowledgeDispatchPort`
 
 - `build_runtime_request(batch: BacklogBatch) -> RuntimeRunRequest`
+
+knowledge 内部当前推荐分两段：
+
+- `BacklogBatch -> KnowledgeTask`
+- `KnowledgeTask -> RuntimeRunRequest`
 
 `RuntimeHarnessPort`
 
@@ -193,17 +218,18 @@ agent harness 层。
 
 ```text
 api -> application / ports
-application -> product / backlog / runtime / domain / skills / tools
+application -> product / backlog / knowledge / runtime / domain
 product -> domain / ports / models
 backlog -> ports / models
-runtime -> ports / models / tools / skills / domain.run
+knowledge -> backlog / ports / models
+runtime -> ports / models / domain.run
 domain -> models / connectors
-skills -> ports / models
-tools -> ports / models
+knowledge.skills -> ports / models
+knowledge.tools -> ports / models
 ```
 
 ## 一句话总结
 
 当前结构的重点不是目录多，而是边界清楚：
 
-`product 做在线主流程，backlog 做事件批处理，runtime 做 agent harness。`
+`product 做在线主流程，backlog 做事件批次，knowledge 做知识整理任务塑形，runtime 做 agent harness。`

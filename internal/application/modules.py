@@ -5,10 +5,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from internal.agents.product import AnswerSynthesisAgent
-from internal.backlog.dispatch import KnowbaseBacklogDispatchService
-from internal.backlog.planning import BacklogPreparationPlanner, BatchWorkingSetBuilder
 from internal.backlog.queue import KnowbaseEventBacklogService
 from internal.backlog.worker import KnowbaseEventWorker
+from internal.knowledge.dispatch import (
+    KnowbaseKnowledgeDispatchService,
+    KnowledgeTaskBuilder,
+    RuntimeRequestBuilder,
+)
+from internal.knowledge.planning import BacklogPreparationPlanner, BatchWorkingSetBuilder
 from internal.ports import EventBacklogPort, EventWorkerPort, IngestUseCase, QueryUseCase, RuntimeRunPort
 from internal.product.ingest.service import KnowbaseIngestService
 from internal.product.ingest.validator import KnowbaseIngestValidator
@@ -17,9 +21,14 @@ from internal.product.query.normalizer import QueryNormalizer
 from internal.product.query.planner import KnowbaseQueryPlanner
 from internal.product.query.ranking import KnowbaseRanking
 from internal.product.query.service import KnowbaseQueryService
+from internal.runtime.llm import DefaultRuntimeDecisionGenerator, DefaultRuntimePromptBuilder
+from internal.runtime.loop.agent import RuntimeLoopAgent
+from internal.runtime.loop.turn_planner import RuntimeTurnPlanner
+from internal.runtime.providers import DefaultOpenAIClient, DefaultRuntimeModelAdapter
+from internal.runtime.skills import SkillRuntime
 from internal.runtime.service import KnowbaseRuntimeService
-from internal.skills import SkillRuntime
-from internal.tools import ToolRuntime
+from internal.runtime.tools import ToolRuntime
+from internal.utils.config import RuntimeConfig
 
 from internal.application.providers import CoreProviders, IngestProviders
 
@@ -33,10 +42,26 @@ class RuntimeModule:
 
 def build_runtime_module(
     *,
+    runtime_cfg: RuntimeConfig,
     core: CoreProviders,
     tool_runtime: ToolRuntime,
     skill_runtime: SkillRuntime,
 ) -> RuntimeModule:
+    if runtime_cfg.llm.provider.strip().lower() != "openai":
+        raise ValueError(f"unsupported runtime llm provider: {runtime_cfg.llm.provider}")
+    openai_client = DefaultOpenAIClient(
+        api_key=runtime_cfg.llm.openai_api_key or "",
+        base_url=runtime_cfg.llm.openai_base_url,
+        timeout_seconds=runtime_cfg.llm.timeout_seconds,
+    )
+    decision_generator = DefaultRuntimeDecisionGenerator(
+        prompt_builder=DefaultRuntimePromptBuilder(
+            model=runtime_cfg.llm.model,
+            temperature=runtime_cfg.llm.temperature,
+            max_output_tokens=runtime_cfg.llm.max_output_tokens,
+        ),
+        model_adapter=DefaultRuntimeModelAdapter(client=openai_client),
+    )
     runtime_service = KnowbaseRuntimeService(
         partition_service=core.partition_service,
         case_repository=core.case_repository,
@@ -45,14 +70,18 @@ def build_runtime_module(
         artifact_repository=core.artifact_repository,
         tool_runtime=tool_runtime,
         skill_runtime=skill_runtime,
+        agent=RuntimeLoopAgent(planner=RuntimeTurnPlanner(decision_generator=decision_generator)),
     )
     event_backlog_service = KnowbaseEventBacklogService(repository=core.event_record_repository)
-    dispatch_service = KnowbaseBacklogDispatchService(
-        working_set_builder=BatchWorkingSetBuilder(),
-        preparation_planner=BacklogPreparationPlanner(
-            partition_service=core.partition_service,
-            case_repository=core.case_repository,
+    dispatch_service = KnowbaseKnowledgeDispatchService(
+        task_builder=KnowledgeTaskBuilder(
+            working_set_builder=BatchWorkingSetBuilder(),
+            preparation_planner=BacklogPreparationPlanner(
+                partition_service=core.partition_service,
+                case_repository=core.case_repository,
+            ),
         ),
+        runtime_request_builder=RuntimeRequestBuilder(),
     )
     event_worker = KnowbaseEventWorker(
         backlog_service=event_backlog_service,

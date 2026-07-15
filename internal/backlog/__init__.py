@@ -4,12 +4,9 @@ from importlib import import_module
 
 _EXPORTS = {
     "EventWorkerRunResult": "backlog",
-    "KnowbaseBacklogDispatchService": "backlog",
     "KnowbaseEventBacklogService": "backlog",
     "KnowbaseEventService": "backlog",
     "KnowbaseEventWorker": "backlog",
-    "BatchWorkingSetBuilder": "backlog.planning",
-    "BacklogPreparationPlanner": "backlog.planning",
 }
 
 
@@ -25,9 +22,6 @@ def __getattr__(name: str):
 
 __all__ = [
     "EventWorkerRunResult",
-    "BacklogPreparationPlanner",
-    "BatchWorkingSetBuilder",
-    "KnowbaseBacklogDispatchService",
     "KnowbaseEventBacklogService",
     "KnowbaseEventService",
     "KnowbaseEventWorker",

@@ -11,10 +11,11 @@ from internal.ports import (
     CaseReadPort,
     CaseRepositoryPort,
 )
-from internal.skills import SkillRegistry
-from internal.skills.case import RebuildCaseSkill, RefreshCaseFacetsSkill
-from internal.skills.partition import RefreshSelectedCasesFacetsSkill
-from internal.tools import GetCaseTool, GetPartitionTool, ListCasesTool, ToolRegistry
+from internal.runtime.skills import SkillRegistry
+from internal.knowledge.skills.case import RebuildCaseSkill, RefreshCaseFacetsSkill
+from internal.knowledge.skills.partition import RefreshSelectedCasesFacetsSkill
+from internal.runtime.tools import ToolRegistry
+from internal.knowledge.tools import GetCaseTool, GetPartitionTool, ListCasesTool
 
 
 def build_skill_registry(

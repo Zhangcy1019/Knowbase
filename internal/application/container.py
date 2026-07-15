@@ -9,8 +9,9 @@ from internal.application.indices import ensure_indices
 from internal.application.modules import build_ingest_service, build_query_flow, build_runtime_module
 from internal.application.providers import build_core_providers, build_ingest_providers
 from internal.application.registries import build_skill_registry, build_tool_registry
-from internal.skills import SkillRuntime
-from internal.tools import ToolRuntime
+from internal.runtime.skills import SkillRuntime
+from internal.runtime.tools import ToolRuntime
+from internal.utils.config import RuntimeConfig
 
 
 @dataclass(slots=True)
@@ -20,7 +21,7 @@ class KnowbaseAppContainer:
     route_deps: KnowbaseRouteDeps
 
 
-def build_app_container() -> KnowbaseAppContainer:
+def build_app_container(*, runtime_cfg: RuntimeConfig) -> KnowbaseAppContainer:
     core = build_core_providers()
     ingest = build_ingest_providers()
     skill_registry = build_skill_registry(
@@ -34,6 +35,7 @@ def build_app_container() -> KnowbaseAppContainer:
     skill_runtime = SkillRuntime(registry=skill_registry)
     tool_runtime = ToolRuntime(registry=tool_registry)
     runtime_module = build_runtime_module(
+        runtime_cfg=runtime_cfg,
         core=core,
         tool_runtime=tool_runtime,
         skill_runtime=skill_runtime,

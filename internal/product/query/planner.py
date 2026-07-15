@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from internal.llm.embeddings import create_embedding_provider
+from internal.embedding.service import create_embedding_provider
 from internal.models import PartitionFacetDefinition, QueryPlan, QueryRequest
 from internal.models.partition_semantic_index import PartitionSemanticIndex
 from internal.models.semantic_profile import DynamicSemanticProfile

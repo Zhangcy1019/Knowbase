@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from internal.llm.embeddings import create_embedding_provider
+from internal.embedding.service import create_embedding_provider
 from internal.domain.case.facet_resolver import KnowbaseCaseFacetResolver
 from internal.domain.case.ingestor import KnowbaseCaseIngestor
 from internal.domain.case.repository import KnowbaseCaseRepository
