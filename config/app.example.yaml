@@ -19,6 +19,8 @@ llm:
   provider: openai
   model: gpt-4o-mini
   temperature: 0.0
+  max_output_tokens: 1200
+  timeout_seconds: 60
   openai:
     api_key: ""
     base_url: ""

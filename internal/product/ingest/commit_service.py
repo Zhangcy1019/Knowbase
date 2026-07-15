@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from internal.llm.embeddings import EmbeddingProvider, create_embedding_provider
+from internal.embedding.contracts import EmbeddingProvider
+from internal.embedding.service import create_embedding_provider
 from internal.domain.case.ingestor import KnowbaseCaseIngestor
 from internal.models import IngestResult, KnowbaseCaseDraft
 from internal.ports import CaseStorePort

@@ -15,12 +15,12 @@ from internal.ports.domain import (
     PartitionLookupPort,
     PartitionSchemaSuggestPort,
 )
-from internal.ports.backlog import BacklogDispatchPort, EventBacklogPort, EventWorkerPort
+from internal.ports.backlog import EventBacklogPort, EventWorkerPort
 from internal.ports.product import IngestUseCase, QueryUseCase
+from internal.ports.knowledge import KnowledgeDispatchPort
 from internal.ports.runtime import RuntimeHarnessPort, RuntimeRunPort, SkillExecutionPort
 
 __all__ = [
-    "BacklogDispatchPort",
     "CaseFacetResolutionPort",
     "CaseReadPort",
     "CaseRepositoryPort",
@@ -34,6 +34,7 @@ __all__ = [
     "EventPublisherPort",
     "EventWorkerPort",
     "IngestUseCase",
+    "KnowledgeDispatchPort",
     "PartitionAccessPort",
     "PartitionLookupPort",
     "PartitionSchemaSuggestPort",

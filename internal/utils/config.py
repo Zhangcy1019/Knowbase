@@ -21,6 +21,8 @@ class LLMRuntimeConfig:
     provider: str = "openai"
     model: str = "gpt-4o-mini"
     temperature: float = 0.0
+    max_output_tokens: int = 1200
+    timeout_seconds: int = 60
     openai_api_key: str | None = None
     openai_base_url: str | None = None
 
@@ -291,6 +293,14 @@ def load_runtime_config(config_path: str | None) -> RuntimeConfig:
         temperature=_float_env(
             "CIAGENT_LEAD_AGENT_TEMPERATURE",
             float(_get_nested(file_cfg, "llm", "temperature", default=0.0)),
+        ),
+        max_output_tokens=_int_env(
+            "CIAGENT_LEAD_AGENT_MAX_OUTPUT_TOKENS",
+            int(_get_nested(file_cfg, "llm", "max_output_tokens", default=1200)),
+        ),
+        timeout_seconds=_int_env(
+            "CIAGENT_LEAD_AGENT_TIMEOUT_SECONDS",
+            int(_get_nested(file_cfg, "llm", "timeout_seconds", default=60)),
         ),
         openai_api_key=_str_env("OPENAI_API_KEY", str(_get_nested(file_cfg, "llm", "openai", "api_key", default=""))) or None,
         openai_base_url=_str_env("OPENAI_BASE_URL", str(_get_nested(file_cfg, "llm", "openai", "base_url", default=""))) or None,
