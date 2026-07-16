@@ -80,6 +80,11 @@ class JsonLogFormatter(logging.Formatter):
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),
+            "source": {
+                "file": record.filename,
+                "line": record.lineno,
+                "function": record.funcName,
+            },
         }
 
         standard = {
@@ -148,7 +153,7 @@ def _set_handler_formatter(handler: logging.Handler, *, json_format: bool) -> No
     else:
         handler.setFormatter(
             logging.Formatter(
-                "%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+                "%(asctime)s | %(levelname)s | %(name)s | %(filename)s:%(lineno)d | %(message)s",
                 "%Y-%m-%d %H:%M:%S",
             )
         )
