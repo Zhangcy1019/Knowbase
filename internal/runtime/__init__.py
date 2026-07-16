@@ -56,6 +56,7 @@ _EXPORTS = {
     "RuntimePolicy": "runtime.core.policy",
     "RuntimeTerminationDecision": "runtime.core.termination",
     "RuntimeTerminationPolicy": "runtime.core.termination",
+    "RuntimeTraceRecorder": "runtime.trace.recorder",
 }
 
 
@@ -121,4 +122,5 @@ __all__ = [
     "RuntimePolicy",
     "RuntimeTerminationDecision",
     "RuntimeTerminationPolicy",
+    "RuntimeTraceRecorder",
 ]

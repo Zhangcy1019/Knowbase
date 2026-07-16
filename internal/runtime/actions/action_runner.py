@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from internal.models import RunArtifact
 from internal.models.run import AgentRun
 from internal.models.skill import SkillInvocation
 from internal.models.tool import ToolCall
@@ -11,6 +10,7 @@ from internal.runtime.contracts import RuntimeRunRequest
 from internal.runtime.core.memory import RuntimeMemoryManager
 from internal.runtime.core.policy import RuntimePolicy
 from internal.runtime.core.state import RuntimeRunState
+from internal.runtime.trace.recorder import RuntimeTraceRecorder
 
 
 class RuntimeActionRunner:
@@ -22,10 +22,12 @@ class RuntimeActionRunner:
         capability_executor: RuntimeCapabilityExecutor,
         policy: RuntimePolicy,
         memory_manager: RuntimeMemoryManager,
+        trace_recorder: RuntimeTraceRecorder,
     ):
         self._capability_executor = capability_executor
         self._policy = policy
         self._memory_manager = memory_manager
+        self._trace_recorder = trace_recorder
 
     def execute_decision(
         self,
@@ -34,25 +36,21 @@ class RuntimeActionRunner:
         request: RuntimeRunRequest,
         state: RuntimeRunState,
         decision,
-        persist_artifact,
     ) -> None:
-        decision_artifact = persist_artifact(
-            RunArtifact(
-                run_id=run.run_id,
-                artifact_type="decision",
-                title=decision.decision_id or "decision",
-                content=decision.model_dump(mode="json"),
-            )
+        decision_artifact = self._trace_recorder.record_decision_artifact(
+            run=run,
+            title=decision.decision_id or "decision",
+            decision_payload=decision.model_dump(mode="json"),
         )
         state.artifacts.append(decision_artifact)
         for action in decision.actions:
             self._policy.validate_action(request=request, action=action)
-            self._capability_executor.append_step(
+            self._capability_executor.ensure_step_budget(run=run, next_steps=1)
+            self._trace_recorder.record_action(
                 run=run,
-                step_type="action",
                 name=action.title or action.action_id or action.kind,
-                input=action.inputs,
-                output={"kind": action.kind, "summary": action.summary},
+                action_input=action.inputs,
+                action_output={"kind": action.kind, "summary": action.summary},
                 summary=action.summary or f"Executing runtime action {action.action_id or action.kind}",
             )
             if action.kind == "respond":

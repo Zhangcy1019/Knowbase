@@ -50,6 +50,7 @@ from internal.models.governance import (
 from internal.models.ingest import IngestRequest, IngestResult
 from internal.models.knowledge_task import KnowledgeTask, KnowledgeTaskActionHint
 from internal.models.runtime_config import RuntimeRunConfig
+from internal.models.runtime_trace import RuntimeTraceReplay, RuntimeTraceTurn
 from internal.models.skill_action import SkillAction
 from internal.models.partition import PartitionDocument
 from internal.models.partition_semantic_index import (
@@ -104,6 +105,8 @@ __all__ = [
     "EventRecordStatus",
     "EventDisposition",
     "RuntimeRunConfig",
+    "RuntimeTraceReplay",
+    "RuntimeTraceTurn",
     "AgentRun",
     "RunStep",
     "RunArtifact",

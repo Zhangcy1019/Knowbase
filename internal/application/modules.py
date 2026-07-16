@@ -27,6 +27,7 @@ from internal.runtime.loop.turn_planner import RuntimeTurnPlanner
 from internal.runtime.providers import DefaultOpenAIClient, DefaultRuntimeModelAdapter
 from internal.runtime.skills import SkillRuntime
 from internal.runtime.service import KnowbaseRuntimeService
+from internal.runtime.trace import RuntimeTraceRecorder
 from internal.runtime.tools import ToolRuntime
 from internal.utils.config import RuntimeConfig
 
@@ -49,6 +50,11 @@ def build_runtime_module(
 ) -> RuntimeModule:
     if runtime_cfg.llm.provider.strip().lower() != "openai":
         raise ValueError(f"unsupported runtime llm provider: {runtime_cfg.llm.provider}")
+    trace_recorder = RuntimeTraceRecorder(
+        run_repository=core.run_repository,
+        step_repository=core.step_repository,
+        artifact_repository=core.artifact_repository,
+    )
     openai_client = DefaultOpenAIClient(
         api_key=runtime_cfg.llm.openai_api_key or "",
         base_url=runtime_cfg.llm.openai_base_url,
@@ -61,6 +67,7 @@ def build_runtime_module(
             max_output_tokens=runtime_cfg.llm.max_output_tokens,
         ),
         model_adapter=DefaultRuntimeModelAdapter(client=openai_client),
+        trace_recorder=trace_recorder,
     )
     runtime_service = KnowbaseRuntimeService(
         partition_service=core.partition_service,
@@ -71,6 +78,7 @@ def build_runtime_module(
         tool_runtime=tool_runtime,
         skill_runtime=skill_runtime,
         agent=RuntimeLoopAgent(planner=RuntimeTurnPlanner(decision_generator=decision_generator)),
+        trace_recorder=trace_recorder,
     )
     event_backlog_service = KnowbaseEventBacklogService(repository=core.event_record_repository)
     dispatch_service = KnowbaseKnowledgeDispatchService(

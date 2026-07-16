@@ -79,6 +79,8 @@ internal/runtime/
   providers/
     openai_client.py
     openai_runtime_adapter.py
+  trace/
+    recorder.py
   loop/
     agent.py
     engine.py
@@ -244,6 +246,14 @@ decision generator 的输出约束和 draft 归一化层。
 - `llm.timeout_seconds`
 - `llm.openai.api_key`
 - `llm.openai.base_url`
+
+### `trace/recorder.py`
+
+集中负责 runtime trace / audit 落库：
+
+- step record
+- artifact record
+- step_count 同步
 
 ### `llm/decision_parser.py`
 

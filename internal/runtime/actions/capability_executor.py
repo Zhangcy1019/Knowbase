@@ -2,13 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 from internal.domain.run.run_repository import AgentRunRepository
-from internal.domain.run.step_repository import RunStepRepository
 from internal.models import (
     AgentRun,
-    RunStep,
     SkillExecutionContext,
     SkillInvocation,
     SkillResult,
@@ -17,24 +13,25 @@ from internal.models import (
     ToolResult,
 )
 from internal.runtime.skills.runtime import SkillRuntime
+from internal.runtime.trace.recorder import RuntimeTraceRecorder
 from internal.runtime.tools.runtime import ToolRuntime
 
 
 class RuntimeCapabilityExecutor:
-    """Execute tool and skill capabilities with step-level audit persistence."""
+    """Execute tool and skill capabilities while delegating audit writes to trace."""
 
     def __init__(
         self,
         *,
         run_repository: AgentRunRepository,
-        step_repository: RunStepRepository,
         tool_runtime: ToolRuntime,
         skill_runtime: SkillRuntime,
+        trace_recorder: RuntimeTraceRecorder,
     ):
         self._run_repository = run_repository
-        self._step_repository = step_repository
         self._tool_runtime = tool_runtime
         self._skill_runtime = skill_runtime
+        self._trace_recorder = trace_recorder
 
     def collect_initial_tool_observations(self, *, run: AgentRun) -> list[ToolResult]:
         tool_results: list[ToolResult] = []
@@ -67,28 +64,25 @@ class RuntimeCapabilityExecutor:
         results: list[ToolResult] = []
         for call in calls:
             self.ensure_tool_budget(run=run, next_calls=1)
+            self.ensure_step_budget(run=run, next_steps=2)
             normalized_call = call.model_copy(
                 update={
                     "run_id": run.run_id,
                     "partition": call.partition or run.partition,
                 }
             )
-            self.append_step(
+            self._trace_recorder.record_tool_call(
                 run=run,
-                step_type="tool_call",
-                name=normalized_call.tool_id,
-                input=normalized_call.inputs,
-                output={},
+                tool_id=normalized_call.tool_id,
+                tool_input=normalized_call.inputs,
                 summary=f"{step_summary_prefix} {normalized_call.tool_id}",
             )
             result = self._tool_runtime.execute(normalized_call)
             results.append(result)
-            self.append_step(
+            self._trace_recorder.record_tool_result(
                 run=run,
-                step_type="tool_result",
-                name=normalized_call.tool_id,
-                input={},
-                output=result.model_dump(mode="json"),
+                tool_id=normalized_call.tool_id,
+                result_payload=result.model_dump(mode="json"),
                 summary="Tool finished successfully." if result.ok else f"Tool failed: {result.error_message}",
             )
             persisted = self._run_repository.get(run.run_id)
@@ -102,12 +96,11 @@ class RuntimeCapabilityExecutor:
         results: list[SkillResult] = []
         for invocation in invocations:
             self.ensure_skill_budget(run=run, next_calls=1)
-            self.append_step(
+            self.ensure_step_budget(run=run, next_steps=2)
+            self._trace_recorder.record_skill_call(
                 run=run,
-                step_type="skill_call",
-                name=invocation.skill_id,
-                input=invocation.inputs,
-                output={},
+                skill_id=invocation.skill_id,
+                skill_input=invocation.inputs,
                 summary=f"Executing skill {invocation.skill_id}",
             )
             result = self._skill_runtime.execute(
@@ -123,12 +116,10 @@ class RuntimeCapabilityExecutor:
                 ),
             )
             results.append(result)
-            self.append_step(
+            self._trace_recorder.record_skill_result(
                 run=run,
-                step_type="skill_result",
-                name=invocation.skill_id,
-                input={},
-                output=result.model_dump(mode="json"),
+                skill_id=invocation.skill_id,
+                result_payload=result.model_dump(mode="json"),
                 summary="Skill finished successfully." if result.ok else f"Skill failed: {result.error_message}",
             )
             persisted = self._run_repository.get(run.run_id)
@@ -143,33 +134,6 @@ class RuntimeCapabilityExecutor:
 
     def tool_exists(self, tool_id: str) -> bool:
         return self._tool_runtime.registry.resolve(tool_id) is not None
-
-    def append_step(
-        self,
-        *,
-        run: AgentRun,
-        step_type: str,
-        name: str,
-        input: dict[str, Any],
-        output: dict[str, Any],
-        summary: str,
-    ) -> RunStep:
-        self.ensure_step_budget(run=run, next_steps=1)
-        step = self._step_repository.save(
-            RunStep(
-                run_id=run.run_id,
-                index=len(self._step_repository.list_for_run(run.run_id)),
-                step_type=step_type,
-                name=name,
-                input=input,
-                output=output,
-                summary=summary,
-            )
-        )
-        persisted = self._run_repository.get(run.run_id)
-        if persisted is not None:
-            self._run_repository.save(persisted.model_copy(update={"step_count": step.index + 1}))
-        return step
 
     def ensure_step_budget(self, *, run: AgentRun, next_steps: int) -> None:
         persisted = self._run_repository.get(run.run_id) or run

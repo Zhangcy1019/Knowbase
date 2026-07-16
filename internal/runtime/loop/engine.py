@@ -9,6 +9,7 @@ from internal.runtime.core.memory import RuntimeMemoryManager
 from internal.runtime.core.state import RuntimeRunState
 from internal.runtime.core.termination import RuntimeTerminationPolicy
 from internal.runtime.loop.agent import RuntimeAgentPort
+from internal.runtime.trace.recorder import RuntimeTraceRecorder
 
 
 class RuntimeLoopEngine:
@@ -22,12 +23,14 @@ class RuntimeLoopEngine:
         action_runner: RuntimeActionRunner,
         memory_manager: RuntimeMemoryManager,
         termination_policy: RuntimeTerminationPolicy,
+        trace_recorder: RuntimeTraceRecorder,
     ):
         self._capability_executor = capability_executor
         self._agent = agent
         self._action_runner = action_runner
         self._memory_manager = memory_manager
         self._termination_policy = termination_policy
+        self._trace_recorder = trace_recorder
 
     def run(
         self,
@@ -35,7 +38,6 @@ class RuntimeLoopEngine:
         run,
         request,
         state: RuntimeRunState,
-        persist_artifact,
     ) -> tuple[RuntimeRunState, RuntimeExecutionStatus]:
         self._memory_manager.initialize_state(run=run, request=request, state=state)
         final_status: RuntimeExecutionStatus = "completed"
@@ -52,12 +54,11 @@ class RuntimeLoopEngine:
                 turn_input=turn_input,
             )
             state.record_decision(decision)
-            self._capability_executor.append_step(
+            self._capability_executor.ensure_step_budget(run=run, next_steps=1)
+            self._trace_recorder.record_decision(
                 run=run,
-                step_type="decision",
                 name=decision.decision_id or "decision",
-                input={},
-                output=decision.model_dump(mode="json"),
+                decision_payload=decision.model_dump(mode="json"),
                 summary=decision.reasoning_summary or "Planner produced a decision.",
             )
             termination = self._termination_policy.should_stop(run=run, request=request, state=state, decision=decision)
@@ -70,18 +71,15 @@ class RuntimeLoopEngine:
                     request=request,
                     state=state,
                     decision=decision,
-                    persist_artifact=persist_artifact,
                 )
             except Exception as exc:  # noqa: BLE001
                 message = str(exc)
                 state.failure_messages.append(message)
-                self._capability_executor.append_step(
+                self._capability_executor.ensure_step_budget(run=run, next_steps=1)
+                self._trace_recorder.record_decision_error(
                     run=run,
-                    step_type="decision_error",
                     name=decision.decision_id or "decision_error",
-                    input={},
-                    output={"error": message},
-                    summary=message,
+                    error_message=message,
                 )
             termination = self._termination_policy.should_stop(run=run, request=request, state=state, decision=decision)
             if termination.should_stop:

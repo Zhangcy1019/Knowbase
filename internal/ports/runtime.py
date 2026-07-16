@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from internal.models import AgentRun, RunArtifact, RunStep
+from internal.models import AgentRun, RunArtifact, RunStep, RuntimeTraceReplay
 from internal.models.skill import SkillInvocation, SkillResult
 from internal.models.skill_context import SkillExecutionContext
 from internal.runtime.contracts import RuntimeRunRequest, RuntimeRunResult
@@ -33,6 +33,9 @@ class RuntimeRunPort(RuntimeHarnessPort, Protocol):
         ...
 
     def list_artifacts(self, run_id: str) -> list[RunArtifact]:
+        ...
+
+    def get_trace_replay(self, run_id: str) -> RuntimeTraceReplay | None:
         ...
 
 
