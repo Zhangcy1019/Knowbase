@@ -11,6 +11,10 @@ from internal.runtime.core.memory import RuntimeMemoryManager
 from internal.runtime.core.policy import RuntimePolicy
 from internal.runtime.core.state import RuntimeRunState
 from internal.runtime.trace.recorder import RuntimeTraceRecorder
+from internal.utils.logger import get_logger
+
+
+logger = get_logger("knowbase.runtime.actions.runner")
 
 
 class RuntimeActionRunner:
@@ -37,6 +41,14 @@ class RuntimeActionRunner:
         state: RuntimeRunState,
         decision,
     ) -> None:
+        logger.debug(
+            "Executing runtime decision actions.",
+            extra={
+                "run_id": run.run_id,
+                "decision_id": decision.decision_id,
+                "action_count": len(decision.actions),
+            },
+        )
         decision_artifact = self._trace_recorder.record_decision_artifact(
             run=run,
             title=decision.decision_id or "decision",
@@ -44,6 +56,17 @@ class RuntimeActionRunner:
         )
         state.artifacts.append(decision_artifact)
         for action in decision.actions:
+            logger.info(
+                "Executing runtime action.",
+                extra={
+                    "run_id": run.run_id,
+                    "decision_id": decision.decision_id,
+                    "action_id": action.action_id,
+                    "action_kind": action.kind,
+                    "tool_id": action.tool_id,
+                    "skill_id": action.skill_id,
+                },
+            )
             self._policy.validate_action(request=request, action=action)
             self._capability_executor.ensure_step_budget(run=run, next_steps=1)
             self._trace_recorder.record_action(
@@ -57,6 +80,13 @@ class RuntimeActionRunner:
                 state.applied_actions.append(action.action_id or action.title or "respond")
                 state.response_messages.append(action.prompt or action.summary or request.objective)
                 self._memory_manager.record_response(state=state, content=state.response_messages[-1])
+                logger.debug(
+                    "Recorded runtime respond action.",
+                    extra={
+                        "run_id": run.run_id,
+                        "action_id": action.action_id,
+                    },
+                )
                 continue
             if action.kind == "tool_call":
                 result_set = self._capability_executor.execute_tool_calls(
@@ -81,6 +111,15 @@ class RuntimeActionRunner:
                     )
                 if result_set and not result_set[-1].ok:
                     state.failure_messages.append(result_set[-1].error_message)
+                    logger.warning(
+                        "Runtime tool action finished with failure.",
+                        extra={
+                            "run_id": run.run_id,
+                            "action_id": action.action_id,
+                            "tool_id": action.tool_id,
+                            "error": result_set[-1].error_message,
+                        },
+                    )
                 state.applied_actions.append(action.action_id or action.tool_id or "tool_call")
                 continue
             if action.kind == "skill_call":
@@ -105,6 +144,23 @@ class RuntimeActionRunner:
                     )
                 if result_set and not result_set[-1].ok:
                     state.failure_messages.append(result_set[-1].error_message)
+                    logger.warning(
+                        "Runtime skill action finished with failure.",
+                        extra={
+                            "run_id": run.run_id,
+                            "action_id": action.action_id,
+                            "skill_id": action.skill_id,
+                            "error": result_set[-1].error_message,
+                        },
+                    )
                 state.applied_actions.append(action.action_id or action.skill_id or "skill_call")
                 continue
+            logger.debug(
+                "Runtime action completed without capability execution branch.",
+                extra={
+                    "run_id": run.run_id,
+                    "action_id": action.action_id,
+                    "action_kind": action.kind,
+                },
+            )
             state.applied_actions.append(action.action_id or action.kind)

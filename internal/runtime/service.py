@@ -85,6 +85,16 @@ class KnowbaseRuntimeService:
             },
         )
         run = self._create_request_run(request=request)
+        logger.debug(
+            "Runtime run created.",
+            extra={
+                "run_id": run.run_id,
+                "request_id": request.request_id,
+                "max_steps": run.max_steps,
+                "max_tool_calls": run.max_tool_calls,
+                "max_skill_calls": run.max_skill_calls,
+            },
+        )
         request_artifact = self._trace_recorder.record_runtime_request(
             run=run,
             request_payload=request.model_dump(mode="json"),
@@ -104,6 +114,18 @@ class KnowbaseRuntimeService:
                     "final_summary": final_summary,
                 }
             )
+        )
+        logger.info(
+            "Runtime request finished.",
+            extra={
+                "request_id": request.request_id,
+                "run_id": finished_run.run_id,
+                "status": finished_run.status,
+                "applied_action_count": len(state.applied_actions),
+                "tool_result_count": len(state.tool_results),
+                "skill_result_count": len(state.skill_results),
+                "failure_count": len(state.failure_messages),
+            },
         )
         return self._build_run_result(
             request=request,
@@ -137,6 +159,13 @@ class KnowbaseRuntimeService:
     def _create_request_run(self, *, request: RuntimeRunRequest) -> AgentRun:
         partition = request.partition.strip()
         if partition and self._partition_service.get_partition(partition) is None:
+            logger.error(
+                "Runtime request references unknown partition.",
+                extra={
+                    "request_id": request.request_id,
+                    "partition": partition,
+                },
+            )
             raise ValueError(f"partition not found: {partition}")
         return self._run_repository.save(
             AgentRun(

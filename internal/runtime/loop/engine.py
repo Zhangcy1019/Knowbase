@@ -10,6 +10,10 @@ from internal.runtime.core.state import RuntimeRunState
 from internal.runtime.core.termination import RuntimeTerminationPolicy
 from internal.runtime.loop.agent import RuntimeAgentPort
 from internal.runtime.trace.recorder import RuntimeTraceRecorder
+from internal.utils.logger import get_logger
+
+
+logger = get_logger("knowbase.runtime.loop.engine")
 
 
 class RuntimeLoopEngine:
@@ -39,6 +43,14 @@ class RuntimeLoopEngine:
         request,
         state: RuntimeRunState,
     ) -> tuple[RuntimeRunState, RuntimeExecutionStatus]:
+        logger.debug(
+            "Initializing runtime loop state.",
+            extra={
+                "run_id": run.run_id,
+                "request_id": request.request_id,
+                "partition": request.partition,
+            },
+        )
         self._memory_manager.initialize_state(run=run, request=request, state=state)
         final_status: RuntimeExecutionStatus = "completed"
         while True:
@@ -47,6 +59,17 @@ class RuntimeLoopEngine:
                 request=request,
                 state=state,
             )
+            logger.debug(
+                "Starting runtime turn.",
+                extra={
+                    "run_id": run.run_id,
+                    "turn_index": turn_input.turn_index,
+                    "step_count": len(state.steps),
+                    "tool_results": len(state.tool_results),
+                    "skill_results": len(state.skill_results),
+                    "failures": len(state.failure_messages),
+                },
+            )
             decision = self._agent.decide(
                 run=run,
                 request=request,
@@ -54,6 +77,17 @@ class RuntimeLoopEngine:
                 turn_input=turn_input,
             )
             state.record_decision(decision)
+            logger.info(
+                "Runtime decision generated.",
+                extra={
+                    "run_id": run.run_id,
+                    "turn_index": turn_input.turn_index,
+                    "decision_id": decision.decision_id,
+                    "action_count": len(decision.actions),
+                    "should_stop": decision.should_stop,
+                    "requires_review": decision.requires_review,
+                },
+            )
             self._capability_executor.ensure_step_budget(run=run, next_steps=1)
             self._trace_recorder.record_decision(
                 run=run,
@@ -64,6 +98,15 @@ class RuntimeLoopEngine:
             termination = self._termination_policy.should_stop(run=run, request=request, state=state, decision=decision)
             if termination.should_stop and not decision.actions:
                 final_status = termination.status
+                logger.warning(
+                    "Runtime loop stopped before action execution.",
+                    extra={
+                        "run_id": run.run_id,
+                        "turn_index": turn_input.turn_index,
+                        "status": termination.status,
+                        "reason": termination.reason,
+                    },
+                )
                 break
             try:
                 self._action_runner.execute_decision(
@@ -75,6 +118,15 @@ class RuntimeLoopEngine:
             except Exception as exc:  # noqa: BLE001
                 message = str(exc)
                 state.failure_messages.append(message)
+                logger.error(
+                    "Runtime decision execution failed.",
+                    extra={
+                        "run_id": run.run_id,
+                        "turn_index": turn_input.turn_index,
+                        "decision_id": decision.decision_id,
+                        "error": message,
+                    },
+                )
                 self._capability_executor.ensure_step_budget(run=run, next_steps=1)
                 self._trace_recorder.record_decision_error(
                     run=run,
@@ -84,5 +136,14 @@ class RuntimeLoopEngine:
             termination = self._termination_policy.should_stop(run=run, request=request, state=state, decision=decision)
             if termination.should_stop:
                 final_status = termination.status
+                logger.info(
+                    "Runtime loop finished.",
+                    extra={
+                        "run_id": run.run_id,
+                        "turn_index": turn_input.turn_index,
+                        "status": termination.status,
+                        "reason": termination.reason,
+                    },
+                )
                 break
         return state, final_status

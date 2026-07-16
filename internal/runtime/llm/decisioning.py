@@ -17,6 +17,10 @@ from internal.runtime.providers.openai_runtime_adapter import (
     RuntimeModelAdapterPort,
 )
 from internal.runtime.trace.recorder import RuntimeTraceRecorder
+from internal.utils.logger import get_logger
+
+
+logger = get_logger("knowbase.runtime.llm.decisioning")
 
 
 RuntimeDecisionDraftStopReason = Literal[
@@ -131,6 +135,18 @@ class DefaultRuntimeDecisionGenerator:
         stop_assessment: RuntimePlannerStopAssessment,
     ) -> RuntimeDecision:
         del request, state
+        logger.debug(
+            "Generating runtime decision.",
+            extra={
+                "run_id": run.run_id,
+                "turn_index": turn_input.turn_index,
+                "allowed_tools": planner_context.allowed_tools,
+                "allowed_skills": planner_context.allowed_skills,
+                "remaining_step_budget": planner_context.remaining_step_budget,
+                "remaining_tool_budget": planner_context.remaining_tool_budget,
+                "remaining_skill_budget": planner_context.remaining_skill_budget,
+            },
+        )
         if self._trace_recorder is not None:
             self._trace_recorder.record_planner_context(
                 run=run,
@@ -138,12 +154,29 @@ class DefaultRuntimeDecisionGenerator:
                 planner_context=self._serialize_planner_context(planner_context=planner_context),
             )
         if stop_assessment.should_stop:
+            logger.warning(
+                "Stop assessment requested immediate stop.",
+                extra={
+                    "run_id": run.run_id,
+                    "turn_index": turn_input.turn_index,
+                    "reason": stop_assessment.reason,
+                    "requires_review": stop_assessment.requires_review,
+                },
+            )
             return self._build_stop_decision(
                 run=run,
                 turn_input=turn_input,
                 stop_assessment=stop_assessment,
             )
         prompt = self._prompt_builder.build_prompt(planner_context=planner_context)
+        logger.debug(
+            "Prompt built for runtime decision.",
+            extra={
+                "run_id": run.run_id,
+                "turn_index": turn_input.turn_index,
+                "model": prompt.model,
+            },
+        )
         if self._trace_recorder is not None:
             self._trace_recorder.record_llm_prompt(
                 run=run,
@@ -151,6 +184,15 @@ class DefaultRuntimeDecisionGenerator:
                 prompt_payload=self._serialize_prompt(prompt=prompt),
             )
         response = self._model_adapter.invoke(prompt=prompt)
+        logger.info(
+            "Model response received for runtime decision.",
+            extra={
+                "run_id": run.run_id,
+                "turn_index": turn_input.turn_index,
+                "model_name": response.model_name,
+                "finish_reason": response.finish_reason,
+            },
+        )
         if self._trace_recorder is not None:
             self._trace_recorder.record_llm_response(
                 run=run,
@@ -165,6 +207,16 @@ class DefaultRuntimeDecisionGenerator:
             "provider_metadata": dict(response.provider_metadata),
             **dict(draft.metadata),
         }
+        logger.debug(
+            "Runtime decision draft parsed.",
+            extra={
+                "run_id": run.run_id,
+                "turn_index": turn_input.turn_index,
+                "draft_action_count": len(draft.actions),
+                "draft_should_stop": draft.should_stop,
+                "draft_requires_review": draft.requires_review,
+            },
+        )
         return self._normalizer.build(
             run=run,
             turn_input=turn_input,
