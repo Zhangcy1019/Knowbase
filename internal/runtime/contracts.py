@@ -22,16 +22,22 @@ class RuntimeRunRequest(BaseModel):
     source_type: RuntimeRequestSource = "manual"
     source_ref: str = ""
     partition: str = ""
+
     objective: str = ""
     prompt: str = ""
-    context: dict[str, Any] = Field(default_factory=dict)
+    task_payload: dict[str, Any] = Field(default_factory=dict)
+    task_hints: list[dict[str, Any]] = Field(default_factory=list)
+
     allowed_skills: list[str] = Field(default_factory=list)
     allowed_tools: list[str] = Field(default_factory=list)
+
     max_steps: int = 16
     max_tool_calls: int = 24
     max_skill_calls: int = 8
+
     risk_level: str = "medium"
     requires_review: bool = False
+
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 

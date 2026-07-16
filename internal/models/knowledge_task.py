@@ -32,7 +32,7 @@ class KnowledgeTask(BaseModel):
     domain: str = "backlog_maintenance"
     objective: str = ""
     prompt: str = ""
-    context: dict[str, Any] = Field(default_factory=dict)
+    task_payload: dict[str, Any] = Field(default_factory=dict)
     action_hints: list[KnowledgeTaskActionHint] = Field(default_factory=list)
     allowed_tools: list[str] = Field(default_factory=list)
     allowed_skills: list[str] = Field(default_factory=list)

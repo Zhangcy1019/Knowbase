@@ -29,7 +29,8 @@ runtime 的统一输入是 `RuntimeRunRequest`。
 - `partition`
 - `objective`
 - `prompt`
-- `context`
+- `task_payload`
+- `task_hints`
 - `allowed_tools`
 - `allowed_skills`
 - `max_steps`
@@ -93,6 +94,12 @@ internal/runtime/
 ### `RuntimeRunRequest`
 
 一次 run 的静态任务定义。
+
+当前已经收敛为 runtime 最小执行契约：
+
+- `task_payload` 承载上游业务任务的结构化输入
+- `task_hints` 承载上游显式提供给 planner 的动作提示
+- `metadata` 只保留附加元数据，不再承载正式 planner hint
 
 ### `RuntimeRunState`
 
