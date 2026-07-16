@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
-from internal.runtime.actions.capability_executor import RuntimeCapabilityExecutor
+from typing import TYPE_CHECKING
+
 from internal.runtime.contracts import RuntimeAction, RuntimeRunRequest
+
+if TYPE_CHECKING:
+    from internal.runtime.actions.capability_executor import RuntimeCapabilityExecutor
 
 
 class RuntimePolicy:

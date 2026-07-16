@@ -2,10 +2,22 @@
 
 from __future__ import annotations
 
-from .action_runner import RuntimeActionRunner
-from .capability_executor import RuntimeCapabilityExecutor
+from importlib import import_module
 
-__all__ = [
-    "RuntimeActionRunner",
-    "RuntimeCapabilityExecutor",
-]
+_EXPORTS = {
+    "RuntimeActionRunner": "internal.runtime.actions.action_runner",
+    "RuntimeCapabilityExecutor": "internal.runtime.actions.capability_executor",
+}
+
+
+def __getattr__(name: str):
+    module_name = _EXPORTS.get(name)
+    if module_name is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    module = import_module(module_name)
+    value = getattr(module, name)
+    globals()[name] = value
+    return value
+
+
+__all__ = list(_EXPORTS)
