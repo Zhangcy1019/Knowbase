@@ -5,8 +5,6 @@ from __future__ import annotations
 from importlib import import_module
 
 _EXPORTS = {
-    "RuntimeAgentPort": "internal.runtime.loop.agent",
-    "RuntimeLoopAgent": "internal.runtime.loop.agent",
     "RuntimeLoopEngine": "internal.runtime.loop.engine",
     "RuntimePlannerContext": "internal.runtime.loop.planner_components",
     "RuntimePlannerObservation": "internal.runtime.loop.planner_components",

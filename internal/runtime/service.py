@@ -16,8 +16,8 @@ from internal.runtime.core.memory import RuntimeMemoryManager
 from internal.runtime.core.policy import RuntimePolicy
 from internal.runtime.core.state import RuntimeRunState
 from internal.runtime.core.termination import RuntimeTerminationPolicy
-from internal.runtime.loop.agent import RuntimeAgentPort
 from internal.runtime.loop.engine import RuntimeLoopEngine
+from internal.runtime.loop.turn_planner import RuntimeTurnPlannerPort
 from internal.runtime.trace.recorder import RuntimeTraceRecorder
 from internal.runtime.tools.runtime import ToolRuntime
 from internal.utils.logger import get_logger
@@ -39,7 +39,7 @@ class KnowbaseRuntimeService:
         artifact_repository: RunArtifactRepository,
         tool_runtime: ToolRuntime,
         skill_runtime: SkillExecutionPort,
-        agent: RuntimeAgentPort,
+        planner: RuntimeTurnPlannerPort,
         trace_recorder: RuntimeTraceRecorder,
     ):
         self._partition_service = partition_service
@@ -59,7 +59,7 @@ class KnowbaseRuntimeService:
         self._memory_manager = RuntimeMemoryManager()
         self._policy = RuntimePolicy(capability_executor=self._capability_executor)
         self._termination_policy = RuntimeTerminationPolicy()
-        self._agent = agent
+        self._planner = planner
         self._action_runner = RuntimeActionRunner(
             capability_executor=self._capability_executor,
             policy=self._policy,
@@ -68,7 +68,7 @@ class KnowbaseRuntimeService:
         )
         self._engine = RuntimeLoopEngine(
             capability_executor=self._capability_executor,
-            agent=self._agent,
+            planner=self._planner,
             action_runner=self._action_runner,
             memory_manager=self._memory_manager,
             termination_policy=self._termination_policy,

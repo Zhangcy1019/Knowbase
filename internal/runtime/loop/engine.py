@@ -8,7 +8,7 @@ from internal.runtime.contracts import RuntimeExecutionStatus
 from internal.runtime.core.memory import RuntimeMemoryManager
 from internal.runtime.core.state import RuntimeRunState
 from internal.runtime.core.termination import RuntimeTerminationPolicy
-from internal.runtime.loop.agent import RuntimeAgentPort
+from internal.runtime.loop.turn_planner import RuntimeTurnPlannerPort
 from internal.runtime.trace.recorder import RuntimeTraceRecorder
 from internal.utils.logger import get_logger
 
@@ -23,14 +23,14 @@ class RuntimeLoopEngine:
         self,
         *,
         capability_executor: RuntimeCapabilityExecutor,
-        agent: RuntimeAgentPort,
+        planner: RuntimeTurnPlannerPort,
         action_runner: RuntimeActionRunner,
         memory_manager: RuntimeMemoryManager,
         termination_policy: RuntimeTerminationPolicy,
         trace_recorder: RuntimeTraceRecorder,
     ):
         self._capability_executor = capability_executor
-        self._agent = agent
+        self._planner = planner
         self._action_runner = action_runner
         self._memory_manager = memory_manager
         self._termination_policy = termination_policy
@@ -70,7 +70,7 @@ class RuntimeLoopEngine:
                     "failures": len(state.failure_messages),
                 },
             )
-            decision = self._agent.decide(
+            decision = self._planner.plan_turn(
                 run=run,
                 request=request,
                 state=state,

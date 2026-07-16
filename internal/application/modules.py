@@ -22,7 +22,6 @@ from internal.product.query.planner import KnowbaseQueryPlanner
 from internal.product.query.ranking import KnowbaseRanking
 from internal.product.query.service import KnowbaseQueryService
 from internal.runtime.llm import DefaultRuntimeDecisionGenerator, DefaultRuntimePromptBuilder
-from internal.runtime.loop.agent import RuntimeLoopAgent
 from internal.runtime.loop.turn_planner import RuntimeTurnPlanner
 from internal.runtime.providers import DefaultOpenAIClient, DefaultRuntimeModelAdapter
 from internal.runtime.skills import SkillRuntime
@@ -77,7 +76,7 @@ def build_runtime_module(
         artifact_repository=core.artifact_repository,
         tool_runtime=tool_runtime,
         skill_runtime=skill_runtime,
-        agent=RuntimeLoopAgent(planner=RuntimeTurnPlanner(decision_generator=decision_generator)),
+        planner=RuntimeTurnPlanner(decision_generator=decision_generator),
         trace_recorder=trace_recorder,
     )
     event_backlog_service = KnowbaseEventBacklogService(repository=core.event_record_repository)
