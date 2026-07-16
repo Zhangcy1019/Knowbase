@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from internal.models import AgentRun, RunArtifact, RunStep
+from internal.models import AgentRun, RunArtifact, RunStep, RuntimeTraceReplay
 from internal.models.skill import SkillResult
 from internal.models.tool import ToolResult
 from internal.domain.run.artifact_repository import RunArtifactRepository
@@ -18,6 +18,7 @@ from internal.runtime.core.state import RuntimeRunState
 from internal.runtime.core.termination import RuntimeTerminationPolicy
 from internal.runtime.loop.agent import RuntimeAgentPort
 from internal.runtime.loop.engine import RuntimeLoopEngine
+from internal.runtime.trace.recorder import RuntimeTraceRecorder
 from internal.runtime.tools.runtime import ToolRuntime
 from internal.utils.logger import get_logger
 
@@ -39,6 +40,7 @@ class KnowbaseRuntimeService:
         tool_runtime: ToolRuntime,
         skill_runtime: SkillExecutionPort,
         agent: RuntimeAgentPort,
+        trace_recorder: RuntimeTraceRecorder,
     ):
         self._partition_service = partition_service
         self._case_repository = case_repository
@@ -47,11 +49,12 @@ class KnowbaseRuntimeService:
         self._artifact_repository = artifact_repository
         self._tool_runtime = tool_runtime
         self._skill_runtime = skill_runtime
+        self._trace_recorder = trace_recorder
         self._capability_executor = RuntimeCapabilityExecutor(
             run_repository=self._run_repository,
-            step_repository=self._step_repository,
             tool_runtime=self._tool_runtime,
             skill_runtime=self._skill_runtime,
+            trace_recorder=self._trace_recorder,
         )
         self._memory_manager = RuntimeMemoryManager()
         self._policy = RuntimePolicy(capability_executor=self._capability_executor)
@@ -61,6 +64,7 @@ class KnowbaseRuntimeService:
             capability_executor=self._capability_executor,
             policy=self._policy,
             memory_manager=self._memory_manager,
+            trace_recorder=self._trace_recorder,
         )
         self._engine = RuntimeLoopEngine(
             capability_executor=self._capability_executor,
@@ -68,6 +72,7 @@ class KnowbaseRuntimeService:
             action_runner=self._action_runner,
             memory_manager=self._memory_manager,
             termination_policy=self._termination_policy,
+            trace_recorder=self._trace_recorder,
         )
 
     async def run_request(self, *, request: RuntimeRunRequest) -> RuntimeRunResult:
@@ -80,20 +85,25 @@ class KnowbaseRuntimeService:
             },
         )
         run = self._create_request_run(request=request)
-        request_artifact = self._artifact_repository.save(
-            RunArtifact(
-                run_id=run.run_id,
-                artifact_type="runtime_request",
-                title="Runtime Run Request",
-                content=request.model_dump(mode="json"),
-            )
+        logger.debug(
+            "Runtime run created.",
+            extra={
+                "run_id": run.run_id,
+                "request_id": request.request_id,
+                "max_steps": run.max_steps,
+                "max_tool_calls": run.max_tool_calls,
+                "max_skill_calls": run.max_skill_calls,
+            },
+        )
+        request_artifact = self._trace_recorder.record_runtime_request(
+            run=run,
+            request_payload=request.model_dump(mode="json"),
         )
         state = RuntimeRunState(artifacts=[request_artifact])
         state, final_status = self._engine.run(
             run=run,
             request=request,
             state=state,
-            persist_artifact=self._artifact_repository.save,
         )
         final_summary = self._memory_manager.build_final_summary(request=request, state=state)
         finished_run = self._run_repository.save(
@@ -104,6 +114,18 @@ class KnowbaseRuntimeService:
                     "final_summary": final_summary,
                 }
             )
+        )
+        logger.info(
+            "Runtime request finished.",
+            extra={
+                "request_id": request.request_id,
+                "run_id": finished_run.run_id,
+                "status": finished_run.status,
+                "applied_action_count": len(state.applied_actions),
+                "tool_result_count": len(state.tool_results),
+                "skill_result_count": len(state.skill_results),
+                "failure_count": len(state.failure_messages),
+            },
         )
         return self._build_run_result(
             request=request,
@@ -131,9 +153,19 @@ class KnowbaseRuntimeService:
     def list_artifacts(self, run_id: str) -> list[RunArtifact]:
         return self._artifact_repository.list_for_run(run_id.strip())
 
+    def get_trace_replay(self, run_id: str) -> RuntimeTraceReplay | None:
+        return self._trace_recorder.load_replay(run_id=run_id.strip())
+
     def _create_request_run(self, *, request: RuntimeRunRequest) -> AgentRun:
         partition = request.partition.strip()
         if partition and self._partition_service.get_partition(partition) is None:
+            logger.error(
+                "Runtime request references unknown partition.",
+                extra={
+                    "request_id": request.request_id,
+                    "partition": partition,
+                },
+            )
             raise ValueError(f"partition not found: {partition}")
         return self._run_repository.save(
             AgentRun(

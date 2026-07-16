@@ -5,4 +5,5 @@ node_modules/
 dist/
 
 config/app.yaml
+config/app.test.yaml
 docs/test_doc/

@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from internal.connectors.es.client import BaseElasticsearchClient
-from _es import build_knowbase_es_client
+from internal.connectors.es.knowbase import build_knowbase_es_client
 from internal.models.partition_semantic_index import PartitionSemanticIndex, PartitionSemanticIndexDocument
 
 

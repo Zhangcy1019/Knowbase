@@ -31,7 +31,7 @@ class KnowledgeTaskBuilder:
             domain="backlog_maintenance",
             objective=f"Process backlog batch {batch.batch_id} for partition {batch.partition or 'global'}",
             prompt=preparation.summary,
-            context={
+            task_payload={
                 "batch_id": batch.batch_id,
                 "batch_summary": batch.summary,
                 "batch_event_ids": batch.event_ids,
@@ -114,7 +114,8 @@ class RuntimeRequestBuilder:
             partition=task.partition,
             objective=task.objective,
             prompt=task.prompt,
-            context=dict(task.context),
+            task_payload=dict(task.task_payload),
+            task_hints=[item.model_dump(mode="json") for item in task.action_hints],
             allowed_skills=list(task.allowed_skills),
             allowed_tools=list(task.allowed_tools),
             max_steps=task.max_steps,
@@ -125,7 +126,6 @@ class RuntimeRequestBuilder:
             metadata={
                 "knowledge_domain": task.domain,
                 "knowledge_task": task.model_dump(mode="json"),
-                "actions": [item.model_dump(mode="json") for item in task.action_hints],
                 **dict(task.metadata),
             },
         )

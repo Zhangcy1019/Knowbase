@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from internal.connectors.es.client import BaseElasticsearchClient
-from _es import build_knowbase_es_client
+from internal.connectors.es.knowbase import build_knowbase_es_client
 from internal.models import PartitionDocument
 
 

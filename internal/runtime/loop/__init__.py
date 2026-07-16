@@ -2,75 +2,33 @@
 
 from __future__ import annotations
 
-from .agent import RuntimeAgentPort, RuntimeLoopAgent
-from .engine import RuntimeLoopEngine
-from internal.runtime.llm import (
-    DefaultRuntimeDecisionParser,
-    DefaultRuntimeDecisionGenerator,
-    DefaultRuntimePromptBuilder,
-    RUNTIME_DECISION_PAYLOAD_JSON_SCHEMA,
-    RuntimeDecisionActionPayload,
-    RuntimeDecisionConstraints,
-    RuntimeDecisionDraft,
-    RuntimeDecisionGeneratorPort,
-    RuntimeDecisionNormalizer,
-    RuntimeDecisionParserPort,
-    RuntimeDecisionPayload,
-    RuntimeDecisionPrompt,
-    RuntimePromptBuilderPort,
-    RuntimeProposedAction,
-    RuntimeProposedActionKind,
-    build_runtime_decision_payload_schema,
-)
-from internal.runtime.providers import (
-    DefaultRuntimeModelAdapter,
-    RuntimeModelAdapterPort,
-    RuntimeModelRequest,
-    RuntimeModelResponse,
-)
-from .planner_components import (
-    DefaultRuntimeObservationAssembler,
-    DefaultRuntimeStopEvaluator,
-    RuntimeObservationAssemblerPort,
-    RuntimePlannerContext,
-    RuntimePlannerObservation,
-    RuntimePlannerStopAssessment,
-    RuntimeStopEvaluatorPort,
-)
-from .turn_planner import RuntimeTurnPlanner, RuntimeTurnPlannerPort, UnconfiguredRuntimeTurnPlanner
+from importlib import import_module
 
-__all__ = [
-    "RuntimeAgentPort",
-    "RuntimeLoopAgent",
-    "RuntimeLoopEngine",
-    "RuntimePlannerContext",
-    "RuntimePlannerObservation",
-    "RuntimePlannerStopAssessment",
-    "RuntimeDecisionPrompt",
-    "RuntimeDecisionConstraints",
-    "RuntimeProposedActionKind",
-    "RuntimeProposedAction",
-    "RuntimeDecisionDraft",
-    "RuntimeDecisionActionPayload",
-    "RuntimeDecisionPayload",
-    "RUNTIME_DECISION_PAYLOAD_JSON_SCHEMA",
-    "build_runtime_decision_payload_schema",
-    "RuntimeModelRequest",
-    "RuntimeModelResponse",
-    "RuntimeObservationAssemblerPort",
-    "RuntimeStopEvaluatorPort",
-    "RuntimeDecisionGeneratorPort",
-    "RuntimePromptBuilderPort",
-    "RuntimeModelAdapterPort",
-    "RuntimeDecisionParserPort",
-    "RuntimeDecisionNormalizer",
-    "DefaultRuntimeObservationAssembler",
-    "DefaultRuntimeStopEvaluator",
-    "DefaultRuntimePromptBuilder",
-    "DefaultRuntimeDecisionGenerator",
-    "DefaultRuntimeModelAdapter",
-    "DefaultRuntimeDecisionParser",
-    "RuntimeTurnPlannerPort",
-    "UnconfiguredRuntimeTurnPlanner",
-    "RuntimeTurnPlanner",
-]
+_EXPORTS = {
+    "RuntimeAgentPort": "internal.runtime.loop.agent",
+    "RuntimeLoopAgent": "internal.runtime.loop.agent",
+    "RuntimeLoopEngine": "internal.runtime.loop.engine",
+    "RuntimePlannerContext": "internal.runtime.loop.planner_components",
+    "RuntimePlannerObservation": "internal.runtime.loop.planner_components",
+    "RuntimePlannerStopAssessment": "internal.runtime.loop.planner_components",
+    "RuntimeObservationAssemblerPort": "internal.runtime.loop.planner_components",
+    "RuntimeStopEvaluatorPort": "internal.runtime.loop.planner_components",
+    "DefaultRuntimeObservationAssembler": "internal.runtime.loop.planner_components",
+    "DefaultRuntimeStopEvaluator": "internal.runtime.loop.planner_components",
+    "RuntimeTurnPlannerPort": "internal.runtime.loop.turn_planner",
+    "UnconfiguredRuntimeTurnPlanner": "internal.runtime.loop.turn_planner",
+    "RuntimeTurnPlanner": "internal.runtime.loop.turn_planner",
+}
+
+
+def __getattr__(name: str):
+    module_name = _EXPORTS.get(name)
+    if module_name is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    module = import_module(module_name)
+    value = getattr(module, name)
+    globals()[name] = value
+    return value
+
+
+__all__ = list(_EXPORTS)

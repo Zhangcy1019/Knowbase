@@ -1,12 +1,11 @@
-"""Runtime action execution components."""
+"""Runtime trace and audit helpers."""
 
 from __future__ import annotations
 
 from importlib import import_module
 
 _EXPORTS = {
-    "RuntimeActionRunner": "internal.runtime.actions.action_runner",
-    "RuntimeCapabilityExecutor": "internal.runtime.actions.capability_executor",
+    "RuntimeTraceRecorder": "internal.runtime.trace.recorder",
 }
 
 

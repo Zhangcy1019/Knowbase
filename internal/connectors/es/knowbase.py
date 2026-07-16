@@ -1,4 +1,4 @@
-"""Shared Elasticsearch helpers for knowbase repositories."""
+"""Knowbase-specific Elasticsearch client factory helpers."""
 
 from __future__ import annotations
 

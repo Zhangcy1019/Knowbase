@@ -1,6 +1,7 @@
 """Model-adapter contracts for runtime decision generation."""
 
 from __future__ import annotations
+import json
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
@@ -56,7 +57,7 @@ class OpenAIRuntimeModelAdapter:
         request = RuntimeModelRequest(
             model=prompt.model,
             system=prompt.system,
-            instruction=prompt.instruction,
+            instruction=self._build_instruction(prompt=prompt),
             response_schema=dict(prompt.response_schema),
             temperature=prompt.temperature,
             max_output_tokens=prompt.max_output_tokens,
@@ -85,6 +86,19 @@ class OpenAIRuntimeModelAdapter:
             usage=dict(response.usage),
             provider_metadata=dict(response.metadata),
         )
+
+    @staticmethod
+    def _build_instruction(*, prompt: RuntimeDecisionPrompt) -> str:
+        instruction = prompt.instruction
+        if prompt.response_schema:
+            instruction = (
+                f"{instruction}\n\n"
+                "Response requirements:\n"
+                "- Return a JSON object only.\n"
+                "- Do not wrap the JSON in markdown fences.\n"
+                f"- Follow this JSON schema:\n{json.dumps(prompt.response_schema, ensure_ascii=True, indent=2)}"
+            )
+        return instruction
 
 
 class DefaultRuntimeModelAdapter(OpenAIRuntimeModelAdapter):

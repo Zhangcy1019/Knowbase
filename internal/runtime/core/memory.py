@@ -23,8 +23,8 @@ class RuntimeMemoryManager:
             state.record_fact("source_type", request.source_type)
             if request.partition:
                 state.record_fact("partition", request.partition)
-        if request.context and not state.observations:
-            state.add_observation(kind="request_context", payload=request.context)
+        if request.task_payload and not state.observations:
+            state.add_observation(kind="request_context", payload=request.task_payload)
 
     def record_tool_result(self, *, state: RuntimeRunState, tool_id: str, output: dict[str, object]) -> None:
         state.add_observation(kind="tool_result", payload={"tool_id": tool_id, "output": output})
@@ -61,7 +61,7 @@ class RuntimeMemoryManager:
                 partition=request.partition,
                 source_type=request.source_type,
                 source_ref=request.source_ref,
-                payload=dict(request.context),
+                payload=dict(request.task_payload),
             ),
             memory=self.build_memory_snapshot(state=state),
             bounds=RuntimeExecutionBounds(
@@ -83,12 +83,8 @@ class RuntimeMemoryManager:
                 latest_response=state.response_messages[-1] if state.response_messages else "",
             ),
             hints=RuntimeAgentHints(
-                actions=[item for item in request.metadata.get("actions", []) if isinstance(item, dict)],
-                metadata={
-                    key: value
-                    for key, value in request.metadata.items()
-                    if key != "actions"
-                },
+                actions=[item for item in request.task_hints if isinstance(item, dict)],
+                metadata=dict(request.metadata),
             ),
         )
 

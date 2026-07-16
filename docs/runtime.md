@@ -29,7 +29,8 @@ runtime 的统一输入是 `RuntimeRunRequest`。
 - `partition`
 - `objective`
 - `prompt`
-- `context`
+- `task_payload`
+- `task_hints`
 - `allowed_tools`
 - `allowed_skills`
 - `max_steps`
@@ -78,6 +79,8 @@ internal/runtime/
   providers/
     openai_client.py
     openai_runtime_adapter.py
+  trace/
+    recorder.py
   loop/
     agent.py
     engine.py
@@ -93,6 +96,12 @@ internal/runtime/
 ### `RuntimeRunRequest`
 
 一次 run 的静态任务定义。
+
+当前已经收敛为 runtime 最小执行契约：
+
+- `task_payload` 承载上游业务任务的结构化输入
+- `task_hints` 承载上游显式提供给 planner 的动作提示
+- `metadata` 只保留附加元数据，不再承载正式 planner hint
 
 ### `RuntimeRunState`
 
@@ -237,6 +246,14 @@ decision generator 的输出约束和 draft 归一化层。
 - `llm.timeout_seconds`
 - `llm.openai.api_key`
 - `llm.openai.base_url`
+
+### `trace/recorder.py`
+
+集中负责 runtime trace / audit 落库：
+
+- step record
+- artifact record
+- step_count 同步
 
 ### `llm/decision_parser.py`
 

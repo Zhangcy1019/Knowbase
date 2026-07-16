@@ -16,6 +16,11 @@ from internal.runtime.providers.openai_runtime_adapter import (
     DefaultRuntimeModelAdapter,
     RuntimeModelAdapterPort,
 )
+from internal.runtime.trace.recorder import RuntimeTraceRecorder
+from internal.utils.logger import get_logger
+
+
+logger = get_logger("knowbase.runtime.llm.decisioning")
 
 
 RuntimeDecisionDraftStopReason = Literal[
@@ -107,6 +112,7 @@ class DefaultRuntimeDecisionGenerator:
         prompt_builder: RuntimePromptBuilderPort | None = None,
         model_adapter: RuntimeModelAdapterPort | None = None,
         decision_parser: RuntimeDecisionParserPort | None = None,
+        trace_recorder: RuntimeTraceRecorder | None = None,
     ):
         self._normalizer = normalizer or RuntimeDecisionNormalizer()
         self._prompt_builder = prompt_builder or DefaultRuntimePromptBuilder(
@@ -116,6 +122,7 @@ class DefaultRuntimeDecisionGenerator:
         )
         self._model_adapter = model_adapter or DefaultRuntimeModelAdapter.from_env()
         self._decision_parser = decision_parser or DefaultRuntimeDecisionParser()
+        self._trace_recorder = trace_recorder
 
     def generate(
         self,
@@ -128,14 +135,70 @@ class DefaultRuntimeDecisionGenerator:
         stop_assessment: RuntimePlannerStopAssessment,
     ) -> RuntimeDecision:
         del request, state
+        logger.debug(
+            "Generating runtime decision.",
+            extra={
+                "run_id": run.run_id,
+                "turn_index": turn_input.turn_index,
+                "allowed_tools": planner_context.allowed_tools,
+                "allowed_skills": planner_context.allowed_skills,
+                "remaining_step_budget": planner_context.remaining_step_budget,
+                "remaining_tool_budget": planner_context.remaining_tool_budget,
+                "remaining_skill_budget": planner_context.remaining_skill_budget,
+            },
+        )
+        if self._trace_recorder is not None:
+            self._trace_recorder.record_planner_context(
+                run=run,
+                turn_index=turn_input.turn_index,
+                planner_context=self._serialize_planner_context(planner_context=planner_context),
+            )
         if stop_assessment.should_stop:
+            logger.warning(
+                "Stop assessment requested immediate stop.",
+                extra={
+                    "run_id": run.run_id,
+                    "turn_index": turn_input.turn_index,
+                    "reason": stop_assessment.reason,
+                    "requires_review": stop_assessment.requires_review,
+                },
+            )
             return self._build_stop_decision(
                 run=run,
                 turn_input=turn_input,
                 stop_assessment=stop_assessment,
             )
         prompt = self._prompt_builder.build_prompt(planner_context=planner_context)
+        logger.debug(
+            "Prompt built for runtime decision.",
+            extra={
+                "run_id": run.run_id,
+                "turn_index": turn_input.turn_index,
+                "model": prompt.model,
+            },
+        )
+        if self._trace_recorder is not None:
+            self._trace_recorder.record_llm_prompt(
+                run=run,
+                turn_index=turn_input.turn_index,
+                prompt_payload=self._serialize_prompt(prompt=prompt),
+            )
         response = self._model_adapter.invoke(prompt=prompt)
+        logger.info(
+            "Model response received for runtime decision.",
+            extra={
+                "run_id": run.run_id,
+                "turn_index": turn_input.turn_index,
+                "model_name": response.model_name,
+                "finish_reason": response.finish_reason,
+            },
+        )
+        if self._trace_recorder is not None:
+            self._trace_recorder.record_llm_response(
+                run=run,
+                turn_index=turn_input.turn_index,
+                response_payload=self._serialize_model_response(response=response),
+            )
         draft = self._decision_parser.parse(prompt=prompt, payload=response.payload)
         draft.metadata = {
             "model_name": response.model_name,
@@ -144,11 +207,73 @@ class DefaultRuntimeDecisionGenerator:
             "provider_metadata": dict(response.provider_metadata),
             **dict(draft.metadata),
         }
+        logger.debug(
+            "Runtime decision draft parsed.",
+            extra={
+                "run_id": run.run_id,
+                "turn_index": turn_input.turn_index,
+                "draft_action_count": len(draft.actions),
+                "draft_should_stop": draft.should_stop,
+                "draft_requires_review": draft.requires_review,
+            },
+        )
         return self._normalizer.build(
             run=run,
             turn_input=turn_input,
             draft=draft,
         )
+
+    @staticmethod
+    def _serialize_planner_context(*, planner_context: RuntimePlannerContext) -> dict[str, Any]:
+        return {
+            "run_id": planner_context.run_id,
+            "request_id": planner_context.request_id,
+            "turn_index": planner_context.turn_index,
+            "objective": planner_context.objective,
+            "prompt": planner_context.prompt,
+            "partition": planner_context.partition,
+            "source_type": planner_context.source_type,
+            "source_ref": planner_context.source_ref,
+            "task_payload": dict(planner_context.task_payload),
+            "facts": dict(planner_context.facts),
+            "observations": list(planner_context.observations),
+            "completed_actions": list(planner_context.completed_actions),
+            "recent_decisions": list(planner_context.recent_decisions),
+            "recent_failures": list(planner_context.recent_failures),
+            "latest_response": planner_context.latest_response,
+            "allowed_tools": list(planner_context.allowed_tools),
+            "allowed_skills": list(planner_context.allowed_skills),
+            "risk_level": planner_context.risk_level,
+            "requires_review": planner_context.requires_review,
+            "remaining_step_budget": planner_context.remaining_step_budget,
+            "remaining_tool_budget": planner_context.remaining_tool_budget,
+            "remaining_skill_budget": planner_context.remaining_skill_budget,
+            "hinted_actions": list(planner_context.hinted_actions),
+            "hint_metadata": dict(planner_context.hint_metadata),
+        }
+
+    @staticmethod
+    def _serialize_prompt(*, prompt) -> dict[str, Any]:
+        return {
+            "model": prompt.model,
+            "system": prompt.system,
+            "instruction": prompt.instruction,
+            "response_schema": dict(prompt.response_schema),
+            "temperature": prompt.temperature,
+            "max_output_tokens": prompt.max_output_tokens,
+            "context": dict(prompt.context),
+        }
+
+    @staticmethod
+    def _serialize_model_response(*, response) -> dict[str, Any]:
+        return {
+            "payload": dict(response.payload),
+            "raw_text": response.raw_text,
+            "model_name": response.model_name,
+            "finish_reason": response.finish_reason,
+            "usage": dict(response.usage),
+            "provider_metadata": dict(response.provider_metadata),
+        }
 
     def _build_stop_decision(
         self,

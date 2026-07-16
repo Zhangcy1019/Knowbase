@@ -2,40 +2,36 @@
 
 from __future__ import annotations
 
-from .decision_parser import (
-    DefaultRuntimeDecisionParser,
-    RUNTIME_DECISION_PAYLOAD_JSON_SCHEMA,
-    RuntimeDecisionActionPayload,
-    RuntimeDecisionParserPort,
-    RuntimeDecisionPayload,
-    build_runtime_decision_payload_schema,
-)
-from .decisioning import (
-    DefaultRuntimeDecisionGenerator,
-    RuntimeDecisionConstraints,
-    RuntimeDecisionDraft,
-    RuntimeDecisionGeneratorPort,
-    RuntimeDecisionNormalizer,
-    RuntimeProposedAction,
-    RuntimeProposedActionKind,
-)
-from .prompt_builder import DefaultRuntimePromptBuilder, RuntimeDecisionPrompt, RuntimePromptBuilderPort
+from importlib import import_module
 
-__all__ = [
-    "RuntimeDecisionPrompt",
-    "RuntimePromptBuilderPort",
-    "DefaultRuntimePromptBuilder",
-    "RuntimeDecisionActionPayload",
-    "RuntimeDecisionPayload",
-    "RUNTIME_DECISION_PAYLOAD_JSON_SCHEMA",
-    "build_runtime_decision_payload_schema",
-    "RuntimeDecisionParserPort",
-    "DefaultRuntimeDecisionParser",
-    "RuntimeDecisionConstraints",
-    "RuntimeProposedActionKind",
-    "RuntimeProposedAction",
-    "RuntimeDecisionDraft",
-    "RuntimeDecisionGeneratorPort",
-    "DefaultRuntimeDecisionGenerator",
-    "RuntimeDecisionNormalizer",
-]
+_EXPORTS = {
+    "RuntimeDecisionPrompt": "internal.runtime.llm.prompt_builder",
+    "RuntimePromptBuilderPort": "internal.runtime.llm.prompt_builder",
+    "DefaultRuntimePromptBuilder": "internal.runtime.llm.prompt_builder",
+    "RuntimeDecisionActionPayload": "internal.runtime.llm.decision_parser",
+    "RuntimeDecisionPayload": "internal.runtime.llm.decision_parser",
+    "RUNTIME_DECISION_PAYLOAD_JSON_SCHEMA": "internal.runtime.llm.decision_parser",
+    "build_runtime_decision_payload_schema": "internal.runtime.llm.decision_parser",
+    "RuntimeDecisionParserPort": "internal.runtime.llm.decision_parser",
+    "DefaultRuntimeDecisionParser": "internal.runtime.llm.decision_parser",
+    "RuntimeDecisionConstraints": "internal.runtime.llm.decisioning",
+    "RuntimeProposedActionKind": "internal.runtime.llm.decisioning",
+    "RuntimeProposedAction": "internal.runtime.llm.decisioning",
+    "RuntimeDecisionDraft": "internal.runtime.llm.decisioning",
+    "RuntimeDecisionGeneratorPort": "internal.runtime.llm.decisioning",
+    "DefaultRuntimeDecisionGenerator": "internal.runtime.llm.decisioning",
+    "RuntimeDecisionNormalizer": "internal.runtime.llm.decisioning",
+}
+
+
+def __getattr__(name: str):
+    module_name = _EXPORTS.get(name)
+    if module_name is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    module = import_module(module_name)
+    value = getattr(module, name)
+    globals()[name] = value
+    return value
+
+
+__all__ = list(_EXPORTS)

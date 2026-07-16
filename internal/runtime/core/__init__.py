@@ -2,15 +2,25 @@
 
 from __future__ import annotations
 
-from .memory import RuntimeMemoryManager
-from .policy import RuntimePolicy
-from .state import RuntimeRunState
-from .termination import RuntimeTerminationDecision, RuntimeTerminationPolicy
+from importlib import import_module
 
-__all__ = [
-    "RuntimeRunState",
-    "RuntimeMemoryManager",
-    "RuntimePolicy",
-    "RuntimeTerminationDecision",
-    "RuntimeTerminationPolicy",
-]
+_EXPORTS = {
+    "RuntimeRunState": "internal.runtime.core.state",
+    "RuntimeMemoryManager": "internal.runtime.core.memory",
+    "RuntimePolicy": "internal.runtime.core.policy",
+    "RuntimeTerminationDecision": "internal.runtime.core.termination",
+    "RuntimeTerminationPolicy": "internal.runtime.core.termination",
+}
+
+
+def __getattr__(name: str):
+    module_name = _EXPORTS.get(name)
+    if module_name is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    module = import_module(module_name)
+    value = getattr(module, name)
+    globals()[name] = value
+    return value
+
+
+__all__ = list(_EXPORTS)

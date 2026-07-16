@@ -1,11 +1,24 @@
 """Runtime skill capability infrastructure."""
 
-from internal.runtime.skills.registry import SkillRegistry
-from internal.runtime.skills.runtime import SkillRuntime
-from internal.runtime.skills.types import SkillHandler
+from __future__ import annotations
 
-__all__ = [
-    "SkillHandler",
-    "SkillRegistry",
-    "SkillRuntime",
-]
+from importlib import import_module
+
+_EXPORTS = {
+    "SkillHandler": "internal.runtime.skills.types",
+    "SkillRegistry": "internal.runtime.skills.registry",
+    "SkillRuntime": "internal.runtime.skills.runtime",
+}
+
+
+def __getattr__(name: str):
+    module_name = _EXPORTS.get(name)
+    if module_name is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    module = import_module(module_name)
+    value = getattr(module, name)
+    globals()[name] = value
+    return value
+
+
+__all__ = list(_EXPORTS)

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from _es import build_knowbase_es_client
 from internal.connectors.es.client import BaseElasticsearchClient
+from internal.connectors.es.knowbase import build_knowbase_es_client
 from internal.models import KnowbaseCaseDocument, KnowbaseCaseSearchExplain, KnowbaseCaseSearchHit, KnowbaseCaseSearchQuery
 
 

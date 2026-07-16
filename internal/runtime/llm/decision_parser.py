@@ -6,10 +6,9 @@ from typing import TYPE_CHECKING, Any, Protocol
 
 from pydantic import BaseModel, Field
 
-from internal.runtime.llm.prompt_builder import RuntimeDecisionPrompt
-
 if TYPE_CHECKING:
     from internal.runtime.llm.decisioning import RuntimeDecisionDraft
+    from internal.runtime.llm.prompt_builder import RuntimeDecisionPrompt
 
 
 class RuntimeDecisionActionPayload(BaseModel):
