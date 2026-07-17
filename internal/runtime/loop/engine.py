@@ -64,7 +64,8 @@ class RuntimeLoopEngine:
                 extra={
                     "run_id": run.run_id,
                     "turn_index": turn_input.turn_index,
-                    "step_count": len(state.steps),
+                    "decision_count": len(state.decision_history),
+                    "applied_action_count": len(state.applied_actions),
                     "tool_results": len(state.tool_results),
                     "skill_results": len(state.skill_results),
                     "failures": len(state.failure_messages),
