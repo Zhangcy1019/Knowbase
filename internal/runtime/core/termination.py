@@ -14,6 +14,7 @@ class RuntimeTerminationDecision:
     should_stop: bool = False
     status: RuntimeExecutionStatus = "completed"
     reason: str = ""
+    requires_review: bool = False
 
 
 class RuntimeTerminationPolicy:
@@ -30,8 +31,17 @@ class RuntimeTerminationPolicy:
         if state.failure_messages:
             return RuntimeTerminationDecision(should_stop=True, status="failed", reason=state.failure_messages[-1])
         if decision is not None and decision.requires_review:
-            return RuntimeTerminationDecision(should_stop=True, status="requires_review", reason="planner requested review")
+            return RuntimeTerminationDecision(
+                should_stop=True,
+                status="completed",
+                reason="planner requested review",
+                requires_review=True,
+            )
         if decision is not None and decision.should_stop:
-            status: RuntimeExecutionStatus = "requires_review" if request.requires_review else "completed"
-            return RuntimeTerminationDecision(should_stop=True, status=status, reason="planner requested stop")
+            return RuntimeTerminationDecision(
+                should_stop=True,
+                status="completed",
+                reason="planner requested stop",
+                requires_review=request.requires_review,
+            )
         return RuntimeTerminationDecision()

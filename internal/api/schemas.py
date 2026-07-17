@@ -114,6 +114,7 @@ class RuntimeRunSummary(BaseModel):
     agent_id: str
     mode: str
     status: str
+    requires_review: bool = False
     source_type: str
     source_event_type: KnowbaseEventType | str = ""
     source_ref: str = ""
@@ -159,6 +160,29 @@ class RuntimeRunArtifactResponse(BaseModel):
     content: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime | None = None
     updated_at: datetime | None = None
+
+
+class RuntimeTraceTurnResponse(BaseModel):
+    turn_index: int = 0
+    decision_step: RuntimeRunStepResponse | None = None
+    decision_artifact: RuntimeRunArtifactResponse | None = None
+    planner_context_artifact: RuntimeRunArtifactResponse | None = None
+    llm_prompt_artifact: RuntimeRunArtifactResponse | None = None
+    llm_response_artifact: RuntimeRunArtifactResponse | None = None
+    action_steps: list[RuntimeRunStepResponse] = Field(default_factory=list)
+    tool_calls: list[RuntimeRunStepResponse] = Field(default_factory=list)
+    tool_results: list[RuntimeRunStepResponse] = Field(default_factory=list)
+    skill_calls: list[RuntimeRunStepResponse] = Field(default_factory=list)
+    skill_results: list[RuntimeRunStepResponse] = Field(default_factory=list)
+    errors: list[RuntimeRunStepResponse] = Field(default_factory=list)
+
+
+class RuntimeTraceReplayResponse(BaseModel):
+    run: RuntimeRunDetail
+    request_artifact: RuntimeRunArtifactResponse | None = None
+    turns: list[RuntimeTraceTurnResponse] = Field(default_factory=list)
+    steps: list[RuntimeRunStepResponse] = Field(default_factory=list)
+    artifacts: list[RuntimeRunArtifactResponse] = Field(default_factory=list)
 
 
 class EventRecordResponse(BaseModel):

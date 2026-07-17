@@ -100,7 +100,7 @@ class KnowbaseRuntimeService:
             request_payload=request.model_dump(mode="json"),
         )
         state = RuntimeRunState(artifacts=[request_artifact])
-        state, final_status = self._engine.run(
+        state, final_status, requires_review = self._engine.run(
             run=run,
             request=request,
             state=state,
@@ -110,6 +110,7 @@ class KnowbaseRuntimeService:
             run.model_copy(
                 update={
                     "status": final_status,
+                    "requires_review": requires_review,
                     "reasoning_summary": self._memory_manager.build_reasoning_summary(request=request, state=state),
                     "final_summary": final_summary,
                 }
@@ -185,6 +186,7 @@ class KnowbaseRuntimeService:
                 max_tool_calls=request.max_tool_calls,
                 max_skill_calls=request.max_skill_calls,
                 risk_level=request.risk_level,
+                requires_review=request.requires_review,
             )
         )
 
@@ -197,11 +199,10 @@ class KnowbaseRuntimeService:
         skill_results: list[SkillResult],
         applied_actions: list[str],
     ) -> RuntimeRunResult:
-        normalized_status = run.status if run.status in {"completed", "failed", "cancelled"} else "requires_review"
         return RuntimeRunResult(
             request_id=request.request_id,
             run_id=run.run_id,
-            status=normalized_status,
+            status=run.status,
             final_summary=run.final_summary,
             reasoning_summary=run.reasoning_summary,
             steps=self._step_repository.list_for_run(run.run_id),
@@ -209,6 +210,6 @@ class KnowbaseRuntimeService:
             skill_results=skill_results,
             tool_results=tool_results,
             applied_actions=applied_actions,
-            requires_review=request.requires_review,
+            requires_review=run.requires_review,
             metadata={"source_type": request.source_type},
         )

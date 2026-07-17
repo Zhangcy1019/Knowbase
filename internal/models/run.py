@@ -35,6 +35,7 @@ class AgentRun(BaseModel):
     max_tool_calls: int = 20
     max_skill_calls: int = 6
     risk_level: RunRiskLevel = "medium"
+    requires_review: bool = False
     created_at: datetime | None = None
     updated_at: datetime | None = None
     finished_at: datetime | None = None

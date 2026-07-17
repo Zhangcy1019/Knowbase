@@ -42,7 +42,7 @@ class RuntimeLoopEngine:
         run,
         request,
         state: RuntimeRunState,
-    ) -> tuple[RuntimeRunState, RuntimeExecutionStatus]:
+    ) -> tuple[RuntimeRunState, RuntimeExecutionStatus, bool]:
         logger.debug(
             "Initializing runtime loop state.",
             extra={
@@ -53,6 +53,7 @@ class RuntimeLoopEngine:
         )
         self._memory_manager.initialize_state(run=run, request=request, state=state)
         final_status: RuntimeExecutionStatus = "completed"
+        requires_review = False
         while True:
             turn_input = self._memory_manager.build_turn_input(
                 run=run,
@@ -99,12 +100,14 @@ class RuntimeLoopEngine:
             termination = self._termination_policy.should_stop(run=run, request=request, state=state, decision=decision)
             if termination.should_stop and not decision.actions:
                 final_status = termination.status
+                requires_review = termination.requires_review
                 logger.warning(
                     "Runtime loop stopped before action execution.",
                     extra={
                         "run_id": run.run_id,
                         "turn_index": turn_input.turn_index,
                         "status": termination.status,
+                        "requires_review": termination.requires_review,
                         "reason": termination.reason,
                     },
                 )
@@ -137,14 +140,16 @@ class RuntimeLoopEngine:
             termination = self._termination_policy.should_stop(run=run, request=request, state=state, decision=decision)
             if termination.should_stop:
                 final_status = termination.status
+                requires_review = termination.requires_review
                 logger.info(
                     "Runtime loop finished.",
                     extra={
                         "run_id": run.run_id,
                         "turn_index": turn_input.turn_index,
                         "status": termination.status,
+                        "requires_review": termination.requires_review,
                         "reason": termination.reason,
                     },
                 )
                 break
-        return state, final_status
+        return state, final_status, requires_review
