@@ -15,7 +15,7 @@ from internal.models import (
 )
 from internal.models.facet import PartitionFacetIndex
 from internal.models.partition_semantic_index import PartitionSemanticIndex
-from internal.ports import CaseReadPort, PartitionAccessPort
+from internal.ports import CaseReadPort, PartitionProfileReadPort, PartitionReadPort
 
 
 @dataclass(slots=True)
@@ -34,7 +34,7 @@ class BacklogPreparationPlanner:
     def __init__(
         self,
         *,
-        partition_service: PartitionAccessPort,
+        partition_service: PartitionReadPort | PartitionProfileReadPort,
         case_repository: CaseReadPort,
     ):
         self._partition_service = partition_service

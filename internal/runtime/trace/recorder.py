@@ -4,9 +4,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from internal.domain.run.artifact_repository import RunArtifactRepository
-from internal.domain.run.run_repository import AgentRunRepository
-from internal.domain.run.step_repository import RunStepRepository
 from internal.models import AgentRun, RunArtifact, RunStep, RuntimeTraceReplay, RuntimeTraceTurn
 
 
@@ -16,9 +13,9 @@ class RuntimeTraceRecorder:
     def __init__(
         self,
         *,
-        run_repository: AgentRunRepository,
-        step_repository: RunStepRepository,
-        artifact_repository: RunArtifactRepository,
+        run_repository,
+        step_repository,
+        artifact_repository,
     ):
         self._run_repository = run_repository
         self._step_repository = step_repository

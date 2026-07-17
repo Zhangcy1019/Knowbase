@@ -14,7 +14,12 @@ from internal.models import (
     KnowbaseEvent,
     KnowbaseEventType,
 )
-from internal.ports import CaseWritePort, EventPublisherPort, PartitionAccessPort
+from internal.ports import (
+    CaseWritePort,
+    EventPublisherPort,
+    PartitionProfileReadPort,
+    PartitionReadPort,
+)
 from internal.product.ingest.validator import KnowbaseIngestValidator
 
 
@@ -28,7 +33,7 @@ class KnowbaseIngestService:
         draft_builder: KnowbaseCaseDraftBuilder,
         case_write_service: CaseWritePort,
         event_publisher: EventPublisherPort,
-        partition_service: PartitionAccessPort,
+        partition_service: PartitionReadPort | PartitionProfileReadPort,
         semantic_profile_extractor: KnowbaseSemanticProfileExtractor | None = None,
         summary_extractor: KnowbaseCaseSummaryExtractor | None = None,
         facet_resolver: KnowbaseCaseFacetResolver | None = None,

@@ -6,6 +6,10 @@ startup:
     port: 8000
   default_partition: "CI"
 
+storage:
+  backend: es # es or text
+  text_root: ".data/knowbase"
+
 web:
   ui:
     enabled: true

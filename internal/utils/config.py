@@ -57,6 +57,12 @@ class KnowbaseEmbeddingConfig:
 
 
 @dataclass(frozen=True)
+class StorageRuntimeConfig:
+    backend: str = "es"
+    text_root: str = ".data/knowbase"
+
+
+@dataclass(frozen=True)
 class WebUIRuntimeConfig:
     enabled: bool = True
     mode: str = "build"
@@ -85,6 +91,7 @@ class StartupRuntimeConfig:
 
 @dataclass(frozen=True)
 class RuntimeConfig:
+    storage: StorageRuntimeConfig
     web: WebRuntimeConfig
     startup: StartupRuntimeConfig
     es: KnowbaseElasticsearchConfig
@@ -147,6 +154,19 @@ def _csv_env(name: str) -> tuple[str, ...]:
 
 def load_runtime_config(config_path: str | None) -> RuntimeConfig:
     file_cfg = _load_yaml_config(config_path)
+
+    storage = StorageRuntimeConfig(
+        backend=_str_env(
+            "CIAGENT_STORAGE_BACKEND",
+            str(_get_nested(file_cfg, "storage", "backend", default="es")),
+        ).lower()
+        or "es",
+        text_root=_str_env(
+            "CIAGENT_STORAGE_TEXT_ROOT",
+            str(_get_nested(file_cfg, "storage", "text_root", default=".data/knowbase")),
+        )
+        or ".data/knowbase",
+    )
 
     web = WebRuntimeConfig(
         ui=WebUIRuntimeConfig(
@@ -307,10 +327,11 @@ def load_runtime_config(config_path: str | None) -> RuntimeConfig:
     )
 
     missing: list[str] = []
-    if not es.url:
-        missing.append("CIAGENT_KNOWBASE_ES_URL")
-    if not es.api_key:
-        missing.append("CIAGENT_KNOWBASE_ES_API_KEY")
+    if storage.backend == "es":
+        if not es.url:
+            missing.append("CIAGENT_KNOWBASE_ES_URL")
+        if not es.api_key:
+            missing.append("CIAGENT_KNOWBASE_ES_API_KEY")
     if not startup.default_partition:
         missing.append("CIAGENT_KNOWBASE_DEFAULT_PARTITION")
     if not embedding.endpoint and not embedding.base_url:
@@ -321,6 +342,7 @@ def load_runtime_config(config_path: str | None) -> RuntimeConfig:
         raise ValueError(f"missing required config values: {', '.join(missing)}")
 
     return RuntimeConfig(
+        storage=storage,
         web=web,
         startup=startup,
         es=es,

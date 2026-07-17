@@ -4,16 +4,13 @@ from __future__ import annotations
 
 from internal.models import EventRecord, KnowbaseEvent
 
-from .event_repository import EventRecordRepository
-
-
 class KnowbaseEventInboxService:
     """Persist domain events before any later scheduling or execution."""
 
     def __init__(
         self,
         *,
-        repository: EventRecordRepository,
+        repository,
     ):
         self._repository = repository
 

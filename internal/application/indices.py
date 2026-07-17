@@ -17,4 +17,5 @@ def ensure_indices(*, core: CoreProviders) -> None:
         core.step_repository,
         core.artifact_repository,
     ):
-        repository.create_index()
+        if hasattr(repository, "create_index"):
+            repository.create_index()

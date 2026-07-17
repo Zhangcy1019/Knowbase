@@ -8,7 +8,6 @@ from uuid import uuid4
 from internal.embedding.service import create_embedding_provider
 from internal.domain.case.facet_resolver import KnowbaseCaseFacetResolver
 from internal.domain.case.ingestor import KnowbaseCaseIngestor
-from internal.domain.case.repository import KnowbaseCaseRepository
 from internal.models import CaseFacetProfile, CaseSemanticProfile, KnowbaseCaseDocument, KnowbaseCaseDraft, KnowbaseCaseMetadata
 from internal.domain.partition.service import PartitionService
 from internal.utils.logger import get_logger
@@ -23,7 +22,7 @@ class KnowbaseCaseWriteService:
     def __init__(
         self,
         *,
-        repository: KnowbaseCaseRepository,
+        repository,
         partition_service: PartitionService,
         ingestor: KnowbaseCaseIngestor | None = None,
         facet_resolver: KnowbaseCaseFacetResolver | None = None,

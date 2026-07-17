@@ -6,7 +6,12 @@ from datetime import datetime, timezone
 
 from internal.models.skill import SkillInvocation, SkillResult, SkillSpec
 from internal.models.skill_context import SkillExecutionContext
-from internal.ports import CaseFacetResolutionPort, CaseRepositoryPort, PartitionAccessPort
+from internal.ports import (
+    CaseFacetResolutionPort,
+    CaseRepositoryPort,
+    PartitionLookupPort,
+    PartitionProfileWritePort,
+)
 from internal.utils.logger import get_logger
 
 
@@ -20,7 +25,7 @@ class RefreshSelectedCasesFacetsSkill:
         self,
         *,
         case_repository: CaseRepositoryPort,
-        partition_service: PartitionAccessPort,
+        partition_service: PartitionLookupPort | PartitionProfileWritePort,
         facet_resolver: CaseFacetResolutionPort,
     ):
         self._case_repository = case_repository

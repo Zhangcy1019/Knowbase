@@ -3,6 +3,7 @@
 __pycache__/
 node_modules/
 dist/
+workspace/
 
 config/app.yaml
 config/app.test.yaml

@@ -7,9 +7,10 @@ from internal.domain.case.ingestor import KnowbaseCaseIngestor
 from internal.domain.case.semantic_profile_extractor import KnowbaseSemanticProfileExtractor
 from internal.domain.case.summary_extractor import KnowbaseCaseSummaryExtractor
 from internal.ports import (
-    PartitionAccessPort,
     CaseReadPort,
     CaseRepositoryPort,
+    PartitionLookupPort,
+    PartitionProfileWritePort,
 )
 from internal.runtime.skills import SkillRegistry
 from internal.knowledge.skills.case import RebuildCaseSkill, RefreshCaseFacetsSkill
@@ -21,7 +22,7 @@ from internal.knowledge.tools import GetCaseTool, GetPartitionTool, ListCasesToo
 def build_skill_registry(
     *,
     case_repository: CaseRepositoryPort,
-    partition_service: PartitionAccessPort,
+    partition_service: PartitionLookupPort | PartitionProfileWritePort,
 ) -> SkillRegistry:
     facet_resolver = KnowbaseCaseFacetResolver()
     summary_extractor = KnowbaseCaseSummaryExtractor()
@@ -58,7 +59,7 @@ def build_skill_registry(
 def build_tool_registry(
     *,
     case_repository: CaseReadPort,
-    partition_service: PartitionAccessPort,
+    partition_service: PartitionLookupPort,
 ) -> ToolRegistry:
     tool_registry = ToolRegistry()
     tool_registry.register(GetCaseTool(repository=case_repository))

@@ -5,10 +5,7 @@ from __future__ import annotations
 from internal.models import AgentRun, RunArtifact, RunStep, RuntimeTraceReplay
 from internal.models.skill import SkillResult
 from internal.models.tool import ToolResult
-from internal.domain.run.artifact_repository import RunArtifactRepository
-from internal.domain.run.run_repository import AgentRunRepository
-from internal.domain.run.step_repository import RunStepRepository
-from internal.ports import PartitionAccessPort, SkillExecutionPort
+from internal.ports import PartitionReadPort, SkillExecutionPort
 from internal.runtime.actions.action_runner import RuntimeActionRunner
 from internal.runtime.actions.capability_executor import RuntimeCapabilityExecutor
 from internal.runtime.contracts import RuntimeRunRequest, RuntimeRunResult
@@ -32,11 +29,11 @@ class KnowbaseRuntimeService:
     def __init__(
         self,
         *,
-        partition_service: PartitionAccessPort,
+        partition_service: PartitionReadPort,
         case_repository,
-        run_repository: AgentRunRepository,
-        step_repository: RunStepRepository,
-        artifact_repository: RunArtifactRepository,
+        run_repository,
+        step_repository,
+        artifact_repository,
         tool_runtime: ToolRuntime,
         skill_runtime: SkillExecutionPort,
         planner: RuntimeTurnPlannerPort,

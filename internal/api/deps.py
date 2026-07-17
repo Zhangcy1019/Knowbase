@@ -9,7 +9,10 @@ from internal.ports import (
     EventPublisherPort,
     EventWorkerPort,
     IngestUseCase,
-    PartitionAccessPort,
+    PartitionReadPort,
+    PartitionProfileReadPort,
+    PartitionProfileWritePort,
+    PartitionWritePort,
     PartitionSchemaSuggestPort,
     QueryUseCase,
     RuntimeRunPort,
@@ -19,7 +22,7 @@ from internal.ports import (
 
 @dataclass(slots=True)
 class KnowbaseRouteDeps:
-    partition_service: PartitionAccessPort
+    partition_service: PartitionReadPort | PartitionWritePort | PartitionProfileReadPort | PartitionProfileWritePort
     partition_schema_suggester: PartitionSchemaSuggestPort
     case_repository: CaseReadPort
     case_write_service: CaseWritePort

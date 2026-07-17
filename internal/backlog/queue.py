@@ -5,14 +5,13 @@ from __future__ import annotations
 from collections import Counter
 from datetime import datetime, timezone
 
-from internal.domain.event.event_repository import EventRecordRepository
 from internal.models import BacklogBatch, EventRecord
 
 
 class KnowbaseEventBacklogService:
     """Manage persisted backlog state transitions and batch assembly."""
 
-    def __init__(self, *, repository: EventRecordRepository):
+    def __init__(self, *, repository):
         self._repository = repository
 
     def list_events(

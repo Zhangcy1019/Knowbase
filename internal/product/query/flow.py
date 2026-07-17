@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from internal.agents.product.answer_synthesis import AnswerSynthesisAgent
 from internal.models import QueryRequest, QueryResult
-from internal.ports import PartitionAccessPort
+from internal.ports import PartitionProfileReadPort, PartitionReadPort
 from internal.product.query.normalizer import QueryNormalizer
 from internal.product.query.planner import KnowbaseQueryPlanner
 from internal.product.query.service import KnowbaseQueryService
@@ -19,7 +19,7 @@ class KnowbaseQueryFlow:
         planner: KnowbaseQueryPlanner,
         normalizer: QueryNormalizer,
         query_service: KnowbaseQueryService,
-        partition_service: PartitionAccessPort,
+        partition_service: PartitionReadPort | PartitionProfileReadPort,
         answer_agent: AnswerSynthesisAgent,
     ):
         self._planner = planner
