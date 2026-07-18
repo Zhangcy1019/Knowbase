@@ -156,7 +156,16 @@ class KnowbaseRuntimeService:
 
     def _create_request_run(self, *, request: RuntimeRunRequest) -> AgentRun:
         partition = request.partition.strip()
-        if partition and self._partition_service.get_partition(partition) is None:
+        if not partition:
+            logger.error(
+                "Runtime request missing partition.",
+                extra={
+                    "request_id": request.request_id,
+                },
+            )
+            raise ValueError("runtime request partition must not be empty")
+        partition_document = self._partition_service.get_partition(partition)
+        if partition_document is None:
             logger.error(
                 "Runtime request references unknown partition.",
                 extra={
@@ -165,6 +174,19 @@ class KnowbaseRuntimeService:
                 },
             )
             raise ValueError(f"partition not found: {partition}")
+        partition_status = getattr(partition_document, "status", None)
+        if isinstance(partition_document, dict):
+            partition_status = partition_document.get("status")
+        if partition_status and partition_status != "active":
+            logger.error(
+                "Runtime request references inactive partition.",
+                extra={
+                    "request_id": request.request_id,
+                    "partition": partition,
+                    "partition_status": partition_status,
+                },
+            )
+            raise ValueError(f"partition is not active: {partition}")
         return self._run_repository.save(
             AgentRun(
                 partition=partition,

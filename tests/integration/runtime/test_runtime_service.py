@@ -30,7 +30,53 @@ from tests.integration.runtime.loop.test_loop_engine import (
 class _StaticPartitionService:
     @staticmethod
     def get_partition(partition: str):
-        return {"partition": partition} if partition.strip() else None
+        return {"partition": partition, "status": "active"} if partition.strip() else None
+
+
+class _InactivePartitionService:
+    @staticmethod
+    def get_partition(partition: str):
+        return {"partition": partition, "status": "disabled"} if partition.strip() else None
+
+
+class RuntimeServicePartitionValidationTest(unittest.TestCase):
+    def _build_service(self, *, partition_service) -> KnowbaseRuntimeService:
+        run_repository = _InMemoryRunRepository()
+        step_repository = _InMemoryRunStepRepository()
+        artifact_repository = _InMemoryRunArtifactRepository()
+
+        from internal.runtime.trace.recorder import RuntimeTraceRecorder
+
+        trace_recorder = RuntimeTraceRecorder(
+            run_repository=run_repository,
+            step_repository=step_repository,
+            artifact_repository=artifact_repository,
+        )
+        return KnowbaseRuntimeService(
+            partition_service=partition_service,
+            case_repository=None,
+            run_repository=run_repository,
+            step_repository=step_repository,
+            artifact_repository=artifact_repository,
+            tool_runtime=_NullToolRuntime(),
+            skill_runtime=_NullSkillRuntime(),
+            planner=RuntimeTurnPlanner(),
+            trace_recorder=trace_recorder,
+        )
+
+    def test_runtime_service_rejects_empty_partition(self) -> None:
+        service = self._build_service(partition_service=_StaticPartitionService())
+        request = _build_request().model_copy(update={"partition": ""})
+
+        with self.assertRaisesRegex(ValueError, "runtime request partition must not be empty"):
+            asyncio.run(service.run_request(request=request))
+
+    def test_runtime_service_rejects_inactive_partition(self) -> None:
+        service = self._build_service(partition_service=_InactivePartitionService())
+        request = _build_request()
+
+        with self.assertRaisesRegex(ValueError, "partition is not active: CI"):
+            asyncio.run(service.run_request(request=request))
 
 
 @unittest.skipUnless(
