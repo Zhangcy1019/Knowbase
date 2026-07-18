@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from internal.embedding.service import create_embedding_provider
+from internal.embedding.contracts import EmbeddingProvider
 from internal.models import KnowbaseCaseDocument, KnowbaseCaseDraft, SkillAction
 from internal.models.skill import SkillInvocation, SkillResult, SkillSpec
 from internal.models.skill_context import SkillExecutionContext
@@ -34,6 +34,7 @@ class RebuildCaseSkill:
         semantic_profile_extractor: CaseSemanticProfilePort,
         facet_resolver: CaseFacetResolutionPort,
         ingestor: CaseRepresentationPort,
+        embedding_provider: EmbeddingProvider | None = None,
     ):
         self._case_repository = case_repository
         self._partition_service = partition_service
@@ -41,6 +42,9 @@ class RebuildCaseSkill:
         self._semantic_profile_extractor = semantic_profile_extractor
         self._facet_resolver = facet_resolver
         self._ingestor = ingestor
+        if embedding_provider is None:
+            raise ValueError("RebuildCaseSkill requires an explicit embedding_provider")
+        self._embedding_provider = embedding_provider
         self._spec = SkillSpec(
             skill_id="case.rebuild_case",
             title="Rebuild Case",
@@ -135,11 +139,10 @@ class RebuildCaseSkill:
         if not document.search_text.strip():
             return
         try:
-            provider = create_embedding_provider()
-            document.search_vector = provider.embed_documents([document.search_text])[0]
+            document.search_vector = self._embedding_provider.embed_documents([document.search_text])[0]
             content_text = self._ingestor.build_content_text(draft=draft)
             if content_text.strip():
-                document.content_vector = provider.embed_documents([content_text])[0]
+                document.content_vector = self._embedding_provider.embed_documents([content_text])[0]
         except Exception as exc:  # pragma: no cover - operational path
             logger.warning(
                 "Rebuild case failed to refresh embeddings",

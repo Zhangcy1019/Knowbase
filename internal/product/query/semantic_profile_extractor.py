@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from textwrap import dedent
 from typing import Any
 
@@ -10,14 +9,17 @@ from langchain_core.messages import HumanMessage
 
 from internal.models import PartitionFacetDefinition, QuerySemanticExtractionEnvelope, QuerySemanticProfile, ensure_partition_profile_keys, resolve_partition_profile_fields
 from internal.models.partition_semantic_index import PartitionSemanticIndex
+from internal.utils.config import LLMRuntimeConfig
 from internal.utils.logger import get_logger
+from internal.utils.llm import build_langchain_openai_chat_model
 
 
 class KnowbaseQuerySemanticProfileExtractor:
     """Infer a structured query semantic profile and hypothetical answer."""
 
-    def __init__(self):
+    def __init__(self, *, llm_config: LLMRuntimeConfig | None = None):
         self._logger = get_logger(__name__)
+        self._llm_config = llm_config
         self._model = self._build_model()
 
     async def extract(
@@ -53,28 +55,19 @@ class KnowbaseQuerySemanticProfileExtractor:
         return self._sanitize_result(result, facet_definitions=facet_definitions)
 
     def _build_model(self):
-        provider = os.getenv("CIAGENT_LEAD_AGENT_PROVIDER", "openai").strip().lower()
-        if provider != "openai":
+        if self._llm_config is None:
             self._logger.error(
-                "KnowbaseQuerySemanticProfileExtractor unsupported provider",
-                extra={"provider": provider},
+                "KnowbaseQuerySemanticProfileExtractor unavailable: missing llm_config",
             )
             return None
         try:
-            from langchain_openai import ChatOpenAI
+            return build_langchain_openai_chat_model(config=self._llm_config)
         except Exception as exc:  # noqa: BLE001
             self._logger.exception(
-                "KnowbaseQuerySemanticProfileExtractor unavailable: langchain_openai import failed",
+                "KnowbaseQuerySemanticProfileExtractor unavailable: chat model initialization failed",
                 extra={"error": str(exc)},
             )
             return None
-        if not os.getenv("OPENAI_API_KEY"):
-            self._logger.error("KnowbaseQuerySemanticProfileExtractor unavailable: OPENAI_API_KEY missing")
-            return None
-
-        model_name = os.getenv("CIAGENT_LEAD_AGENT_MODEL", "gpt-4o-mini").strip() or "gpt-4o-mini"
-        temperature = float(os.getenv("CIAGENT_LEAD_AGENT_TEMPERATURE", "0").strip() or "0")
-        return ChatOpenAI(model=model_name, temperature=temperature)
 
     @staticmethod
     def _build_prompt(

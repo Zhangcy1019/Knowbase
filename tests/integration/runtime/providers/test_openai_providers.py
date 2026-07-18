@@ -20,7 +20,7 @@ _TEST_RUNTIME_CONFIG = bootstrap_test_runtime()
 
 
 def _has_openai_env() -> bool:
-    return bool(str(os.getenv("OPENAI_API_KEY") or "").strip())
+    return bool(str(os.getenv("KNOWBASE_LLM_OPENAI_API_KEY") or "").strip())
 
 
 def _resolve_test_model() -> str:
@@ -29,7 +29,7 @@ def _resolve_test_model() -> str:
 
 @unittest.skipUnless(
     _has_openai_env(),
-    "Set llm.openai.api_key in config/app.test.yaml or OPENAI_API_KEY to run runtime OpenAI integration tests.",
+    "Set llm.openai.api_key in config/app.test.yaml to run runtime OpenAI integration tests.",
 )
 class RuntimeOpenAIProvidersIntegrationTest(unittest.TestCase):
     """Exercise real OpenAI-backed runtime provider calls."""
@@ -38,12 +38,16 @@ class RuntimeOpenAIProvidersIntegrationTest(unittest.TestCase):
         print(
             f"[runtime.providers] test={self._testMethodName} "
             f"model={_resolve_test_model()} "
-            f"base_url={os.getenv('OPENAI_BASE_URL', '') or '<default>'}",
+            f"base_url={os.getenv('KNOWBASE_LLM_OPENAI_BASE_URL', '') or '<default>'}",
             flush=True,
         )
 
     def test_default_openai_client_create_chat_returns_json_object(self) -> None:
-        client = DefaultOpenAIClient.from_env()
+        client = DefaultOpenAIClient(
+            api_key=_TEST_RUNTIME_CONFIG.llm.openai_api_key or "",
+            base_url=_TEST_RUNTIME_CONFIG.llm.openai_base_url,
+            timeout_seconds=_TEST_RUNTIME_CONFIG.llm.timeout_seconds,
+        )
 
         response = client.create_chat(
             request=OpenAIChatRequest(
@@ -73,7 +77,7 @@ class RuntimeOpenAIProvidersIntegrationTest(unittest.TestCase):
         self.assertGreaterEqual(response.usage.get("total_tokens", 0), 0)
 
     def test_default_runtime_model_adapter_invoke_returns_structured_payload(self) -> None:
-        adapter = DefaultRuntimeModelAdapter.from_env()
+        adapter = DefaultRuntimeModelAdapter.from_llm_config(_TEST_RUNTIME_CONFIG.llm)
 
         response = adapter.invoke(
             prompt=RuntimeDecisionPrompt(

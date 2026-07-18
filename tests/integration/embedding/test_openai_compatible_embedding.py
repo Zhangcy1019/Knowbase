@@ -10,7 +10,7 @@ from __future__ import annotations
 import os
 import unittest
 
-from internal.embedding import OpenAICompatibleEmbeddingProvider, create_embedding_provider, load_embedding_config_from_env
+from internal.embedding import EmbeddingConfig, OpenAICompatibleEmbeddingProvider, create_embedding_provider
 from tests.integration.support import bootstrap_test_runtime
 
 
@@ -18,8 +18,8 @@ _TEST_RUNTIME_CONFIG = bootstrap_test_runtime()
 
 
 def _has_embedding_env() -> bool:
-    endpoint = str(os.getenv("CIAGENT_KNOWBASE_EMBEDDING_ENDPOINT") or "").strip()
-    base_url = str(os.getenv("CIAGENT_KNOWBASE_EMBEDDING_BASE_URL") or "").strip()
+    endpoint = str(os.getenv("KNOWBASE_EMBEDDING_ENDPOINT") or "").strip()
+    base_url = str(os.getenv("KNOWBASE_EMBEDDING_BASE_URL") or "").strip()
     return bool(endpoint or base_url)
 
 
@@ -32,7 +32,17 @@ class OpenAICompatibleEmbeddingIntegrationTest(unittest.TestCase):
 
     def setUp(self) -> None:
         create_embedding_provider.cache_clear()
-        self._config = load_embedding_config_from_env()
+        self._config = EmbeddingConfig(
+            provider=_TEST_RUNTIME_CONFIG.embedding.provider,
+            model_name=_TEST_RUNTIME_CONFIG.embedding.model_name,
+            endpoint=_TEST_RUNTIME_CONFIG.embedding.endpoint,
+            base_url=_TEST_RUNTIME_CONFIG.embedding.base_url,
+            api_key=_TEST_RUNTIME_CONFIG.embedding.api_key,
+            dimensions=_TEST_RUNTIME_CONFIG.embedding.dimensions,
+            query_prefix=_TEST_RUNTIME_CONFIG.embedding.query_prefix,
+            document_prefix=_TEST_RUNTIME_CONFIG.embedding.document_prefix,
+            timeout_seconds=_TEST_RUNTIME_CONFIG.embedding.timeout_seconds,
+        )
         print(
             f"[embedding] test={self._testMethodName} "
             f"provider={self._config.provider} "
@@ -57,7 +67,7 @@ class OpenAICompatibleEmbeddingIntegrationTest(unittest.TestCase):
             raise
 
     def test_create_embedding_provider_embed_query_returns_expected_dimensions(self) -> None:
-        provider = create_embedding_provider()
+        provider = create_embedding_provider(self._config)
 
         vector = self._call_or_skip(lambda: provider.embed_query("tax policy integration test query"))
         print(

@@ -35,15 +35,15 @@ logging:
 es:
   url: ""
   api_key: ""
-  partitions_index: "ci_knowbase_partitions_v1"
-  cases_index: "ci_knowbase_cases_v1"
-  agent_runs_index: "ci_knowbase_agent_runs_v1"
-  run_steps_index: "ci_knowbase_run_steps_v1"
-  run_artifacts_index: "ci_knowbase_run_artifacts_v1"
-  partition_semantic_index_index: "ci_knowbase_partition_semantic_index_v1"
-  partition_facet_schemas_index: "ci_knowbase_partition_facet_schemas_v1"
-  partition_facet_index_index: "ci_knowbase_partition_facet_index_v1"
-  event_records_index: "ci_knowbase_event_records_v1"
+  partitions_index: "knowbase_partitions_v1"
+  cases_index: "knowbase_cases_v1"
+  agent_runs_index: "knowbase_agent_runs_v1"
+  run_steps_index: "knowbase_run_steps_v1"
+  run_artifacts_index: "knowbase_run_artifacts_v1"
+  partition_semantic_index_index: "knowbase_partition_semantic_index_v1"
+  partition_facet_schemas_index: "knowbase_partition_facet_schemas_v1"
+  partition_facet_index_index: "knowbase_partition_facet_index_v1"
+  event_records_index: "knowbase_event_records_v1"
   verify_certs: true
 
 embedding:

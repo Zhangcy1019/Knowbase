@@ -11,6 +11,7 @@ from internal.runtime.providers.openai_client import (
     OpenAIChatRequest,
     OpenAIClientPort,
 )
+from internal.utils.config import LLMRuntimeConfig
 
 
 @dataclass(slots=True)
@@ -108,9 +109,16 @@ class DefaultRuntimeModelAdapter(OpenAIRuntimeModelAdapter):
         super().__init__(client=client)
 
     @classmethod
-    def from_env(cls) -> "DefaultRuntimeModelAdapter":
-        return cls(client=DefaultOpenAIClient.from_env())
-
+    def from_llm_config(cls, llm_config: LLMRuntimeConfig | None) -> "DefaultRuntimeModelAdapter":
+        if llm_config is None:
+            raise ValueError("DefaultRuntimeModelAdapter requires explicit llm_config")
+        return cls(
+            client=DefaultOpenAIClient(
+                api_key=llm_config.openai_api_key or "",
+                base_url=llm_config.openai_base_url,
+                timeout_seconds=llm_config.timeout_seconds,
+            )
+        )
 
 __all__ = [
     "RuntimeModelRequest",

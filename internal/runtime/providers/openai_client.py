@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 from dataclasses import dataclass, field
 from typing import Any, Literal, Protocol
 from urllib.parse import urlparse
@@ -72,17 +71,6 @@ class DefaultOpenAIClient:
             api_key=normalized_key,
             base_url=normalized_base_url,
             timeout=float(self._timeout_seconds),
-        )
-
-    @classmethod
-    def from_env(cls) -> "DefaultOpenAIClient":
-        api_key = str(os.getenv("OPENAI_API_KEY") or "").strip()
-        base_url = str(os.getenv("OPENAI_BASE_URL") or "").strip() or None
-        timeout_seconds = int(str(os.getenv("CIAGENT_LEAD_AGENT_TIMEOUT_SECONDS") or "60").strip() or "60")
-        return cls(
-            api_key=api_key,
-            base_url=base_url,
-            timeout_seconds=timeout_seconds,
         )
 
     def create_chat(self, *, request: OpenAIChatRequest) -> OpenAIChatResponse:

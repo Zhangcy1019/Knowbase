@@ -1,8 +1,7 @@
-"""Embedding provider implementations and config loading."""
+"""Embedding provider implementations."""
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 from typing import Any
 
@@ -56,8 +55,8 @@ class OpenAICompatibleEmbeddingProvider:
         base_url = config.base_url.strip().rstrip("/")
         if not base_url:
             raise RuntimeError(
-                "Knowbase embeddings require CIAGENT_KNOWBASE_EMBEDDING_ENDPOINT "
-                "or CIAGENT_KNOWBASE_EMBEDDING_BASE_URL"
+                "Knowbase embeddings require KNOWBASE_EMBEDDING_ENDPOINT "
+                "or KNOWBASE_EMBEDDING_BASE_URL"
             )
         if base_url.endswith("/embeddings"):
             return base_url
@@ -144,25 +143,8 @@ class OpenAICompatibleEmbeddingProvider:
             )
         return normalized
 
-
-def load_embedding_config_from_env() -> EmbeddingConfig:
-    return EmbeddingConfig(
-        provider=str(os.getenv("CIAGENT_KNOWBASE_EMBEDDING_PROVIDER") or "openai_compatible").strip()
-        or "openai_compatible",
-        model_name=str(os.getenv("CIAGENT_KNOWBASE_EMBEDDING_MODEL") or "").strip(),
-        endpoint=str(os.getenv("CIAGENT_KNOWBASE_EMBEDDING_ENDPOINT") or "").strip(),
-        base_url=str(os.getenv("CIAGENT_KNOWBASE_EMBEDDING_BASE_URL") or "").strip(),
-        api_key=str(os.getenv("CIAGENT_KNOWBASE_EMBEDDING_API_KEY") or "").strip(),
-        dimensions=int(str(os.getenv("CIAGENT_KNOWBASE_EMBEDDING_DIMENSIONS") or "0").strip() or "0"),
-        query_prefix=str(os.getenv("CIAGENT_KNOWBASE_EMBEDDING_QUERY_PREFIX") or "search_query: "),
-        document_prefix=str(os.getenv("CIAGENT_KNOWBASE_EMBEDDING_DOCUMENT_PREFIX") or "search_document: "),
-        timeout_seconds=int(str(os.getenv("CIAGENT_KNOWBASE_EMBEDDING_TIMEOUT_SECONDS") or "30").strip() or "30"),
-    )
-
-
 __all__ = [
     "EmbeddingConfig",
     "EmbeddingProvider",
     "OpenAICompatibleEmbeddingProvider",
-    "load_embedding_config_from_env",
 ]

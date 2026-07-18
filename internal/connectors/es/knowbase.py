@@ -2,33 +2,33 @@
 
 from __future__ import annotations
 
-import os
-
 from internal.connectors.es.client import BaseElasticsearchClient, ElasticsearchConfig
+from internal.utils.config import KnowbaseElasticsearchConfig
 
 
-def build_knowbase_es_client(*, index_env: str, default_index: str) -> tuple[BaseElasticsearchClient, str]:
-    url = str(os.getenv("CIAGENT_KNOWBASE_ES_URL") or "").strip()
-    api_key = str(os.getenv("CIAGENT_KNOWBASE_ES_API_KEY") or "").strip()
-    index_name = str(os.getenv(index_env) or default_index).strip() or default_index
-    verify_certs = str(os.getenv("CIAGENT_KNOWBASE_ES_VERIFY_CERTS") or "true").strip().lower() in {
-        "1",
-        "true",
-        "yes",
-        "on",
-    }
+def build_knowbase_es_client(
+    *,
+    es_config: KnowbaseElasticsearchConfig,
+    index_name: str,
+) -> tuple[BaseElasticsearchClient, str]:
+    url = es_config.url.strip()
+    api_key = es_config.api_key.strip()
+    resolved_index_name = index_name.strip()
+    verify_certs = bool(es_config.verify_certs)
 
     if not url:
-        raise RuntimeError("Knowbase repositories require CIAGENT_KNOWBASE_ES_URL")
+        raise RuntimeError("Knowbase repositories require es.url")
     if not api_key:
-        raise RuntimeError("Knowbase repositories require CIAGENT_KNOWBASE_ES_API_KEY")
+        raise RuntimeError("Knowbase repositories require es.api_key")
+    if not resolved_index_name:
+        raise RuntimeError("Knowbase repositories require a non-empty index_name")
 
     client = BaseElasticsearchClient(
         ElasticsearchConfig(
             url=url,
             api_key=api_key,
-            index=index_name,
+            index=resolved_index_name,
             verify_certs=verify_certs,
         )
     )
-    return client, index_name
+    return client, resolved_index_name

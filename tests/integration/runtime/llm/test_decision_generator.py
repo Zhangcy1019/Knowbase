@@ -30,7 +30,7 @@ _TEST_RUNTIME_CONFIG = bootstrap_test_runtime()
 
 
 def _has_openai_env() -> bool:
-    return bool(str(os.getenv("OPENAI_API_KEY") or "").strip())
+    return bool(str(os.getenv("KNOWBASE_LLM_OPENAI_API_KEY") or "").strip())
 
 
 def _build_run() -> AgentRun:
@@ -165,7 +165,7 @@ class RuntimeDecisionGeneratorIntegrationTest(unittest.TestCase):
         print(
             f"[runtime.llm] test={self._testMethodName} "
             f"model={_TEST_RUNTIME_CONFIG.llm.model} "
-            f"base_url={os.getenv('OPENAI_BASE_URL', '') or '<default>'}",
+            f"base_url={os.getenv('KNOWBASE_LLM_OPENAI_BASE_URL', '') or '<default>'}",
             flush=True,
         )
 

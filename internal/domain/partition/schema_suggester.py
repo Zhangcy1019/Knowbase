@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from textwrap import dedent
 
 from langchain_core.messages import HumanMessage
@@ -10,7 +9,9 @@ from pydantic import BaseModel, Field
 
 from internal.models.facet import PartitionFacetDefinition
 from internal.models.semantic_profile import resolve_partition_profile_fields
+from internal.utils.config import LLMRuntimeConfig
 from internal.utils.logger import get_logger
+from internal.utils.llm import build_langchain_openai_chat_model
 
 
 class SuggestedPartitionFacet(BaseModel):
@@ -27,8 +28,9 @@ class PartitionSchemaSuggestion(BaseModel):
 class PartitionSchemaSuggester:
     """Generate partition facet suggestions from scenario description and current config."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, llm_config: LLMRuntimeConfig | None = None) -> None:
         self._logger = get_logger(__name__)
+        self._llm_config = llm_config
         self._model = None
 
     def suggest(
@@ -62,24 +64,17 @@ class PartitionSchemaSuggester:
             raise RuntimeError(f"Partition schema suggestion failed: {exc}") from exc
 
     def _build_model(self):
-        provider = os.getenv("CIAGENT_LEAD_AGENT_PROVIDER", "openai").strip().lower()
-        if provider != "openai":
-            self._logger.error("PartitionSchemaSuggester unsupported provider", extra={"provider": provider})
+        if self._llm_config is None:
+            self._logger.error("PartitionSchemaSuggester unavailable: missing llm_config")
             return None
         try:
-            from langchain_openai import ChatOpenAI
+            return build_langchain_openai_chat_model(config=self._llm_config)
         except Exception as exc:  # noqa: BLE001
             self._logger.exception(
-                "PartitionSchemaSuggester unavailable: langchain_openai import failed",
+                "PartitionSchemaSuggester unavailable: chat model initialization failed",
                 extra={"error": str(exc)},
             )
             return None
-        if not os.getenv("OPENAI_API_KEY"):
-            self._logger.error("PartitionSchemaSuggester unavailable: OPENAI_API_KEY missing")
-            return None
-        model_name = os.getenv("CIAGENT_LEAD_AGENT_MODEL", "gpt-4o-mini").strip() or "gpt-4o-mini"
-        temperature = float(os.getenv("CIAGENT_LEAD_AGENT_TEMPERATURE", "0").strip() or "0")
-        return ChatOpenAI(model=model_name, temperature=temperature)
 
     @staticmethod
     def _build_prompt(

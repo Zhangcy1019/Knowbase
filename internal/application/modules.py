@@ -20,6 +20,7 @@ from internal.product.query.flow import KnowbaseQueryFlow
 from internal.product.query.normalizer import QueryNormalizer
 from internal.product.query.planner import KnowbaseQueryPlanner
 from internal.product.query.ranking import KnowbaseRanking
+from internal.product.query.semantic_profile_extractor import KnowbaseQuerySemanticProfileExtractor
 from internal.product.query.service import KnowbaseQueryService
 from internal.runtime.llm import DefaultRuntimeDecisionGenerator, DefaultRuntimePromptBuilder
 from internal.runtime.loop.turn_planner import RuntimeTurnPlanner
@@ -67,6 +68,7 @@ def build_runtime_module(
         ),
         model_adapter=DefaultRuntimeModelAdapter(client=openai_client),
         trace_recorder=trace_recorder,
+        llm_config=runtime_cfg.llm,
     )
     runtime_service = KnowbaseRuntimeService(
         partition_service=core.partition_service,
@@ -122,7 +124,10 @@ def build_ingest_service(
 def build_query_flow(*, core: CoreProviders) -> QueryUseCase:
     query_normalizer = QueryNormalizer()
     return KnowbaseQueryFlow(
-        planner=KnowbaseQueryPlanner(),
+        planner=KnowbaseQueryPlanner(
+            semantic_profile_extractor=KnowbaseQuerySemanticProfileExtractor(llm_config=core.runtime_cfg.llm),
+            embedding_provider=core.embedding_provider,
+        ),
         normalizer=query_normalizer,
         query_service=KnowbaseQueryService(
             case_service=core.case_service,

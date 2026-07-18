@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass, field
 from typing import Any, Literal, Protocol
 
@@ -17,6 +16,7 @@ from internal.runtime.providers.openai_runtime_adapter import (
     RuntimeModelAdapterPort,
 )
 from internal.runtime.trace.recorder import RuntimeTraceRecorder
+from internal.utils.config import LLMRuntimeConfig
 from internal.utils.logger import get_logger
 
 
@@ -113,14 +113,15 @@ class DefaultRuntimeDecisionGenerator:
         model_adapter: RuntimeModelAdapterPort | None = None,
         decision_parser: RuntimeDecisionParserPort | None = None,
         trace_recorder: RuntimeTraceRecorder | None = None,
+        llm_config: LLMRuntimeConfig | None = None,
     ):
         self._normalizer = normalizer or RuntimeDecisionNormalizer()
         self._prompt_builder = prompt_builder or DefaultRuntimePromptBuilder(
-            model=str(os.getenv("CIAGENT_LEAD_AGENT_MODEL") or "gpt-4o-mini"),
-            temperature=float(str(os.getenv("CIAGENT_LEAD_AGENT_TEMPERATURE") or "0.0") or "0.0"),
-            max_output_tokens=int(str(os.getenv("CIAGENT_LEAD_AGENT_MAX_OUTPUT_TOKENS") or "1200") or "1200"),
+            model=(llm_config.model if llm_config is not None else "gpt-4o-mini"),
+            temperature=(llm_config.temperature if llm_config is not None else 0.0),
+            max_output_tokens=(llm_config.max_output_tokens if llm_config is not None else 1200),
         )
-        self._model_adapter = model_adapter or DefaultRuntimeModelAdapter.from_env()
+        self._model_adapter = model_adapter or DefaultRuntimeModelAdapter.from_llm_config(llm_config)
         self._decision_parser = decision_parser or DefaultRuntimeDecisionParser()
         self._trace_recorder = trace_recorder
 

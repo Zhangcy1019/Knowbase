@@ -7,21 +7,16 @@ from pathlib import Path
 from fastapi import FastAPI
 
 from internal.application.container import KnowbaseAppContainer, build_app_container
-from internal.application.runtime_env import apply_runtime_config_to_env, load_runtime_config_from_env
 from internal.application.ui import register_ui_routes
-from internal.utils.config import RuntimeConfig
+from internal.utils.config import RuntimeConfig, load_runtime_config
 
 
 def build_application_container(*, runtime_cfg: RuntimeConfig) -> KnowbaseAppContainer:
     return build_app_container(runtime_cfg=runtime_cfg)
 
 
-def configure_runtime_environment(runtime_cfg: RuntimeConfig) -> None:
-    apply_runtime_config_to_env(runtime_cfg)
-
-
-def load_application_runtime_config() -> RuntimeConfig | None:
-    return load_runtime_config_from_env()
+def load_application_runtime_config(config_path: str) -> RuntimeConfig:
+    return load_runtime_config(config_path)
 
 
 def attach_ui_routes(app: FastAPI, *, runtime_cfg: RuntimeConfig, project_root: Path) -> None:

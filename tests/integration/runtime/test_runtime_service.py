@@ -90,7 +90,7 @@ class RuntimeServiceIntegrationTest(unittest.TestCase):
         print(
             f"[runtime.service] test={self._testMethodName} "
             f"model={_TEST_RUNTIME_CONFIG.llm.model} "
-            f"base_url={os.getenv('OPENAI_BASE_URL', '') or '<default>'}",
+            f"base_url={os.getenv('KNOWBASE_LLM_OPENAI_BASE_URL', '') or '<default>'}",
             flush=True,
         )
 

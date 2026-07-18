@@ -13,7 +13,6 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 from internal.application import (
     attach_ui_routes,
     build_application_container,
-    load_application_runtime_config,
 )
 from internal.api import register_knowbase_routes
 from internal.utils.logger import get_logger
@@ -23,10 +22,15 @@ _RUNTIME_CFG: RuntimeConfig | None = None
 logger = get_logger("knowbase.bootstrap")
 
 
+def set_runtime_config(runtime_cfg: RuntimeConfig) -> None:
+    global _RUNTIME_CFG
+    _RUNTIME_CFG = runtime_cfg
+
+
 def create_app(*, runtime_cfg: RuntimeConfig | None = None) -> FastAPI:
-    resolved_runtime_cfg = runtime_cfg or _RUNTIME_CFG or load_application_runtime_config()
+    resolved_runtime_cfg = runtime_cfg or _RUNTIME_CFG
     if resolved_runtime_cfg is None:
-        raise RuntimeError("runtime config could not be loaded")
+        raise RuntimeError("runtime config is not set")
     app = FastAPI(title="Knowbase API", version="0.1.0")
     container = build_application_container(runtime_cfg=resolved_runtime_cfg)
 

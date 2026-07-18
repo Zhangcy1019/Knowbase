@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from internal.embedding.service import create_embedding_provider
 from internal.domain.case.draft_builder import KnowbaseCaseDraftBuilder
 from internal.domain.case.facet_resolver import KnowbaseCaseFacetResolver
 from internal.domain.case.ingestor import KnowbaseCaseIngestor
@@ -30,6 +31,7 @@ from internal.utils.config import RuntimeConfig
 
 @dataclass(slots=True)
 class CoreProviders:
+    runtime_cfg: RuntimeConfig
     partition_service: PartitionAccessPort
     partition_profiles: PartitionProfileReadPort
     partition_schema_suggester: PartitionSchemaSuggestPort
@@ -42,6 +44,7 @@ class CoreProviders:
     run_repository: object
     step_repository: object
     artifact_repository: object
+    embedding_provider: object
 
 
 @dataclass(slots=True)
@@ -55,6 +58,7 @@ class IngestProviders:
 
 def build_core_providers(*, runtime_cfg: RuntimeConfig) -> CoreProviders:
     persistence = build_persistence_bundle(runtime_cfg=runtime_cfg)
+    embedding_provider = create_embedding_provider(runtime_cfg.embedding)
     partition_service = PartitionService(
         repository=persistence.partition_repository,
         facet_index_repository=persistence.partition_facet_index_repository,
@@ -68,14 +72,16 @@ def build_core_providers(*, runtime_cfg: RuntimeConfig) -> CoreProviders:
         partition_service=partition_service,
         ingestor=KnowbaseCaseIngestor(),
         facet_resolver=KnowbaseCaseFacetResolver(),
+        embedding_provider=embedding_provider,
     )
     event_record_repository = persistence.event_record_repository
     event_inbox_service = KnowbaseEventInboxService(repository=event_record_repository)
     event_publisher = KnowbaseEventPublisher(inbox_service=event_inbox_service)
     return CoreProviders(
+        runtime_cfg=runtime_cfg,
         partition_service=partition_service,
         partition_profiles=partition_service,
-        partition_schema_suggester=PartitionSchemaSuggester(),
+        partition_schema_suggester=PartitionSchemaSuggester(llm_config=runtime_cfg.llm),
         case_repository=case_repository,
         case_service=case_service,
         case_write_service=case_write_service,
@@ -85,14 +91,15 @@ def build_core_providers(*, runtime_cfg: RuntimeConfig) -> CoreProviders:
         run_repository=persistence.run_repository,
         step_repository=persistence.step_repository,
         artifact_repository=persistence.artifact_repository,
+        embedding_provider=embedding_provider,
     )
 
 
-def build_ingest_providers() -> IngestProviders:
+def build_ingest_providers(*, runtime_cfg: RuntimeConfig) -> IngestProviders:
     return IngestProviders(
         draft_builder=KnowbaseCaseDraftBuilder(),
         ingestor=KnowbaseCaseIngestor(),
-        summary_extractor=KnowbaseCaseSummaryExtractor(),
-        semantic_profile_extractor=KnowbaseSemanticProfileExtractor(),
+        summary_extractor=KnowbaseCaseSummaryExtractor(llm_config=runtime_cfg.llm),
+        semantic_profile_extractor=KnowbaseSemanticProfileExtractor(llm_config=runtime_cfg.llm),
         facet_resolver=KnowbaseCaseFacetResolver(),
     )

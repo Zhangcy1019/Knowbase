@@ -23,8 +23,9 @@ class KnowbaseAppContainer:
 
 def build_app_container(*, runtime_cfg: RuntimeConfig) -> KnowbaseAppContainer:
     core = build_core_providers(runtime_cfg=runtime_cfg)
-    ingest = build_ingest_providers()
+    ingest = build_ingest_providers(runtime_cfg=runtime_cfg)
     skill_registry = build_skill_registry(
+        runtime_cfg=runtime_cfg,
         case_repository=core.case_repository,
         partition_service=core.partition_service,
     )
