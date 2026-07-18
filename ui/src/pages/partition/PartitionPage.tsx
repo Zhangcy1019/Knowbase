@@ -1,189 +1,170 @@
-import { useMemo, useState } from "react";
-import "./partition.css";
+import type { ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-const partitionSummary = [
-  { label: "Cases", value: "516", note: "indexed" },
-  { label: "Facet keys", value: "7", note: "stable" },
-  { label: "Semantic keys", value: "28", note: "observed" },
-  { label: "Facet values", value: "143", note: "active" },
-];
+import "./partition.css";
+import { IconPartition, IconQuery, IconTraceDetail } from "../../shared/icons";
+import {
+  getPartition,
+  getPartitionFacetSchema,
+  getPartitionSemanticIndex,
+  listPartitionCases,
+  type PartitionFacetDefinition,
+  type PartitionSemanticKeyStat,
+} from "../../shared/api";
 
 type SchemaEntry = {
   key: string;
   description: string;
-  count: string;
-  values: Array<{ value: string; count: string }>;
+  count: number;
+  values: Array<{ value: string; count: number }>;
   status?: "stable" | "review" | "elevated";
   source: "facet" | "semantic";
 };
 
-const facetSchemaRows: SchemaEntry[] = [
-  {
-    key: "team",
-    description: "Owning business team for intake and review.",
-    count: "401",
-    status: "stable",
-    source: "facet",
-    values: [
-      { value: "claims_ops", count: "88" },
-      { value: "policy_admin", count: "74" },
-      { value: "audit_desk", count: "51" },
-      { value: "appeal_unit", count: "43" },
-      { value: "finance_review", count: "29" },
-    ],
-  },
-  {
-    key: "priority",
-    description: "Operational priority used for queue shaping.",
-    count: "336",
-    status: "stable",
-    source: "facet",
-    values: [
-      { value: "p1", count: "126" },
-      { value: "p2", count: "102" },
-      { value: "p3", count: "71" },
-      { value: "urgent", count: "24" },
-      { value: "monitor", count: "13" },
-    ],
-  },
-  {
-    key: "region",
-    description: "Geographic scope referenced by the case content.",
-    count: "298",
-    status: "stable",
-    source: "facet",
-    values: [
-      { value: "east", count: "81" },
-      { value: "north", count: "63" },
-      { value: "south", count: "58" },
-      { value: "shanghai", count: "49" },
-      { value: "west", count: "47" },
-    ],
-  },
-  {
-    key: "review_stage",
-    description: "Explicit review stage visible to operations.",
-    count: "201",
-    status: "review",
-    source: "facet",
-    values: [
-      { value: "triage", count: "63" },
-      { value: "review", count: "52" },
-      { value: "escalated", count: "34" },
-      { value: "blocked", count: "29" },
-      { value: "closed", count: "23" },
-    ],
-  },
-  {
-    key: "policy_family",
-    description: "Normalized policy family used in retrieval.",
-    count: "163",
-    status: "elevated",
-    source: "facet",
-    values: [
-      { value: "appeal", count: "46" },
-      { value: "coverage", count: "39" },
-      { value: "exception", count: "31" },
-      { value: "tax", count: "25" },
-      { value: "claim", count: "22" },
-    ],
-  },
-];
+function PanelMark({ children }: { children: ReactNode }) {
+  return <span className="partition-panel-mark">{children}</span>;
+}
 
-const semanticSchemaRows: SchemaEntry[] = [
-  {
-    key: "appeal_reason",
-    description: "Open semantic reason phrases extracted from appeal cases.",
-    count: "128",
-    source: "semantic",
-    values: [
-      { value: "late filing", count: "22" },
-      { value: "missing proof", count: "19" },
-      { value: "penalty dispute", count: "17" },
-      { value: "duplicate charge", count: "14" },
-      { value: "manual override", count: "11" },
-      { value: "form mismatch", count: "9" },
-    ],
-  },
-  {
-    key: "source_channel",
-    description: "Source channel observed in incoming case material.",
-    count: "94",
-    source: "semantic",
-    values: [
-      { value: "portal", count: "28" },
-      { value: "email", count: "24" },
-      { value: "agent", count: "17" },
-      { value: "internal sync", count: "14" },
-      { value: "batch import", count: "11" },
-    ],
-  },
-  {
-    key: "exception_signal",
-    description: "Emerging exception indicators not yet promoted into stable facet keys.",
-    count: "86",
-    source: "semantic",
-    values: [
-      { value: "manual escalation", count: "21" },
-      { value: "missing annex", count: "18" },
-      { value: "out of policy", count: "17" },
-      { value: "rare jurisdiction", count: "16" },
-      { value: "source ambiguity", count: "14" },
-    ],
-  },
-  {
-    key: "entity_name",
-    description: "Named entities retained for retrieval expansion and answer synthesis.",
-    count: "73",
-    source: "semantic",
-    values: [
-      { value: "alpha corp", count: "18" },
-      { value: "tax office east", count: "15" },
-      { value: "delta hospital", count: "14" },
-      { value: "city appeal board", count: "13" },
-      { value: "north claims center", count: "13" },
-    ],
-  },
-];
-
-export function PartitionPage() {
-  const [selectedEntry, setSelectedEntry] = useState<SchemaEntry | null>(null);
-
-  const detailTitle = useMemo(() => {
-    if (!selectedEntry) {
-      return "Value List";
+function buildFacetRows(definitions: PartitionFacetDefinition[], cases: Array<{ facets?: Record<string, string[]> }>): SchemaEntry[] {
+  return definitions.map((definition) => {
+    const counts = new Map<string, number>();
+    let caseCount = 0;
+    for (const item of cases) {
+      const values = item.facets?.[definition.key] ?? [];
+      if (values.length > 0) {
+        caseCount += 1;
+      }
+      for (const value of values) {
+        counts.set(value, (counts.get(value) ?? 0) + 1);
+      }
     }
-    return `${selectedEntry.key}`;
-  }, [selectedEntry]);
+    const values = Array.from(counts.entries())
+      .sort((left, right) => right[1] - left[1])
+      .slice(0, 8)
+      .map(([value, count]) => ({ value, count }));
+    return {
+      key: definition.key,
+      description: definition.description || definition.display_name || definition.key,
+      count: caseCount,
+      values,
+      status: definition.enabled ? "stable" : "review",
+      source: "facet",
+    };
+  });
+}
 
+function buildSemanticRows(stats: PartitionSemanticKeyStat[]): SchemaEntry[] {
+  return stats.map((item) => ({
+    key: item.key,
+    description: item.aliases.length > 0 ? item.aliases.join(", ") : item.key,
+    count: item.count,
+    values: item.sample_values.map((value) => ({ value: value.value, count: value.count })),
+    source: "semantic",
+  }));
+}
+
+export function PartitionPage({ activePartition }: { activePartition: string | null }) {
+  const [facetRows, setFacetRows] = useState<SchemaEntry[]>([]);
+  const [semanticRows, setSemanticRows] = useState<SchemaEntry[]>([]);
+  const [selectedEntry, setSelectedEntry] = useState<SchemaEntry | null>(null);
+  const [partitionDescription, setPartitionDescription] = useState("");
+  const [caseCount, setCaseCount] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!activePartition?.trim()) {
+      setFacetRows([]);
+      setSemanticRows([]);
+      setSelectedEntry(null);
+      setPartitionDescription("");
+      setCaseCount(0);
+      setErrorMessage("");
+      setLoading(false);
+      return () => {
+        cancelled = true;
+      };
+    }
+    setLoading(true);
+    setErrorMessage("");
+    Promise.all([
+      getPartition(activePartition),
+      getPartitionFacetSchema(activePartition),
+      getPartitionSemanticIndex(activePartition),
+      listPartitionCases(activePartition),
+    ])
+      .then(([partition, facetSchema, semanticIndex, cases]) => {
+        if (cancelled) {
+          return;
+        }
+        const nextFacetRows = buildFacetRows(facetSchema.facet_schema.definitions, cases);
+        const nextSemanticRows = buildSemanticRows(semanticIndex.semantic_index.key_stats);
+        setPartitionDescription(partition.scenario_description || "");
+        setCaseCount(cases.length);
+        setFacetRows(nextFacetRows);
+        setSemanticRows(nextSemanticRows);
+        setSelectedEntry((current) => {
+          if (!current) {
+            return nextFacetRows[0] ?? nextSemanticRows[0] ?? null;
+          }
+          return [...nextFacetRows, ...nextSemanticRows].find(
+            (item) => item.source === current.source && item.key === current.key,
+          ) ?? nextFacetRows[0] ?? nextSemanticRows[0] ?? null;
+        });
+      })
+      .catch((error: unknown) => {
+        if (cancelled) {
+          return;
+        }
+        setFacetRows([]);
+        setSemanticRows([]);
+        setSelectedEntry(null);
+        setPartitionDescription("");
+        setCaseCount(0);
+        setErrorMessage(error instanceof Error ? error.message : "Failed to load partition.");
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activePartition]);
+
+  const detailTitle = useMemo(() => selectedEntry?.key || "Value List", [selectedEntry]);
   return (
     <section className="partition-page">
       <header className="partition-page-header">
         <div className="partition-page-copy">
           <h2>Partition</h2>
-          <p>Claims partition schema, semantic model, and complete key-value details.</p>
+          {partitionDescription ? <p>{partitionDescription}</p> : null}
         </div>
       </header>
-
-      <section className="partition-status-strip">
-        {partitionSummary.map((item) => (
-          <article key={item.label} className="partition-status-card">
-            <span>{item.label}</span>
-            <strong>{item.value}</strong>
-            <small>{item.note}</small>
-          </article>
-        ))}
-      </section>
 
       <section className="partition-workspace">
         <div className="partition-left-stack">
           <article className="skeleton-card partition-schema-card">
             <div className="partition-panel-head">
-              <h3>Facet Schema</h3>
+              <div className="partition-panel-heading">
+                <PanelMark>
+                  <IconPartition />
+                </PanelMark>
+                <h3>Facet Schema</h3>
+              </div>
+              <span className="partition-inline-note">{facetRows.length}</span>
             </div>
             <div className="partition-schema-list-scroll">
               <div className="partition-schema-list">
-                {facetSchemaRows.map((row) => {
+                {!activePartition ? <div className="partition-empty-state"><strong>No active partition</strong></div> : null}
+                {loading ? <div className="partition-empty-state"><strong>Loading...</strong></div> : null}
+                {!loading && errorMessage ? <div className="partition-empty-state"><strong>{errorMessage}</strong></div> : null}
+                {!loading && !errorMessage && activePartition && facetRows.length === 0 ? (
+                  <div className="partition-empty-state"><strong>No facet keys</strong></div>
+                ) : null}
+                {facetRows.map((row) => {
                   const isActive = selectedEntry?.source === row.source && selectedEntry?.key === row.key;
                   return (
                     <button
@@ -207,11 +188,40 @@ export function PartitionPage() {
 
           <article className="skeleton-card partition-schema-card">
             <div className="partition-panel-head">
-              <h3>Semantic Schema</h3>
+              <div className="partition-panel-heading">
+                <PanelMark>
+                  <IconQuery />
+                </PanelMark>
+                <h3>Semantic Schema</h3>
+              </div>
+              <span className="partition-inline-note">{semanticRows.length}</span>
             </div>
             <div className="partition-schema-list-scroll">
               <div className="partition-schema-list">
-                {semanticSchemaRows.map((row) => {
+                {!activePartition ? (
+                  <div className="partition-empty-state">
+                    <strong>No active partition</strong>
+                  </div>
+                ) : null}
+                {loading ? (
+                  <div className="partition-empty-state">
+                    <strong>Loading...</strong>
+                    <p>Reading semantic key statistics for this partition.</p>
+                  </div>
+                ) : null}
+                {!loading && errorMessage ? (
+                  <div className="partition-empty-state">
+                    <strong>{errorMessage}</strong>
+                    <p>Semantic schema could not be loaded.</p>
+                  </div>
+                ) : null}
+                {!loading && !errorMessage && activePartition && semanticRows.length === 0 ? (
+                  <div className="partition-empty-state">
+                    <strong>No semantic keys</strong>
+                    <p>Semantic values will appear here after cases accumulate.</p>
+                  </div>
+                ) : null}
+                {semanticRows.map((row) => {
                   const isActive = selectedEntry?.source === row.source && selectedEntry?.key === row.key;
                   return (
                     <button
@@ -236,7 +246,12 @@ export function PartitionPage() {
 
         <article className="skeleton-card partition-detail-card">
           <div className="partition-panel-head">
-            <h3>{detailTitle}</h3>
+            <div className="partition-panel-heading">
+              <PanelMark>
+                <IconTraceDetail />
+              </PanelMark>
+              <h3>{detailTitle}</h3>
+            </div>
             {selectedEntry ? (
               <span className="partition-inline-note">
                 {selectedEntry.source === "facet" ? "Facet" : "Semantic"}
@@ -269,8 +284,7 @@ export function PartitionPage() {
             </div>
           ) : (
             <div className="partition-empty-state">
-              <strong>Click a key to inspect its value list.</strong>
-              <p>Choose one item from Facet Schema or Semantic Schema to view all values and counts here.</p>
+              <strong>Select a key to inspect values.</strong>
             </div>
           )}
         </article>

@@ -5,7 +5,16 @@ from typing import Any
 
 from fastapi import FastAPI, HTTPException
 
-from internal.models import IngestRequest, IngestResult, PartitionDocument, PartitionFacetDefinition, PartitionFacetSchema, QueryRequest, QueryResult
+from internal.models import (
+    IngestRequest,
+    IngestResult,
+    PartitionDocument,
+    PartitionFacetDefinition,
+    PartitionFacetSchema,
+    PartitionSemanticIndexDocument,
+    QueryRequest,
+    QueryResult,
+)
 
 from .deps import KnowbaseRouteDeps
 from .schemas import (
@@ -100,6 +109,13 @@ def register_core_routes(app: FastAPI, *, deps: KnowbaseRouteDeps) -> None:
             created_at=document.created_at,
             updated_at=document.updated_at,
         )
+
+    @app.get("/api/knowbase/partitions/{partition_name}/semantic-index", response_model=PartitionSemanticIndexDocument)
+    async def get_knowbase_partition_semantic_index(partition_name: str) -> PartitionSemanticIndexDocument:
+        document = deps.partition_service.get_semantic_index_document(partition_name)
+        if document is None:
+            raise HTTPException(status_code=404, detail=f"partition not found: {partition_name}")
+        return document
 
     @app.put("/api/knowbase/partitions/{partition_name}", response_model=PartitionDocument)
     async def upsert_knowbase_partition(partition_name: str, req: PartitionUpsertRequest) -> PartitionDocument:

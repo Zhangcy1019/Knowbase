@@ -65,7 +65,7 @@ export function AppRouter({
     case "/query":
       return <QueryPage />;
     case "/partition":
-      return <PartitionPage />;
+      return <PartitionPage activePartition={activePartition} />;
     case "/ingest":
       return <IngestPage activePartition={activePartition} />;
     case "/overview":

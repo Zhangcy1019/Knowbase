@@ -1,5 +1,4 @@
 .partition-page,
-.partition-status-strip,
 .partition-workspace,
 .partition-left-stack {
   display: grid;
@@ -9,7 +8,7 @@
 .partition-page {
   min-height: 100%;
   height: 100%;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   overflow: hidden;
 }
 
@@ -35,20 +34,6 @@
   line-height: 1.45;
 }
 
-.partition-status-strip {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.partition-status-card {
-  display: grid;
-  gap: 4px;
-  border: 1px solid var(--line-soft);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.72);
-  padding: 12px 14px;
-}
-
-.partition-status-card span,
 .partition-inline-status,
 .partition-inline-note,
 .partition-schema-item-line span,
@@ -58,27 +43,6 @@
 .partition-value-table-header,
 .partition-value-table-row code {
   font-family: var(--font-body);
-}
-
-.partition-status-card span {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-.partition-status-card strong {
-  font-family: var(--font-display);
-  font-size: 28px;
-  font-weight: 600;
-  letter-spacing: -0.05em;
-  line-height: 1;
-}
-
-.partition-status-card small {
-  color: var(--text-muted);
-  font-size: 13px;
 }
 
 .partition-workspace {
@@ -108,10 +72,37 @@
   margin-bottom: 10px;
 }
 
+.partition-panel-heading {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.partition-panel-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 26px;
+  border-radius: 8px;
+  background: rgba(59, 130, 166, 0.14);
+  color: #255875;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.partition-panel-mark svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 1.9;
+}
+
 .partition-panel-head h3 {
   margin: 0;
   font-family: var(--font-display);
-  font-size: 19px;
+  font-size: 17px;
   font-weight: 600;
   letter-spacing: -0.03em;
 }
@@ -298,17 +289,17 @@
   align-content: center;
   min-height: 0;
   text-align: center;
-  gap: 8px;
+  gap: 6px;
   border-radius: 6px;
   border: 1px dashed rgba(40, 71, 104, 0.18);
   background: rgba(255, 255, 255, 0.42);
   color: #31485f;
-  padding: 24px;
+  padding: 18px;
 }
 
 .partition-empty-state strong {
   font-family: var(--font-display);
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
   letter-spacing: -0.03em;
   color: #17314a;
