@@ -29,7 +29,7 @@ class PartitionSchemaSuggester:
 
     def __init__(self) -> None:
         self._logger = get_logger(__name__)
-        self._model = self._build_model()
+        self._model = None
 
     def suggest(
         self,
@@ -39,6 +39,8 @@ class PartitionSchemaSuggester:
         current_facet_definitions: list[PartitionFacetDefinition] | None = None,
         cautious_update: bool = False,
     ) -> PartitionSchemaSuggestion:
+        if self._model is None:
+            self._model = self._build_model()
         if self._model is None:
             raise RuntimeError("PartitionSchemaSuggester is unavailable: LLM model initialization failed")
 

@@ -81,6 +81,7 @@ class KnowbaseIngestService:
             metadata=draft.metadata,
             facets=draft.facets,
         )
+        resolved_facets = case_document.facets.model_dump()
         publish_result = await self._event_publisher.publish(
             KnowbaseEvent(
                 event_type=KnowbaseEventType.CASE_CREATED,
@@ -93,7 +94,7 @@ class KnowbaseIngestService:
                     after=CaseEventSnapshot(
                         title=case_document.title,
                         facet_count=sum(len(values) for values in case_document.facets.values()),
-                        facets=case_document.facets,
+                        facets=resolved_facets,
                     ),
                     changed_fields=[
                         "title",
@@ -104,7 +105,7 @@ class KnowbaseIngestService:
                         "metadata",
                         "facets",
                     ],
-                    observed_facets=case_document.facets,
+                    observed_facets=resolved_facets,
                 ),
             )
         )
