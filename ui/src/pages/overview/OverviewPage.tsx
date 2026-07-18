@@ -45,8 +45,8 @@ export function OverviewPage({
   activePartition,
   onActivatePartition,
 }: {
-  activePartition: string;
-  onActivatePartition: (partitionName: string) => void;
+  activePartition: string | null;
+  onActivatePartition: (partitionName: string | null) => void;
 }) {
   return (
     <section className="overview-page">

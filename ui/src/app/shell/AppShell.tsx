@@ -6,7 +6,7 @@ export function AppShell({
   pathname,
   activePartition,
   children,
-}: PropsWithChildren<{ pathname: string; activePartition: string }>) {
+}: PropsWithChildren<{ pathname: string; activePartition: string | null }>) {
   return (
     <div className="app-shell">
       <Sidebar pathname={pathname} activePartition={activePartition} />

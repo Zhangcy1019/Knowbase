@@ -48,8 +48,8 @@ export function AppRouter({
   onActivatePartition,
 }: {
   pathname: string;
-  activePartition: string;
-  onActivatePartition: (partitionName: string) => void;
+  activePartition: string | null;
+  onActivatePartition: (partitionName: string | null) => void;
 }) {
   switch (pathname) {
     case "/explore":
@@ -57,7 +57,7 @@ export function AppRouter({
     case "/backlog":
       return <BacklogPage />;
     case "/runs":
-      return <RunsPage />;
+      return <RunsPage activePartition={activePartition} />;
     case "/settings":
       return <SettingsPage />;
     case "/design":

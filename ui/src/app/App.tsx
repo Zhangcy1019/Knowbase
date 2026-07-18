@@ -6,7 +6,7 @@ import "../pages/shared/page.css";
 
 export function App() {
   const [pathname, setPathname] = useState(resolvePath(stripBasePath(window.location.pathname)));
-  const [activePartition, setActivePartition] = useState("Claims");
+  const [activePartition, setActivePartition] = useState<string | null>(null);
 
   useEffect(() => {
     function onPopState() {

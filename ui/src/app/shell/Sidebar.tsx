@@ -21,7 +21,7 @@ const navItems = [
   { href: "/settings", label: "Settings", icon: IconSettings },
 ];
 
-export function Sidebar({ pathname, activePartition }: { pathname: string; activePartition: string }) {
+export function Sidebar({ pathname, activePartition }: { pathname: string; activePartition: string | null }) {
   return (
     <aside className="app-sidebar">
       <div className="app-sidebar-brand">
@@ -44,7 +44,7 @@ export function Sidebar({ pathname, activePartition }: { pathname: string; activ
       <div className="app-sidebar-footer">
         <div className="app-sidebar-active-partition">
           <span>Active partition</span>
-          <strong>{activePartition || "None"}</strong>
+          <strong>{activePartition || "No active partition"}</strong>
         </div>
       </div>
     </aside>

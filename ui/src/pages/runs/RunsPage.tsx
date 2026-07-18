@@ -1,80 +1,157 @@
 import type { ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import "./runs.css";
 import { IconTraceDetail, IconTraceFocus, IconTraceList, IconTraceLoop } from "../../shared/icons";
-
-const runRows = [
-  {
-    id: "RUN-2417",
-    partition: "Claims",
-    status: "completed",
-    source: "backlog",
-    turns: 1,
-    startedAt: "09:42",
-    objective: "Review backlog batch BATCH-08 and summarize next maintenance work.",
-  },
-  {
-    id: "RUN-2416",
-    partition: "Tax",
-    status: "completed",
-    source: "manual",
-    turns: 1,
-    startedAt: "09:18",
-    objective: "Inspect pending update wave and respond with a traceable summary.",
-  },
-  {
-    id: "RUN-2415",
-    partition: "Policy",
-    status: "review",
-    source: "backlog",
-    turns: 2,
-    startedAt: "08:57",
-    objective: "Compare affected cases and decide whether follow-up rebuild is needed.",
-  },
-  {
-    id: "RUN-2414",
-    partition: "Audit",
-    status: "failed",
-    source: "scheduled",
-    turns: 1,
-    startedAt: "08:11",
-    objective: "Check runtime batch readiness and explain why execution could not continue.",
-  },
-];
-
-const turnRows = [
-  { id: "01", mode: "Decision", summary: "Responded with a compact batch analysis and stopped.", status: "selected" },
-  { id: "00", mode: "Request", summary: "Request loaded with batch summary and preparation notes.", status: "idle" },
-];
-
-const promptLines = [
-  "Analyze backlog batch BATCH-08 for partition Claims.",
-  "Current runtime mode is analysis-only.",
-  "Do not propose any tool_call or skill_call actions.",
-  "Return one respond action or stop immediately.",
-];
-
-const responseLines = [
-  "{",
-  '  "reasoning_summary": "Batch BATCH-08 contains six recent case updates.",',
-  '  "action_plan_summary": "Respond with a short maintenance summary and stop.",',
-  '  "should_stop": true,',
-  '  "actions": [{ "kind": "respond", "summary": "Batch summarized for operator review." }]',
-  "}",
-];
-
-const artifactRows = [
-  { label: "Request", type: "runtime_request" },
-  { label: "Context", type: "planner_context" },
-  { label: "Prompt", type: "llm_prompt" },
-  { label: "Response", type: "llm_response" },
-];
+import {
+  getRuntimeRunTrace,
+  listRuntimeRuns,
+  type RuntimeRunArtifactResponse,
+  type RuntimeRunSummary,
+  type RuntimeTraceReplayResponse,
+  type RuntimeTraceTurnResponse,
+} from "../../shared/api/runtime";
 
 function PanelMark({ children }: { children: ReactNode }) {
   return <span className="runs-panel-mark">{children}</span>;
 }
 
-export function RunsPage() {
+function formatTime(value: string | null) {
+  if (!value) {
+    return "--";
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+function formatStatus(status: string, requiresReview: boolean) {
+  if (requiresReview) {
+    return "review";
+  }
+  return status || "unknown";
+}
+
+function buildPromptLines(turn: RuntimeTraceTurnResponse | null) {
+  const payload = turn?.llm_prompt_artifact?.content?.prompt;
+  if (typeof payload !== "string" || !payload.trim()) {
+    return ["No prompt artifact available."];
+  }
+  return payload.split("\n").filter((line) => line.length > 0);
+}
+
+function buildResponseLines(turn: RuntimeTraceTurnResponse | null) {
+  const artifactContent = turn?.llm_response_artifact?.content;
+  if (!artifactContent) {
+    return ["No response artifact available."];
+  }
+  return JSON.stringify(artifactContent, null, 2).split("\n");
+}
+
+function summarizeTurn(turn: RuntimeTraceTurnResponse, index: number) {
+  const step = turn.decision_step;
+  if (step?.summary) {
+    return step.summary;
+  }
+  if (turn.action_steps[0]?.summary) {
+    return turn.action_steps[0].summary;
+  }
+  return `Turn ${index + 1}`;
+}
+
+export function RunsPage({ activePartition }: { activePartition: string | null }) {
+  const [runs, setRuns] = useState<RuntimeRunSummary[]>([]);
+  const [selectedRunId, setSelectedRunId] = useState("");
+  const [trace, setTrace] = useState<RuntimeTraceReplayResponse | null>(null);
+  const [loadingRuns, setLoadingRuns] = useState(false);
+  const [loadingTrace, setLoadingTrace] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!activePartition?.trim()) {
+      setRuns([]);
+      setTrace(null);
+      setSelectedRunId("");
+      setErrorMessage("");
+      setLoadingRuns(false);
+      return () => {
+        cancelled = true;
+      };
+    }
+    setLoadingRuns(true);
+    setErrorMessage("");
+    setTrace(null);
+    setSelectedRunId("");
+    listRuntimeRuns(activePartition)
+      .then((items) => {
+        if (cancelled) {
+          return;
+        }
+        setRuns(items);
+        setSelectedRunId(items[0]?.run_id ?? "");
+      })
+      .catch((error: unknown) => {
+        if (cancelled) {
+          return;
+        }
+        setRuns([]);
+        setErrorMessage(error instanceof Error ? error.message : "Failed to load runs.");
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoadingRuns(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activePartition]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!selectedRunId) {
+      setTrace(null);
+      return () => {
+        cancelled = true;
+      };
+    }
+    setLoadingTrace(true);
+    getRuntimeRunTrace(selectedRunId)
+      .then((payload) => {
+        if (!cancelled) {
+          setTrace(payload);
+        }
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setTrace(null);
+          setErrorMessage(error instanceof Error ? error.message : "Failed to load trace.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoadingTrace(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedRunId]);
+
+  const selectedRun = useMemo(
+    () => runs.find((item) => item.run_id === selectedRunId) ?? null,
+    [runs, selectedRunId],
+  );
+  const turns = trace?.turns ?? [];
+  const selectedTurn = turns[0] ?? null;
+  const promptLines = buildPromptLines(selectedTurn);
+  const responseLines = buildResponseLines(selectedTurn);
+  const artifactRows = trace?.artifacts ?? [];
+  const reviewCount = runs.filter((item) => item.requires_review).length;
+
   return (
     <section className="runs-page">
       <header className="runs-page-header">
@@ -82,8 +159,8 @@ export function RunsPage() {
           <h2>Runs</h2>
         </div>
         <div className="runs-page-status">
-          <span className="runs-page-pill">24</span>
-          <span className="runs-page-pill is-accent">3</span>
+          <span className="runs-page-pill">{runs.length}</span>
+          <span className="runs-page-pill is-accent">{reviewCount}</span>
         </div>
       </header>
 
@@ -99,26 +176,38 @@ export function RunsPage() {
           </div>
 
           <div className="runs-filter-strip">
-            <span className="runs-chip is-active">All</span>
-            <span className="runs-chip">Backlog</span>
-            <span className="runs-chip">Needs review</span>
-            <span className="runs-chip">Failed</span>
+            <span className="runs-chip is-active">{activePartition || "No active partition"}</span>
+            <span className="runs-chip">All</span>
+            <span className="runs-chip">Review {reviewCount}</span>
           </div>
 
           <div className="runs-list-scroll">
             <div className="runs-list">
-              {runRows.map((run, index) => (
-                <button key={run.id} type="button" className={`runs-row${index === 0 ? " is-active" : ""}`}>
+              {!activePartition ? <div className="runs-empty-state">Select or create a partition first.</div> : null}
+              {loadingRuns ? <div className="runs-empty-state">Loading runs...</div> : null}
+              {!loadingRuns && errorMessage ? <div className="runs-empty-state">{errorMessage}</div> : null}
+              {!activePartition ? null : !loadingRuns && !errorMessage && runs.length === 0 ? (
+                <div className="runs-empty-state">No runs for the active partition.</div>
+              ) : null}
+              {runs.map((run) => (
+                <button
+                  key={run.run_id}
+                  type="button"
+                  className={`runs-row${run.run_id === selectedRunId ? " is-active" : ""}`}
+                  onClick={() => setSelectedRunId(run.run_id)}
+                >
                   <div className="runs-row-top">
-                    <strong>{run.id}</strong>
-                    <span className={`runs-inline-status is-${run.status}`}>{run.status}</span>
+                    <strong>{run.run_id}</strong>
+                    <span className={`runs-inline-status is-${formatStatus(run.status, run.requires_review)}`}>
+                      {formatStatus(run.status, run.requires_review)}
+                    </span>
                   </div>
-                  <p>{run.objective}</p>
+                  <p>{run.objective || run.reasoning_summary || "No objective available."}</p>
                   <div className="runs-row-meta">
                     <span>{run.partition}</span>
-                    <span>{run.source}</span>
-                    <span>{run.turns} turn</span>
-                    <span>{run.startedAt}</span>
+                    <span>{run.source_type}</span>
+                    <span>{run.step_count} step</span>
+                    <span>{formatTime(run.created_at)}</span>
                   </div>
                 </button>
               ))}
@@ -133,32 +222,34 @@ export function RunsPage() {
                 <PanelMark>
                   <IconTraceFocus />
                 </PanelMark>
-                <h3>RUN-2417</h3>
+                <h3>{selectedRun?.run_id || "No run"}</h3>
               </div>
-              <code>Claims</code>
+              <code>{selectedRun?.partition || activePartition || "No active partition"}</code>
             </div>
 
             <div className="runs-summary-grid">
               <div className="runs-summary-hero">
-                <strong>Review backlog batch BATCH-08 and summarize next maintenance work.</strong>
+                <strong>
+                  {selectedRun?.objective || selectedRun?.reasoning_summary || "Select a run to inspect trace details."}
+                </strong>
               </div>
 
               <div className="runs-summary-stats">
                 <div className="runs-stat-card">
                   <span>Status</span>
-                  <strong>Completed</strong>
+                  <strong>{selectedRun ? formatStatus(selectedRun.status, selectedRun.requires_review) : "--"}</strong>
                 </div>
                 <div className="runs-stat-card">
                   <span>Turns</span>
-                  <strong>1</strong>
+                  <strong>{turns.length}</strong>
                 </div>
                 <div className="runs-stat-card">
                   <span>Artifacts</span>
-                  <strong>4</strong>
+                  <strong>{artifactRows.length}</strong>
                 </div>
                 <div className="runs-stat-card">
                   <span>Actions</span>
-                  <strong>1</strong>
+                  <strong>{trace?.run.actions.length ?? 0}</strong>
                 </div>
               </div>
             </div>
@@ -176,15 +267,17 @@ export function RunsPage() {
 
             <div className="runs-turn-scroll">
               <div className="runs-turn-list">
-                {turnRows.map((turn) => (
-                  <button key={turn.id} type="button" className={`runs-turn-row${turn.status === "selected" ? " is-active" : ""}`}>
+                {loadingTrace ? <div className="runs-empty-state">Loading trace...</div> : null}
+                {!loadingTrace && !trace ? <div className="runs-empty-state">No trace loaded.</div> : null}
+                {turns.map((turn, index) => (
+                  <button key={`${turn.turn_index}`} type="button" className={`runs-turn-row${index === 0 ? " is-active" : ""}`}>
                     <div className="runs-turn-marker" />
                     <div className="runs-turn-body">
                       <div className="runs-turn-head">
-                        <strong>{turn.id}</strong>
-                        <span>{turn.mode}</span>
+                        <strong>{String(turn.turn_index).padStart(2, "0")}</strong>
+                        <span>{turn.decision_step?.step_type || "turn"}</span>
                       </div>
-                      <p>{turn.summary}</p>
+                      <p>{summarizeTurn(turn, index)}</p>
                     </div>
                   </button>
                 ))}
@@ -207,9 +300,11 @@ export function RunsPage() {
             <section className="runs-detail-section">
               <div className="runs-detail-title">
                 <strong>Decision</strong>
-                <span>respond + stop</span>
+                <span>{selectedTurn?.decision_artifact?.artifact_type || "decision"}</span>
               </div>
-              <p className="runs-detail-summary">Batch BATCH-08 contains six recent case updates.</p>
+              <p className="runs-detail-summary">
+                {selectedTurn?.decision_step?.summary || selectedRun?.reasoning_summary || "No decision summary available."}
+              </p>
             </section>
 
             <section className="runs-detail-section">
@@ -239,13 +334,13 @@ export function RunsPage() {
             <section className="runs-detail-section">
               <div className="runs-detail-title">
                 <strong>Artifacts</strong>
-                <span>4</span>
+                <span>{artifactRows.length}</span>
               </div>
               <div className="runs-artifact-list">
-                {artifactRows.map((artifact) => (
-                  <div key={artifact.label} className="runs-artifact-row">
-                    <strong>{artifact.label}</strong>
-                    <code>{artifact.type}</code>
+                {artifactRows.map((artifact: RuntimeRunArtifactResponse) => (
+                  <div key={artifact.artifact_id} className="runs-artifact-row">
+                    <strong>{artifact.title || artifact.artifact_type}</strong>
+                    <code>{artifact.artifact_type}</code>
                   </div>
                 ))}
               </div>
