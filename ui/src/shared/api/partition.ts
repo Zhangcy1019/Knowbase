@@ -97,6 +97,33 @@ export function createPartition(payload: CreatePartitionRequest) {
   });
 }
 
+export function updatePartition(partitionName: string, payload: CreatePartitionRequest) {
+  return requestJson<PartitionDocument>(`/api/knowbase/partitions/${encodeURIComponent(partitionName)}`, {
+    method: "PUT",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      partition_name: payload.partition_name,
+      scenario_description: payload.scenario_description ?? "",
+      status: payload.status ?? "active",
+    }),
+  });
+}
+
+export function deletePartition(partitionName: string) {
+  return requestJson<{
+    deleted_type: string;
+    deleted_id: string;
+    deleted_case_count: number;
+    deleted_run_count: number;
+    deleted_event_backlog_count: number;
+  }>(`/api/knowbase/partitions/${encodeURIComponent(partitionName)}`, {
+    method: "DELETE",
+  });
+}
+
 export function getPartitionFacetSchema(partitionName: string) {
   return requestJson<PartitionFacetSchemaResponse>(
     `/api/knowbase/partitions/${encodeURIComponent(partitionName)}/facet-schema`,

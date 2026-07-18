@@ -35,7 +35,7 @@ def register_core_routes(app: FastAPI, *, deps: KnowbaseRouteDeps) -> None:
     async def create_knowbase_partition(req: PartitionUpsertRequest) -> PartitionDocument:
         existing = deps.partition_service.get_partition(req.partition_name)
         if existing is not None:
-            raise HTTPException(status_code=409, detail=f"partition already exists: {req.partition_name}")
+            raise HTTPException(status_code=409, detail=f'Partition "{req.partition_name}" already exists.')
 
         now = datetime.now(timezone.utc)
         document = PartitionDocument(
@@ -56,7 +56,7 @@ def register_core_routes(app: FastAPI, *, deps: KnowbaseRouteDeps) -> None:
     async def get_knowbase_partition(partition_name: str) -> PartitionDocument:
         document = deps.partition_service.get_partition(partition_name)
         if document is None:
-            raise HTTPException(status_code=404, detail=f"partition not found: {partition_name}")
+            raise HTTPException(status_code=404, detail=f'Partition "{partition_name}" not found.')
         return document
 
     @app.post("/api/knowbase/partitions/schema-suggestions", response_model=PartitionSchemaSuggestionResponse)
@@ -83,7 +83,7 @@ def register_core_routes(app: FastAPI, *, deps: KnowbaseRouteDeps) -> None:
     async def get_knowbase_partition_facet_schema(partition_name: str) -> PartitionFacetSchemaResponse:
         document = deps.partition_service.get_facet_schema_document(partition_name)
         if document is None:
-            raise HTTPException(status_code=404, detail=f"partition not found: {partition_name}")
+            raise HTTPException(status_code=404, detail=f'Partition "{partition_name}" not found.')
         return PartitionFacetSchemaResponse(
             partition_name=document.partition_name,
             facet_schema=document.facet_schema,
@@ -114,7 +114,7 @@ def register_core_routes(app: FastAPI, *, deps: KnowbaseRouteDeps) -> None:
     async def get_knowbase_partition_semantic_index(partition_name: str) -> PartitionSemanticIndexDocument:
         document = deps.partition_service.get_semantic_index_document(partition_name)
         if document is None:
-            raise HTTPException(status_code=404, detail=f"partition not found: {partition_name}")
+            raise HTTPException(status_code=404, detail=f'Partition "{partition_name}" not found.')
         return document
 
     @app.put("/api/knowbase/partitions/{partition_name}", response_model=PartitionDocument)
@@ -124,7 +124,7 @@ def register_core_routes(app: FastAPI, *, deps: KnowbaseRouteDeps) -> None:
         now = datetime.now(timezone.utc)
         existing = deps.partition_service.get_partition(partition_name)
         if existing is None:
-            raise HTTPException(status_code=404, detail=f"partition not found: {partition_name}")
+            raise HTTPException(status_code=404, detail=f'Partition "{partition_name}" not found.')
         document = PartitionDocument(
             partition_name=req.partition_name,
             scenario_description=req.scenario_description,
@@ -138,7 +138,7 @@ def register_core_routes(app: FastAPI, *, deps: KnowbaseRouteDeps) -> None:
     async def delete_knowbase_partition(partition_name: str) -> dict[str, Any]:
         existing = deps.partition_service.get_partition(partition_name)
         if existing is None:
-            raise HTTPException(status_code=404, detail=f"partition not found: {partition_name}")
+            raise HTTPException(status_code=404, detail=f'Partition "{partition_name}" not found.')
         try:
             deleted_case_count = 0
             for case_document in deps.case_repository.list_by_partition(partition_name):

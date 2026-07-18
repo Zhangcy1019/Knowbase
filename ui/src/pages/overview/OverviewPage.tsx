@@ -2,14 +2,15 @@ import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 
 import "./overview.css";
-import { CreatePartitionCard } from "./CreatePartitionCard";
 import { IconBacklog, IconOverview, IconPartition, IconRuns, IconTraceList } from "../../shared/icons";
 import {
   createPartition,
+  deletePartition,
   listBacklogEvents,
   listPartitionCases,
   listPartitions,
   listRuntimeRuns,
+  updatePartition,
   type EventRecordResponse,
   type PartitionDocument,
   type RuntimeRunSummary,
@@ -20,7 +21,7 @@ type OverviewPartitionRow = {
   cases: number;
   backlog: number;
   runAt: string | null;
-  status: "stable" | "elevated" | "review";
+  statusTone: "stable" | "elevated" | "review";
 };
 
 type OverviewRecentChange = {
@@ -28,6 +29,8 @@ type OverviewRecentChange = {
   label: string;
   timestamp: string | null;
 };
+
+type ManagerMode = "view" | "create" | "edit";
 
 function PanelMark({ children }: { children: ReactNode }) {
   return <span className="overview-panel-mark">{children}</span>;
@@ -56,11 +59,28 @@ function formatRelativeTime(value: string | null) {
   return `${diffDays}d ago`;
 }
 
-function normalizePartitionStatus(
+function formatAbsoluteTime(value: string | null) {
+  if (!value) {
+    return "--";
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return date.toLocaleString([], {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function resolvePartitionTone(
   partition: PartitionDocument,
   backlogCount: number,
   runs: RuntimeRunSummary[],
-): OverviewPartitionRow["status"] {
+): OverviewPartitionRow["statusTone"] {
   if (runs.some((item) => item.requires_review)) {
     return "review";
   }
@@ -97,49 +117,70 @@ export function OverviewPage({
   activePartition: string | null;
   onActivatePartition: (partitionName: string | null) => void;
 }) {
+  const [partitions, setPartitions] = useState<PartitionDocument[]>([]);
   const [partitionRows, setPartitionRows] = useState<OverviewPartitionRow[]>([]);
   const [backlogEvents, setBacklogEvents] = useState<EventRecordResponse[]>([]);
   const [runs, setRuns] = useState<RuntimeRunSummary[]>([]);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  const [createOpen, setCreateOpen] = useState(false);
+  const [selectedPartitionName, setSelectedPartitionName] = useState("");
+  const [managerMode, setManagerMode] = useState<ManagerMode>("view");
+  const [managerError, setManagerError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [formName, setFormName] = useState("");
+  const [formDescription, setFormDescription] = useState("");
+  const [formStatus, setFormStatus] = useState<PartitionDocument["status"]>("active");
 
   async function loadOverview(isCancelled?: () => boolean) {
     setLoading(true);
     setErrorMessage("");
     try {
-      const [partitions, events, runtimeRuns] = await Promise.all([listPartitions(), listBacklogEvents({}), listRuntimeRuns("")]);
-      const rowPayload = await Promise.all(
-        partitions.map(async (partition) => {
+      const [nextPartitions, events, runtimeRuns] = await Promise.all([
+        listPartitions(),
+        listBacklogEvents({}),
+        listRuntimeRuns(""),
+      ]);
+      const nextRows = await Promise.all(
+        nextPartitions.map(async (partition) => {
           const [cases, partitionRuns, partitionEvents] = await Promise.all([
             listPartitionCases(partition.partition_name),
             Promise.resolve(runtimeRuns.filter((item) => item.partition === partition.partition_name)),
             Promise.resolve(events.filter((item) => item.partition === partition.partition_name)),
           ]);
-          const lastRunAt = partitionRuns
-            .map((item) => item.updated_at || item.finished_at || item.created_at)
-            .filter((item): item is string => Boolean(item))
-            .sort((left, right) => new Date(right).getTime() - new Date(left).getTime())[0] ?? null;
+          const lastRunAt =
+            partitionRuns
+              .map((item) => item.updated_at || item.finished_at || item.created_at)
+              .filter((item): item is string => Boolean(item))
+              .sort((left, right) => new Date(right).getTime() - new Date(left).getTime())[0] ?? null;
           return {
             name: partition.partition_name,
             cases: cases.length,
             backlog: partitionEvents.length,
             runAt: lastRunAt,
-            status: normalizePartitionStatus(partition, partitionEvents.length, partitionRuns),
+            statusTone: resolvePartitionTone(partition, partitionEvents.length, partitionRuns),
           } satisfies OverviewPartitionRow;
         }),
       );
-      rowPayload.sort((left, right) => left.name.localeCompare(right.name));
+      nextRows.sort((left, right) => left.name.localeCompare(right.name));
       if (isCancelled?.()) {
         return;
       }
-      setPartitionRows(rowPayload);
+      setPartitions(nextPartitions);
+      setPartitionRows(nextRows);
       setBacklogEvents(events);
       setRuns(runtimeRuns);
+      setSelectedPartitionName((current) => {
+        if (current && nextPartitions.some((item) => item.partition_name === current)) {
+          return current;
+        }
+        return nextPartitions[0]?.partition_name ?? "";
+      });
     } catch (error: unknown) {
       if (isCancelled?.()) {
         return;
       }
+      setPartitions([]);
       setPartitionRows([]);
       setBacklogEvents([]);
       setRuns([]);
@@ -162,20 +203,22 @@ export function OverviewPage({
   const recentChanges = useMemo(() => buildRecentChanges(backlogEvents, runs), [backlogEvents, runs]);
   const reviewCount = runs.filter((item) => item.requires_review).length;
   const readyBacklogCount = backlogEvents.filter((item) => item.status === "ready").length;
-  const activePartitionCount = partitionRows.filter((item) => item.status === "stable").length;
+  const activePartitionCount = partitions.filter((item) => item.status === "active").length;
   const totalCases = partitionRows.reduce((sum, item) => sum + item.cases, 0);
-  const highestBacklogRow = [...partitionRows].sort((left, right) => right.backlog - left.backlog)[0] ?? null;
+  const selectedPartition = partitions.find((item) => item.partition_name === selectedPartitionName) ?? null;
+  const selectedRow = partitionRows.find((item) => item.name === selectedPartitionName) ?? null;
+  const busiestPartition = [...partitionRows].sort((left, right) => right.backlog - left.backlog)[0] ?? null;
   const latestRun = [...runs]
     .sort((left, right) => {
       const leftTime = new Date(left.updated_at || left.finished_at || left.created_at || 0).getTime();
       const rightTime = new Date(right.updated_at || right.finished_at || right.created_at || 0).getTime();
       return rightTime - leftTime;
     })[0] ?? null;
-  const systemSignals = [
+  const bottomSignals = [
     {
       label: "Backlog pressure",
-      value: String(highestBacklogRow?.backlog ?? 0),
-      note: highestBacklogRow ? `${highestBacklogRow.name} queue highest` : "No backlog events",
+      value: String(busiestPartition?.backlog ?? 0),
+      note: busiestPartition ? `${busiestPartition.name} queue highest` : "No backlog events",
     },
     {
       label: "Review queue",
@@ -189,12 +232,101 @@ export function OverviewPage({
     },
   ];
 
+  function enterCreateMode() {
+    setManagerMode("create");
+    setManagerError("");
+    setDeleteConfirmOpen(false);
+    setFormName("");
+    setFormDescription("");
+    setFormStatus("active");
+  }
+
+  function enterEditMode() {
+    if (!selectedPartition) {
+      return;
+    }
+    setManagerMode("edit");
+    setManagerError("");
+    setDeleteConfirmOpen(false);
+    setFormName(selectedPartition.partition_name);
+    setFormDescription(selectedPartition.scenario_description || "");
+    setFormStatus(selectedPartition.status);
+  }
+
+  function resetManagerMode() {
+    setManagerMode("view");
+    setManagerError("");
+    setDeleteConfirmOpen(false);
+  }
+
+  async function handleSubmitManager() {
+    const nextName = formName.trim();
+    if (!nextName) {
+      setManagerError("Partition name is required.");
+      return;
+    }
+    try {
+      setSubmitting(true);
+      setManagerError("");
+      if (managerMode === "create") {
+        const created = await createPartition({
+          partition_name: nextName,
+          scenario_description: formDescription.trim(),
+          status: formStatus,
+        });
+        await loadOverview();
+        setSelectedPartitionName(created.partition_name);
+        onActivatePartition(created.partition_name);
+      } else if (managerMode === "edit" && selectedPartition) {
+        const updated = await updatePartition(selectedPartition.partition_name, {
+          partition_name: selectedPartition.partition_name,
+          scenario_description: formDescription.trim(),
+          status: formStatus,
+        });
+        await loadOverview();
+        setSelectedPartitionName(updated.partition_name);
+        if (activePartition === updated.partition_name && updated.status !== "active") {
+          onActivatePartition(null);
+        }
+      }
+      setManagerMode("view");
+    } catch (error: unknown) {
+      setManagerError(error instanceof Error ? error.message : "Partition update failed.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleDeleteSelected() {
+    if (!selectedPartition) {
+      return;
+    }
+    try {
+      setSubmitting(true);
+      setManagerError("");
+      setDeleteConfirmOpen(false);
+      const nextSelectedPartitionName =
+        partitions.find((item) => item.partition_name !== selectedPartition.partition_name)?.partition_name ?? "";
+      await deletePartition(selectedPartition.partition_name);
+      if (activePartition === selectedPartition.partition_name) {
+        onActivatePartition(null);
+      }
+      setSelectedPartitionName(nextSelectedPartitionName);
+      await loadOverview();
+      setManagerMode("view");
+    } catch (error: unknown) {
+      setManagerError(error instanceof Error ? error.message : "Partition delete failed.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   return (
     <section className="overview-page">
       <header className="overview-page-header">
         <div className="overview-page-copy">
           <h2>Overview</h2>
-          <p>Global status, partition distribution, and recent system changes.</p>
+          <p>Global status and partition management.</p>
         </div>
       </header>
 
@@ -206,8 +338,8 @@ export function OverviewPage({
             </PanelMark>
             <span>Partitions</span>
           </div>
-          <strong>{partitionRows.length}</strong>
-          <small>{activePartitionCount} stable now</small>
+          <strong>{partitions.length}</strong>
+          <small>{activePartitionCount} active</small>
         </article>
         <article className="overview-status-card">
           <div className="overview-status-head">
@@ -241,114 +373,267 @@ export function OverviewPage({
         </article>
       </section>
 
-      <section className="overview-main-grid">
-        <article className="skeleton-card overview-table-card">
+      <section className="overview-manager-grid">
+        <article className="skeleton-card overview-manager-list-card">
           <div className="overview-panel-head">
             <div className="overview-panel-heading">
               <PanelMark>
                 <IconOverview />
               </PanelMark>
-              <h3>Partition List</h3>
+              <h3>Partition Manager</h3>
             </div>
-            <button type="button" className="overview-inline-button" onClick={() => setCreateOpen(true)}>Create</button>
+            <button type="button" className="overview-inline-button" onClick={enterCreateMode}>
+              Create
+            </button>
           </div>
+
           <div className="overview-table-scroll">
             <div className="overview-table">
               <div className="overview-table-header">
                 <span>Partition</span>
+                <span>Summary</span>
                 <span>Cases</span>
                 <span>Backlog</span>
-                <span>Last run</span>
                 <span>Status</span>
                 <span>Active</span>
               </div>
-              {loading ? <div className="overview-empty-state">Loading overview...</div> : null}
+              {loading && partitionRows.length === 0 ? <div className="overview-empty-state">Loading partitions...</div> : null}
               {!loading && errorMessage ? <div className="overview-empty-state">{errorMessage}</div> : null}
               {!loading && !errorMessage && partitionRows.length === 0 ? (
                 <div className="overview-empty-state">No partitions yet.</div>
               ) : null}
-              {partitionRows.map((row) => (
-                <div key={row.name} className="overview-table-row">
-                  <strong>{row.name}</strong>
-                  <span>{row.cases}</span>
-                  <span>{row.backlog}</span>
-                  <span>{formatRelativeTime(row.runAt)}</span>
-                  <span className={`overview-inline-status is-${row.status}`}>{row.status}</span>
+              {partitionRows.map((row) => {
+                const partition = partitions.find((item) => item.partition_name === row.name);
+                return (
                   <button
+                    key={row.name}
                     type="button"
-                    className={`overview-activate-button${activePartition === row.name ? " is-active" : ""}`}
-                    onClick={() => onActivatePartition(row.name)}
+                    className={`overview-table-row overview-table-row-button${selectedPartitionName === row.name ? " is-selected" : ""}`}
+                    onClick={() => {
+                      setSelectedPartitionName(row.name);
+                      setManagerMode("view");
+                      setManagerError("");
+                      setDeleteConfirmOpen(false);
+                    }}
                   >
-                    {activePartition === row.name ? "On" : "Set"}
+                    <strong>{row.name}</strong>
+                    <span className="overview-table-summary">
+                      {partition?.scenario_description || "No description"}
+                    </span>
+                    <span>{row.cases}</span>
+                    <span>{row.backlog}</span>
+                    <span className={`overview-inline-status is-${row.statusTone}`}>{partition?.status || "active"}</span>
+                    <button
+                      type="button"
+                      className={`overview-activate-button${activePartition === row.name ? " is-active" : ""}`}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onActivatePartition(row.name);
+                      }}
+                    >
+                      {activePartition === row.name ? "On" : "Set"}
+                    </button>
                   </button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </article>
 
-        <div className="overview-side-stack">
-          <article className="skeleton-card overview-signal-card">
-            <div className="overview-panel-head">
-              <div className="overview-panel-heading">
-                <PanelMark>
-                  <IconRuns />
-                </PanelMark>
-                <h3>System Signals</h3>
-              </div>
+        <article className="skeleton-card overview-manager-detail-card">
+          <div className="overview-panel-head">
+            <div className="overview-panel-heading">
+              <PanelMark>
+                <IconPartition />
+              </PanelMark>
+              <h3>
+                {managerMode === "create"
+                  ? "Create Partition"
+                  : managerMode === "edit"
+                    ? "Edit Partition"
+                      : "Partition Detail"}
+              </h3>
             </div>
-            <div className="overview-signal-list">
-              {systemSignals.map((item) => (
-                <div key={item.label} className="overview-signal-row">
-                  <div className="overview-signal-copy">
-                    <strong>{item.label}</strong>
-                    <span>{item.note}</span>
+            {managerMode === "view" && selectedPartition ? (
+              <div className="overview-action-strip overview-delete-anchor">
+                <button type="button" className="overview-inline-button" onClick={enterEditMode}>
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  className="overview-inline-button is-danger"
+                  onClick={() => {
+                    setDeleteConfirmOpen((current) => !current);
+                    setManagerError("");
+                  }}
+                >
+                  Delete
+                </button>
+                {deleteConfirmOpen ? (
+                  <div className="overview-delete-popover">
+                    <strong>Delete {selectedPartition.partition_name}?</strong>
+                    <p>This will remove the partition and cascade its cases and runs.</p>
+                    {managerError ? <div className="overview-manager-error">{managerError}</div> : null}
+                    <div className="overview-manager-actions">
+                      <button
+                        type="button"
+                        className="overview-inline-button"
+                        onClick={() => {
+                          setDeleteConfirmOpen(false);
+                          setManagerError("");
+                        }}
+                        disabled={submitting}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        className="overview-primary-button is-danger"
+                        onClick={handleDeleteSelected}
+                        disabled={submitting}
+                      >
+                        {submitting ? "Deleting..." : "Delete"}
+                      </button>
+                    </div>
                   </div>
-                  <em>{item.value}</em>
-                </div>
-              ))}
-            </div>
-          </article>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
 
-          <article className="skeleton-card overview-list-card">
-            <div className="overview-panel-head">
-              <div className="overview-panel-heading">
-                <PanelMark>
-                  <IconTraceList />
-                </PanelMark>
-                <h3>Recent Changes</h3>
+          {managerMode === "create" || managerMode === "edit" ? (
+            <div className="overview-manager-form">
+              <label className="overview-create-field">
+                <span>Name</span>
+                <input
+                  disabled={submitting || managerMode === "edit"}
+                  value={formName}
+                  onChange={(event) => setFormName(event.target.value)}
+                  placeholder="Claims"
+                />
+              </label>
+              <label className="overview-create-field">
+                <span>Description</span>
+                <textarea
+                  rows={4}
+                  disabled={submitting}
+                  value={formDescription}
+                  onChange={(event) => setFormDescription(event.target.value)}
+                  placeholder="Scope, domain, and curation intent."
+                />
+              </label>
+              <label className="overview-create-field">
+                <span>Status</span>
+                <select
+                  disabled={submitting}
+                  value={formStatus}
+                  onChange={(event) => setFormStatus(event.target.value as PartitionDocument["status"])}
+                >
+                  <option value="active">active</option>
+                  <option value="disabled">disabled</option>
+                  <option value="archived">archived</option>
+                </select>
+              </label>
+              {managerError ? <div className="overview-manager-error">{managerError}</div> : null}
+              <div className="overview-manager-actions overview-manager-actions-bottom">
+                <button type="button" className="overview-inline-button" onClick={resetManagerMode} disabled={submitting}>
+                  Cancel
+                </button>
+                <button type="button" className="overview-primary-button" onClick={handleSubmitManager} disabled={submitting}>
+                  {submitting ? "Saving..." : "Submit"}
+                </button>
               </div>
             </div>
-            <div className="overview-list-scroll">
-              <ul className="overview-compact-list">
-                {loading ? <li>Loading recent changes...</li> : null}
-                {!loading && errorMessage ? <li>{errorMessage}</li> : null}
-                {!loading && !errorMessage && recentChanges.length === 0 ? <li>No recent changes.</li> : null}
-                {recentChanges.map((item) => (
-                  <li key={item.id}>
-                    <strong>{item.label}</strong>
-                    <span>{formatRelativeTime(item.timestamp)}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </article>
-        </div>
+          ) : null}
+
+          {managerMode === "view" ? (
+            selectedPartition && selectedRow ? (
+              <div className="overview-detail-stack">
+                <article className="overview-detail-hero">
+                  <strong>{selectedPartition.partition_name}</strong>
+                  <p>{selectedPartition.scenario_description || "No description."}</p>
+                </article>
+
+                <div className="overview-detail-stats">
+                  <div className="overview-detail-stat">
+                    <span>Status</span>
+                    <strong>{selectedPartition.status}</strong>
+                  </div>
+                  <div className="overview-detail-stat">
+                    <span>Cases</span>
+                    <strong>{selectedRow.cases}</strong>
+                  </div>
+                  <div className="overview-detail-stat">
+                    <span>Backlog</span>
+                    <strong>{selectedRow.backlog}</strong>
+                  </div>
+                  <div className="overview-detail-stat">
+                    <span>Last run</span>
+                    <strong>{formatRelativeTime(selectedRow.runAt)}</strong>
+                  </div>
+                </div>
+
+                <article className="overview-detail-meta">
+                  <span>Created</span>
+                  <strong>{formatAbsoluteTime(selectedPartition.created_at)}</strong>
+                  <span>Updated</span>
+                  <strong>{formatAbsoluteTime(selectedPartition.updated_at)}</strong>
+                </article>
+              </div>
+            ) : (
+              <div className="overview-empty-state">Select a partition to inspect or create a new one.</div>
+            )
+          ) : null}
+        </article>
       </section>
 
-      <CreatePartitionCard
-        open={createOpen}
-        onClose={() => setCreateOpen(false)}
-        onSubmit={async ({ partitionName, scenarioDescription }) => {
-          const created = await createPartition({
-            partition_name: partitionName,
-            scenario_description: scenarioDescription,
-            status: "active",
-          });
-          await loadOverview();
-          onActivatePartition(created.partition_name);
-        }}
-      />
+      <section className="overview-bottom-grid">
+        <article className="skeleton-card overview-list-card">
+          <div className="overview-panel-head">
+            <div className="overview-panel-heading">
+              <PanelMark>
+                <IconTraceList />
+              </PanelMark>
+              <h3>Recent Changes</h3>
+            </div>
+          </div>
+          <div className="overview-list-scroll">
+            <ul className="overview-compact-list">
+              {loading ? <li>Loading recent changes...</li> : null}
+              {!loading && errorMessage ? <li>{errorMessage}</li> : null}
+              {!loading && !errorMessage && recentChanges.length === 0 ? <li>No recent changes.</li> : null}
+              {recentChanges.map((item) => (
+                <li key={item.id}>
+                  <strong>{item.label}</strong>
+                  <span>{formatRelativeTime(item.timestamp)}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </article>
+
+        <article className="skeleton-card overview-list-card">
+          <div className="overview-panel-head">
+            <div className="overview-panel-heading">
+              <PanelMark>
+                <IconRuns />
+              </PanelMark>
+              <h3>System Signals</h3>
+            </div>
+          </div>
+          <div className="overview-signal-list">
+            {bottomSignals.map((item) => (
+              <div key={item.label} className="overview-signal-row">
+                <div className="overview-signal-copy">
+                  <strong>{item.label}</strong>
+                  <span>{item.note}</span>
+                </div>
+                <em>{item.value}</em>
+              </div>
+            ))}
+          </div>
+        </article>
+      </section>
     </section>
   );
 }

@@ -5,7 +5,22 @@ export async function requestJson<T>(path: string, init?: RequestInit) {
     ...init,
   });
   if (!response.ok) {
-    throw new Error(`Request failed: ${response.status}`);
+    let message = `Request failed: ${response.status}`;
+    try {
+      const payload = (await response.json()) as { detail?: unknown; message?: unknown };
+      const detail =
+        typeof payload.detail === "string"
+          ? payload.detail
+          : typeof payload.message === "string"
+            ? payload.message
+            : "";
+      if (detail) {
+        message = detail;
+      }
+    } catch {
+      // Ignore non-JSON error bodies and keep the status-based message.
+    }
+    throw new Error(message);
   }
   if (response.status === 204) {
     return undefined as T;
