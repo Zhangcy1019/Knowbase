@@ -4,13 +4,11 @@ from __future__ import annotations
 
 from textwrap import dedent
 
-from langchain_core.messages import HumanMessage
-
+from internal.infrastructure.ai.generation import build_openai_client, generate_structured
 from internal.models.partition_semantic_index import PartitionSemanticIndex
 from internal.models import CaseSemanticExtractionEnvelope, CaseSemanticProfile, PartitionFacetDefinition, ensure_partition_profile_keys, resolve_partition_profile_fields
 from internal.utils.config import LLMRuntimeConfig
 from internal.utils.logger import get_logger
-from internal.utils.llm import build_langchain_openai_chat_model
 
 
 class KnowbaseSemanticProfileExtractor:
@@ -19,7 +17,7 @@ class KnowbaseSemanticProfileExtractor:
     def __init__(self, *, llm_config: LLMRuntimeConfig | None = None):
         self._logger = get_logger(__name__)
         self._llm_config = llm_config
-        self._model = self._build_model()
+        self._client = self._build_client()
 
     async def extract(
         self,
@@ -34,7 +32,7 @@ class KnowbaseSemanticProfileExtractor:
         profile_fields = resolve_partition_profile_fields(facet_definitions)  # profile_fields: key-description
         if not normalized_title and not normalized_content:
             return CaseSemanticProfile.from_partition_schema({}, facet_definitions=facet_definitions)
-        if self._model is None:
+        if self._client is None:
             raise RuntimeError("KnowbaseSemanticProfileExtractor is unavailable: LLM model initialization failed")
 
         prompt = self._build_prompt(
@@ -44,9 +42,17 @@ class KnowbaseSemanticProfileExtractor:
             facet_definitions=facet_definitions,
             semantic_index=semantic_index,
         )
-        structured_model = self._model.with_structured_output(CaseSemanticExtractionEnvelope)
         try:
-            result = await structured_model.ainvoke([HumanMessage(content=prompt)])
+            result = generate_structured(
+                client=self._client,
+                model=self._llm_config.model if self._llm_config is not None else "",
+                temperature=self._llm_config.temperature if self._llm_config is not None else 0.0,
+                max_output_tokens=self._llm_config.max_output_tokens if self._llm_config is not None else 1200,
+                system_prompt="You are Knowbase case semantic profile extractor.",
+                user_prompt=prompt,
+                response_model=CaseSemanticExtractionEnvelope,
+                metadata={"component": "case_semantic_profile_extractor"},
+            )
         except Exception as exc:  # noqa: BLE001
             self._logger.exception(
                 "Semantic profile extraction failed",
@@ -68,7 +74,7 @@ class KnowbaseSemanticProfileExtractor:
         profile_fields = resolve_partition_profile_fields(facet_definitions)
         if not normalized_title and not normalized_content:
             return CaseSemanticProfile.from_partition_schema({}, facet_definitions=facet_definitions)
-        if self._model is None:
+        if self._client is None:
             raise RuntimeError("KnowbaseSemanticProfileExtractor is unavailable: LLM model initialization failed")
 
         prompt = self._build_prompt(
@@ -78,9 +84,17 @@ class KnowbaseSemanticProfileExtractor:
             facet_definitions=facet_definitions,
             semantic_index=semantic_index,
         )
-        structured_model = self._model.with_structured_output(CaseSemanticExtractionEnvelope)
         try:
-            result = structured_model.invoke([HumanMessage(content=prompt)])
+            result = generate_structured(
+                client=self._client,
+                model=self._llm_config.model if self._llm_config is not None else "",
+                temperature=self._llm_config.temperature if self._llm_config is not None else 0.0,
+                max_output_tokens=self._llm_config.max_output_tokens if self._llm_config is not None else 1200,
+                system_prompt="You are Knowbase case semantic profile extractor.",
+                user_prompt=prompt,
+                response_model=CaseSemanticExtractionEnvelope,
+                metadata={"component": "case_semantic_profile_extractor"},
+            )
         except Exception as exc:  # noqa: BLE001
             self._logger.exception(
                 "Semantic profile extraction failed",
@@ -89,17 +103,17 @@ class KnowbaseSemanticProfileExtractor:
             raise RuntimeError(f"Semantic profile extraction failed: {exc}") from exc
         return self._sanitize_result(result, facet_definitions=facet_definitions)
 
-    def _build_model(self):
+    def _build_client(self):
         if self._llm_config is None:
             self._logger.error(
                 "KnowbaseSemanticProfileExtractor unavailable: missing llm_config",
             )
             return None
         try:
-            return build_langchain_openai_chat_model(config=self._llm_config)
+            return build_openai_client(config=self._llm_config)
         except Exception as exc:  # noqa: BLE001
             self._logger.exception(
-                "KnowbaseSemanticProfileExtractor unavailable: chat model initialization failed",
+                "KnowbaseSemanticProfileExtractor unavailable: OpenAI client initialization failed",
                 extra={"error": str(exc)},
             )
             return None
@@ -179,11 +193,6 @@ class KnowbaseSemanticProfileExtractor:
         *,
         facet_definitions: list[PartitionFacetDefinition] | None,
     ) -> CaseSemanticProfile:
-        definition_map = {
-            definition.key.strip(): definition
-            for definition in (facet_definitions or [])
-            if definition.key.strip()
-        }
         raw_profile = ensure_partition_profile_keys(
             result.semantic_profile,
             facet_definitions=facet_definitions,

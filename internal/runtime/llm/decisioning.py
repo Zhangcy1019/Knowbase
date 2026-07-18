@@ -11,7 +11,7 @@ from internal.runtime.core.state import RuntimeRunState
 from internal.runtime.llm.decision_parser import DefaultRuntimeDecisionParser, RuntimeDecisionParserPort
 from internal.runtime.llm.prompt_builder import DefaultRuntimePromptBuilder, RuntimePromptBuilderPort
 from internal.runtime.loop.planner_components import RuntimePlannerContext, RuntimePlannerStopAssessment
-from internal.runtime.providers.openai_runtime_adapter import (
+from internal.runtime.llm.model_adapter import (
     DefaultRuntimeModelAdapter,
     RuntimeModelAdapterPort,
 )

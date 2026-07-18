@@ -7,7 +7,7 @@ from typing import Any
 
 import requests
 
-from internal.embedding.contracts import EmbeddingProvider
+from internal.infrastructure.ai.embedding_contracts import EmbeddingProvider
 from internal.utils.logger import get_logger
 
 
@@ -55,8 +55,7 @@ class OpenAICompatibleEmbeddingProvider:
         base_url = config.base_url.strip().rstrip("/")
         if not base_url:
             raise RuntimeError(
-                "Knowbase embeddings require KNOWBASE_EMBEDDING_ENDPOINT "
-                "or KNOWBASE_EMBEDDING_BASE_URL"
+                "Knowbase embeddings require embedding.endpoint or embedding.base_url"
             )
         if base_url.endswith("/embeddings"):
             return base_url
@@ -142,6 +141,7 @@ class OpenAICompatibleEmbeddingProvider:
                 f"Embedding dimension mismatch: expected {self.dimensions}, got {len(normalized)}"
             )
         return normalized
+
 
 __all__ = [
     "EmbeddingConfig",

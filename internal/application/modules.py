@@ -24,7 +24,8 @@ from internal.product.query.semantic_profile_extractor import KnowbaseQuerySeman
 from internal.product.query.service import KnowbaseQueryService
 from internal.runtime.llm import DefaultRuntimeDecisionGenerator, DefaultRuntimePromptBuilder
 from internal.runtime.loop.turn_planner import RuntimeTurnPlanner
-from internal.runtime.providers import DefaultOpenAIClient, DefaultRuntimeModelAdapter
+from internal.infrastructure.ai import DefaultOpenAIClient
+from internal.runtime.llm.model_adapter import DefaultRuntimeModelAdapter
 from internal.runtime.skills import SkillRuntime
 from internal.runtime.service import KnowbaseRuntimeService
 from internal.runtime.trace import RuntimeTraceRecorder

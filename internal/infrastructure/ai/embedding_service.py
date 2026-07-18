@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-from internal.embedding.contracts import EmbeddingProvider
-from internal.embedding.provider import EmbeddingConfig, OpenAICompatibleEmbeddingProvider
+from internal.infrastructure.ai.embedding import EmbeddingConfig, OpenAICompatibleEmbeddingProvider
+from internal.infrastructure.ai.embedding_contracts import EmbeddingProvider
 
 
 @lru_cache(maxsize=1)

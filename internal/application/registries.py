@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from internal.embedding.service import create_embedding_provider
+from internal.infrastructure.ai.embedding_service import create_embedding_provider
 from internal.domain.case.facet_resolver import KnowbaseCaseFacetResolver
 from internal.domain.case.ingestor import KnowbaseCaseIngestor
 from internal.domain.case.semantic_profile_extractor import KnowbaseSemanticProfileExtractor

@@ -1,23 +1,19 @@
 """Model-adapter contracts for runtime decision generation."""
 
 from __future__ import annotations
+
 import json
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
+from internal.infrastructure.ai.generation import build_openai_client
+from internal.infrastructure.ai.openai_client import OpenAIChatRequest, OpenAIClientPort
 from internal.runtime.llm.prompt_builder import RuntimeDecisionPrompt
-from internal.runtime.providers.openai_client import (
-    DefaultOpenAIClient,
-    OpenAIChatRequest,
-    OpenAIClientPort,
-)
 from internal.utils.config import LLMRuntimeConfig
 
 
 @dataclass(slots=True)
 class RuntimeModelRequest:
-    """Structured model request built from one runtime decision prompt."""
-
     model: str = ""
     system: str = ""
     instruction: str = ""
@@ -29,8 +25,6 @@ class RuntimeModelRequest:
 
 @dataclass(slots=True)
 class RuntimeModelResponse:
-    """Structured model response returned to the decision parser."""
-
     payload: dict[str, Any] = field(default_factory=dict)
     raw_text: str = ""
     model_name: str = ""
@@ -40,8 +34,6 @@ class RuntimeModelResponse:
 
 
 class RuntimeModelAdapterPort(Protocol):
-    """Bridge between prompt payloads and an actual model invocation."""
-
     def invoke(self, *, prompt: RuntimeDecisionPrompt) -> RuntimeModelResponse:
         ...
 
@@ -112,13 +104,8 @@ class DefaultRuntimeModelAdapter(OpenAIRuntimeModelAdapter):
     def from_llm_config(cls, llm_config: LLMRuntimeConfig | None) -> "DefaultRuntimeModelAdapter":
         if llm_config is None:
             raise ValueError("DefaultRuntimeModelAdapter requires explicit llm_config")
-        return cls(
-            client=DefaultOpenAIClient(
-                api_key=llm_config.openai_api_key or "",
-                base_url=llm_config.openai_base_url,
-                timeout_seconds=llm_config.timeout_seconds,
-            )
-        )
+        return cls(client=build_openai_client(config=llm_config))
+
 
 __all__ = [
     "RuntimeModelRequest",

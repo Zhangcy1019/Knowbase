@@ -1,8 +1,8 @@
-"""Runtime OpenAI provider integration tests.
+"""OpenAI AI-infrastructure integration tests.
 
 Run:
     cd knowbase
-    python3 -m unittest tests.integration.runtime.providers.test_openai_providers
+    python3 -m unittest tests.integration.infrastructure.ai.test_openai_providers
 """
 
 from __future__ import annotations
@@ -10,9 +10,9 @@ from __future__ import annotations
 import os
 import unittest
 
+from internal.infrastructure.ai.openai_client import DefaultOpenAIClient, OpenAIChatRequest
+from internal.runtime.llm.model_adapter import DefaultRuntimeModelAdapter
 from internal.runtime.llm.prompt_builder import RuntimeDecisionPrompt
-from internal.runtime.providers.openai_client import DefaultOpenAIClient, OpenAIChatRequest
-from internal.runtime.providers.openai_runtime_adapter import DefaultRuntimeModelAdapter
 from tests.integration.support import bootstrap_test_runtime
 
 
@@ -29,14 +29,14 @@ def _resolve_test_model() -> str:
 
 @unittest.skipUnless(
     _has_openai_env(),
-    "Set llm.openai.api_key in config/app.test.yaml to run runtime OpenAI integration tests.",
+    "Set llm.openai.api_key in config/app.test.yaml to run OpenAI integration tests.",
 )
-class RuntimeOpenAIProvidersIntegrationTest(unittest.TestCase):
-    """Exercise real OpenAI-backed runtime provider calls."""
+class OpenAIProvidersIntegrationTest(unittest.TestCase):
+    """Exercise real OpenAI-backed shared AI provider calls."""
 
     def setUp(self) -> None:
         print(
-            f"[runtime.providers] test={self._testMethodName} "
+            f"[infrastructure.ai] test={self._testMethodName} "
             f"model={_resolve_test_model()} "
             f"base_url={os.getenv('KNOWBASE_LLM_OPENAI_BASE_URL', '') or '<default>'}",
             flush=True,
@@ -64,7 +64,7 @@ class RuntimeOpenAIProvidersIntegrationTest(unittest.TestCase):
             )
         )
         print(
-            "[runtime.providers] openai_client response "
+            "[infrastructure.ai] openai_client response "
             f"model={response.model} finish_reason={response.finish_reason} "
             f"content_text={response.content_text!r} content_json={response.content_json}",
             flush=True,
@@ -131,7 +131,7 @@ class RuntimeOpenAIProvidersIntegrationTest(unittest.TestCase):
             )
         )
         print(
-            "[runtime.providers] runtime_model_adapter response "
+            "[infrastructure.ai] runtime_model_adapter response "
             f"model={response.model_name} finish_reason={response.finish_reason} "
             f"raw_text={response.raw_text!r} payload={response.payload}",
             flush=True,

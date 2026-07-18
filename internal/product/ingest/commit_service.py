@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from internal.embedding.contracts import EmbeddingProvider
+from internal.infrastructure.ai.embedding_contracts import EmbeddingProvider
 from internal.domain.case.ingestor import KnowbaseCaseIngestor
 from internal.models import IngestResult, KnowbaseCaseDraft
 from internal.ports import CaseStorePort

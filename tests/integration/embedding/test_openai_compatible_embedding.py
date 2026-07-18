@@ -10,7 +10,11 @@ from __future__ import annotations
 import os
 import unittest
 
-from internal.embedding import EmbeddingConfig, OpenAICompatibleEmbeddingProvider, create_embedding_provider
+from internal.infrastructure.ai import (
+    EmbeddingConfig,
+    OpenAICompatibleEmbeddingProvider,
+    create_embedding_provider,
+)
 from tests.integration.support import bootstrap_test_runtime
 
 

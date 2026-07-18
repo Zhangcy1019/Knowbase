@@ -1,4 +1,4 @@
-"""Generic OpenAI-style chat client for runtime providers."""
+"""Generic OpenAI-style chat client for shared AI infrastructure."""
 
 from __future__ import annotations
 
@@ -12,15 +12,13 @@ from openai import OpenAI
 from internal.utils.logger import get_logger
 
 
-logger = get_logger("knowbase.runtime.providers.openai_client")
+logger = get_logger("knowbase.infrastructure.ai.openai_client")
 
 OpenAIResponseFormat = Literal["json_object", "json_schema"]
 
 
 @dataclass(slots=True)
 class OpenAIChatRequest:
-    """Provider-agnostic OpenAI-style chat request."""
-
     model: str
     system_prompt: str = ""
     user_prompt: str = ""
@@ -33,8 +31,6 @@ class OpenAIChatRequest:
 
 @dataclass(slots=True)
 class OpenAIChatResponse:
-    """Provider-agnostic OpenAI-style chat response."""
-
     content_text: str = ""
     content_json: dict[str, Any] = field(default_factory=dict)
     finish_reason: str = ""
@@ -44,14 +40,12 @@ class OpenAIChatResponse:
 
 
 class OpenAIClientPort(Protocol):
-    """Thin client port for OpenAI-style structured chat completion."""
-
     def create_chat(self, *, request: OpenAIChatRequest) -> OpenAIChatResponse:
         ...
 
 
 class DefaultOpenAIClient:
-    """OpenAI-backed structured chat client used by runtime decision generation."""
+    """OpenAI-backed structured chat client."""
 
     def __init__(
         self,
@@ -64,7 +58,6 @@ class DefaultOpenAIClient:
         if not normalized_key:
             raise ValueError("OpenAI client requires a non-empty api_key")
         normalized_base_url = self._normalize_base_url(base_url)
-        self._base_url = normalized_base_url
         self._supports_native_response_format = self._detect_native_response_format_support(normalized_base_url)
         self._timeout_seconds = max(1, int(timeout_seconds))
         self._client = OpenAI(
@@ -109,7 +102,7 @@ class DefaultOpenAIClient:
             },
         )
         logger.debug(
-            "OpenAI runtime chat completed.",
+            "OpenAI chat completed.",
             extra={
                 "model": response.model,
                 "finish_reason": response.finish_reason,

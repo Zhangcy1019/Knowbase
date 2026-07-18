@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from internal.embedding.contracts import EmbeddingProvider
+from internal.infrastructure.ai.embedding_contracts import EmbeddingProvider
 from internal.models import KnowbaseCaseDocument, KnowbaseCaseDraft, SkillAction
 from internal.models.skill import SkillInvocation, SkillResult, SkillSpec
 from internal.models.skill_context import SkillExecutionContext

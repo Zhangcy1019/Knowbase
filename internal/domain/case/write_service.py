@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from internal.embedding.contracts import EmbeddingProvider
+from internal.infrastructure.ai.embedding_contracts import EmbeddingProvider
 from internal.domain.case.facet_resolver import KnowbaseCaseFacetResolver
 from internal.domain.case.ingestor import KnowbaseCaseIngestor
 from internal.models import CaseFacetProfile, CaseSemanticProfile, KnowbaseCaseDocument, KnowbaseCaseDraft, KnowbaseCaseMetadata

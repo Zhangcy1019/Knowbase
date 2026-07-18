@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from internal.embedding.service import create_embedding_provider
+from internal.infrastructure.ai.embedding_service import create_embedding_provider
 from internal.domain.case.draft_builder import KnowbaseCaseDraftBuilder
 from internal.domain.case.facet_resolver import KnowbaseCaseFacetResolver
 from internal.domain.case.ingestor import KnowbaseCaseIngestor
