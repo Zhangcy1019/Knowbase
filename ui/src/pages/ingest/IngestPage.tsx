@@ -2,6 +2,7 @@ import type { ChangeEvent, ReactNode } from "react";
 import { useMemo, useState } from "react";
 
 import "./ingest.css";
+import { DocumentContentEditor, type IngestContentFormat } from "./DocumentContentEditor";
 import { IconIngest, IconSend, IconTraceDetail } from "../../shared/icons";
 import { createKnowbaseCase, type IngestResponse } from "../../shared/api";
 
@@ -9,12 +10,14 @@ type IngestFormState = {
   title: string;
   sourceRefs: string;
   sourceContent: string;
+  contentFormat: IngestContentFormat;
 };
 
 const defaultFormState: IngestFormState = {
   title: "",
   sourceRefs: "",
   sourceContent: "",
+  contentFormat: "text",
 };
 
 function PanelMark({ children }: { children: ReactNode }) {
@@ -45,6 +48,7 @@ export function IngestPage({ activePartition }: { activePartition: string | null
   const [result, setResult] = useState<IngestResponse | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [jsonError, setJsonError] = useState("");
   const resultLines = useMemo(() => buildResultLines(result, activePartition), [result, activePartition]);
   const payloadPreview = useMemo(
     () => ({
@@ -52,6 +56,7 @@ export function IngestPage({ activePartition }: { activePartition: string | null
       title: form.title,
       source_content: form.sourceContent,
       source_refs: parseSourceRefs(form.sourceRefs),
+      content_format: form.contentFormat,
     }),
     [activePartition, form],
   );
@@ -63,14 +68,22 @@ export function IngestPage({ activePartition }: { activePartition: string | null
   }
 
   function handleClear() {
-    setForm(defaultFormState);
+    setForm((current) => ({
+      ...defaultFormState,
+      contentFormat: current.contentFormat,
+    }));
     setResult(null);
     setErrorMessage("");
+    setJsonError("");
   }
 
   async function handleSubmit() {
     if (!activePartition?.trim()) {
       setErrorMessage("Select or create a partition first.");
+      return;
+    }
+    if (jsonError) {
+      setErrorMessage(`JSON parse error: ${jsonError}`);
       return;
     }
     setSubmitting(true);
@@ -131,15 +144,14 @@ export function IngestPage({ activePartition }: { activePartition: string | null
               />
             </label>
 
-            <label className="ingest-field is-wide is-fill">
-              <span>Document content</span>
-              <textarea
-                rows={11}
-                placeholder="Paste one document or case content here..."
-                value={form.sourceContent}
-                onChange={updateField("sourceContent")}
-              />
-            </label>
+            <DocumentContentEditor
+              value={form.sourceContent}
+              format={form.contentFormat}
+              disabled={submitting}
+              onFormatChange={(contentFormat) => setForm((current) => ({ ...current, contentFormat }))}
+              onValueChange={(sourceContent) => setForm((current) => ({ ...current, sourceContent }))}
+              onJsonErrorChange={setJsonError}
+            />
           </div>
 
           <div className="ingest-actions-bar">

@@ -18,7 +18,14 @@ export async function requestJson<T>(path: string, init?: RequestInit) {
         message = detail;
       }
     } catch {
-      // Ignore non-JSON error bodies and keep the status-based message.
+      try {
+        const text = (await response.text()).trim();
+        if (text) {
+          message = text;
+        }
+      } catch {
+        // Ignore unreadable error bodies and keep the status-based message.
+      }
     }
     throw new Error(message);
   }
