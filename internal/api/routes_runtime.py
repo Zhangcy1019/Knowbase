@@ -295,35 +295,21 @@ def register_runtime_routes(app: FastAPI, *, deps: KnowbaseRouteDeps) -> None:
     @app.post("/api/knowbase/runtime/maintenance/drain-backlog", response_model=MaintenanceActionResponse)
     async def drain_backlog(req: PartitionMaintenanceRequest) -> MaintenanceActionResponse:
         result = await deps.event_worker.run_once(partition=req.partition, limit=req.limit, trigger_source="manual")
+        runtime_result = result.runtime_result
         return MaintenanceActionResponse(
             action="drain_backlog",
             ok=result.failed_count == 0,
             summary=f"Attempted {result.attempted_count} backlog event(s), completed {result.completed_count}, failed {result.failed_count}.",
             details={
-                "batch_id": result.batch_id,
-                "attempted_count": result.attempted_count,
-                "completed_count": result.completed_count,
-                "failed_count": result.failed_count,
-                "event_ids": result.event_ids,
-                "run_id": "" if result.runtime_result is None or result.runtime_result.run is None else result.runtime_result.run.run_id,
-            },
-        )
-
-    @app.post("/api/knowbase/runtime/maintenance/reconcile-partition", response_model=MaintenanceActionResponse)
-    async def reconcile_partition(req: PartitionMaintenanceRequest) -> MaintenanceActionResponse:
-        result = await deps.event_worker.run_once(partition=req.partition, limit=req.limit, trigger_source="manual")
-        return MaintenanceActionResponse(
-            action="reconcile_partition",
-            ok=result.failed_count == 0,
-            summary=f"Reconciled partition {req.partition} through backlog drain of {result.attempted_count} event(s).",
-            details={
-                "batch_id": result.batch_id,
                 "partition": req.partition,
+                "batch_id": result.batch_id,
                 "attempted_count": result.attempted_count,
                 "completed_count": result.completed_count,
                 "failed_count": result.failed_count,
                 "event_ids": result.event_ids,
-                "run_id": "" if result.runtime_result is None or result.runtime_result.run is None else result.runtime_result.run.run_id,
+                "run_id": "" if runtime_result is None else runtime_result.run_id,
+                "run_status": "" if runtime_result is None else runtime_result.status,
+                "requires_review": False if runtime_result is None else runtime_result.requires_review,
             },
         )
 
