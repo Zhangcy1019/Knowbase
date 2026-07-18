@@ -1,8 +1,8 @@
-"""Text-backend minimal flow integration test.
+"""Local-backend minimal flow integration test.
 
 Run:
     cd knowbase
-    python3 -m unittest tests.integration.text.test_text_minimal_flow
+    python3 -m unittest tests.integration.local.test_local_minimal_flow
 """
 
 from __future__ import annotations
@@ -91,17 +91,17 @@ class _StaticTurnPlanner(RuntimeTurnPlannerPort):
         )
 
 
-class TextMinimalFlowIntegrationTest(unittest.TestCase):
+class LocalMinimalFlowIntegrationTest(unittest.TestCase):
     def setUp(self) -> None:
         self._runtime_cfg = load_test_runtime_config()
-        self._root = Path(self._runtime_cfg.storage.text_root).expanduser()
+        self._root = Path(self._runtime_cfg.storage.local_root).expanduser()
         shutil.rmtree(self._root, ignore_errors=True)
         self._root.mkdir(parents=True, exist_ok=True)
 
     def tearDown(self) -> None:
         pass
 
-    def test_text_backend_minimal_flow_runs_end_to_end(self) -> None:
+    def test_local_backend_minimal_flow_runs_end_to_end(self) -> None:
         core = build_core_providers(runtime_cfg=self._runtime_cfg)
         self._create_partition(core=core, partition_name="CI")
 

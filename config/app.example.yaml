@@ -6,8 +6,8 @@ startup:
     port: 8000
 
 storage:
-  backend: es # es or text
-  text_root: ".data/knowbase"
+  backend: es # es or local
+  local_root: ".data/knowbase"
 
 web:
   ui:

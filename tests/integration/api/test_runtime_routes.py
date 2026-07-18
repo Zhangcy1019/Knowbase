@@ -38,7 +38,7 @@ from internal.runtime.skills import SkillRuntime
 from internal.runtime.tools import ToolRuntime
 from internal.runtime.trace import RuntimeTraceRecorder
 from tests.integration.support import load_test_runtime_config
-from tests.integration.text.test_text_minimal_flow import (
+from tests.integration.local.test_local_minimal_flow import (
     _NoopEmbeddingProvider,
     _StaticSemanticProfileExtractor,
     _StaticSummaryExtractor,
@@ -59,7 +59,7 @@ class _StubQueryFlow:
 class RuntimeRoutesIntegrationTest(unittest.TestCase):
     def setUp(self) -> None:
         self._runtime_cfg = load_test_runtime_config()
-        self._root = Path(self._runtime_cfg.storage.text_root).expanduser()
+        self._root = Path(self._runtime_cfg.storage.local_root).expanduser()
         shutil.rmtree(self._root, ignore_errors=True)
         self._root.mkdir(parents=True, exist_ok=True)
 

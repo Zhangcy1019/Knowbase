@@ -1,7 +1,8 @@
-"""Text-backed persistence implementations."""
+"""Local filesystem-backed persistence implementations."""
 
-from internal.infrastructure.persistence.text.repositories import (
+from internal.infrastructure.persistence.local.repositories import (
     AgentRunRepository,
+    build_local_persistence_bundle,
     EventRecordRepository,
     KnowbaseCaseRepository,
     PartitionFacetIndexRepository,
@@ -10,7 +11,6 @@ from internal.infrastructure.persistence.text.repositories import (
     PartitionSemanticIndexRepository,
     RunArtifactRepository,
     RunStepRepository,
-    build_text_persistence_bundle,
 )
 
 __all__ = [
@@ -23,5 +23,5 @@ __all__ = [
     "PartitionSemanticIndexRepository",
     "RunArtifactRepository",
     "RunStepRepository",
-    "build_text_persistence_bundle",
+    "build_local_persistence_bundle",
 ]

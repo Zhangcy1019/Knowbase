@@ -1,4 +1,4 @@
-"""Filesystem-backed persistence implementations."""
+"""Local filesystem-backed persistence implementations."""
 
 from __future__ import annotations
 
@@ -340,8 +340,8 @@ def _cosine_similarity(lhs: list[float], rhs: list[float]) -> float:
     return dot / (lhs_norm * rhs_norm)
 
 
-def build_text_persistence_bundle(*, runtime_cfg: RuntimeConfig) -> PersistenceBundle:
-    root = Path(runtime_cfg.storage.text_root).expanduser()
+def build_local_persistence_bundle(*, runtime_cfg: RuntimeConfig) -> PersistenceBundle:
+    root = Path(runtime_cfg.storage.local_root).expanduser()
     return PersistenceBundle(
         partition_repository=PartitionRepository(root=root),
         partition_facet_index_repository=PartitionFacetIndexRepository(root=root),

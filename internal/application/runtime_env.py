@@ -23,7 +23,7 @@ def load_runtime_config_from_env() -> RuntimeConfig | None:
 
 def apply_runtime_config_to_env(runtime_cfg: RuntimeConfig) -> None:
     os.environ.setdefault("CIAGENT_STORAGE_BACKEND", runtime_cfg.storage.backend)
-    os.environ.setdefault("CIAGENT_STORAGE_TEXT_ROOT", runtime_cfg.storage.text_root)
+    os.environ.setdefault("CIAGENT_STORAGE_LOCAL_ROOT", runtime_cfg.storage.local_root)
 
     os.environ.setdefault("CIAGENT_LEAD_AGENT_PROVIDER", runtime_cfg.llm.provider)
     os.environ.setdefault("CIAGENT_LEAD_AGENT_MODEL", runtime_cfg.llm.model)

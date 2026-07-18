@@ -59,7 +59,7 @@ class KnowbaseEmbeddingConfig:
 @dataclass(frozen=True)
 class StorageRuntimeConfig:
     backend: str = "es"
-    text_root: str = ".data/knowbase"
+    local_root: str = ".data/knowbase"
 
 
 @dataclass(frozen=True)
@@ -160,9 +160,9 @@ def load_runtime_config(config_path: str | None) -> RuntimeConfig:
             str(_get_nested(file_cfg, "storage", "backend", default="es")),
         ).lower()
         or "es",
-        text_root=_str_env(
-            "CIAGENT_STORAGE_TEXT_ROOT",
-            str(_get_nested(file_cfg, "storage", "text_root", default=".data/knowbase")),
+        local_root=_str_env(
+            "CIAGENT_STORAGE_LOCAL_ROOT",
+            str(_get_nested(file_cfg, "storage", "local_root", default=".data/knowbase")),
         )
         or ".data/knowbase",
     )

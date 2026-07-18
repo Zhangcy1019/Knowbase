@@ -1,8 +1,8 @@
-"""Text-backend query/search integration tests.
+"""Local-backend query/search integration tests.
 
 Run:
     cd knowbase
-    python3 -m unittest tests.integration.text.test_text_query_flow
+    python3 -m unittest tests.integration.local.test_local_query_flow
 """
 
 from __future__ import annotations
@@ -33,11 +33,11 @@ from internal.product.query.ranking import KnowbaseRanking
 from internal.product.query.service import KnowbaseQueryService
 from tests.integration.support import load_test_runtime_config
 
-from tests.integration.text.test_text_minimal_flow import (
+from tests.integration.local.test_local_minimal_flow import (
     _NoopEmbeddingProvider,
     _StaticSemanticProfileExtractor,
     _StaticSummaryExtractor,
-    TextMinimalFlowIntegrationTest,
+    LocalMinimalFlowIntegrationTest,
 )
 
 
@@ -73,17 +73,17 @@ class _StaticAnswerAgent:
         )
 
 
-class TextQueryFlowIntegrationTest(unittest.TestCase):
+class LocalQueryFlowIntegrationTest(unittest.TestCase):
     def setUp(self) -> None:
         self._runtime_cfg = load_test_runtime_config()
-        self._root = Path(self._runtime_cfg.storage.text_root).expanduser()
+        self._root = Path(self._runtime_cfg.storage.local_root).expanduser()
         shutil.rmtree(self._root, ignore_errors=True)
         self._root.mkdir(parents=True, exist_ok=True)
 
     def tearDown(self) -> None:
         pass
 
-    def test_text_backend_query_flow_returns_ranked_cases(self) -> None:
+    def test_local_backend_query_flow_returns_ranked_cases(self) -> None:
         core = self._build_core()
         self._create_partition(core=core, partition_name="CI")
         core.partition_service.save_facet_schema(
@@ -174,7 +174,7 @@ class TextQueryFlowIntegrationTest(unittest.TestCase):
 
     @staticmethod
     def _create_partition(*, core, partition_name: str) -> None:
-        TextMinimalFlowIntegrationTest._create_partition(core=core, partition_name=partition_name)
+        LocalMinimalFlowIntegrationTest._create_partition(core=core, partition_name=partition_name)
 
 
 if __name__ == "__main__":

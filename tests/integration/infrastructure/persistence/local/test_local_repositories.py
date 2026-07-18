@@ -1,8 +1,8 @@
-"""Text persistence repository integration tests.
+"""Local persistence repository integration tests.
 
 Run:
     cd knowbase
-    python3 -m unittest tests.integration.infrastructure.persistence.text.test_text_repositories
+    python3 -m unittest tests.integration.infrastructure.persistence.local.test_local_repositories
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from internal.infrastructure.persistence.text import build_text_persistence_bundle
+from internal.infrastructure.persistence.local import build_local_persistence_bundle
 from internal.models import (
     AgentRun,
     CaseFacetProfile,
@@ -39,13 +39,13 @@ from internal.models.events import CaseEventPayload
 from tests.integration.support import load_test_runtime_config
 
 
-class TextRepositoriesIntegrationTest(unittest.TestCase):
+class LocalRepositoriesIntegrationTest(unittest.TestCase):
     def setUp(self) -> None:
         self._runtime_cfg = load_test_runtime_config()
-        self._root = Path(self._runtime_cfg.storage.text_root).expanduser()
+        self._root = Path(self._runtime_cfg.storage.local_root).expanduser()
         shutil.rmtree(self._root, ignore_errors=True)
         self._root.mkdir(parents=True, exist_ok=True)
-        self._bundle = build_text_persistence_bundle(runtime_cfg=self._runtime_cfg)
+        self._bundle = build_local_persistence_bundle(runtime_cfg=self._runtime_cfg)
 
     def tearDown(self) -> None:
         pass
