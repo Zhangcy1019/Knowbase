@@ -10,15 +10,25 @@ import {
   IconSettings,
 } from "../../shared/icons";
 
-const navItems = [
-  { href: "/overview", label: "Overview", icon: IconOverview },
-  { href: "/ingest", label: "Ingest", icon: IconIngest },
-  { href: "/explore", label: "Explore", icon: IconExplore },
-  { href: "/partition", label: "Partition", icon: IconPartition },
-  { href: "/query", label: "Query", icon: IconQuery },
-  { href: "/backlog", label: "Backlog", icon: IconBacklog },
-  { href: "/runs", label: "Runs", icon: IconRuns },
-  { href: "/settings", label: "Settings", icon: IconSettings },
+const navGroups = [
+  {
+    title: "Workspace",
+    items: [
+      { href: "/partition", label: "Partition", icon: IconPartition },
+      { href: "/explore", label: "Explore", icon: IconExplore },
+      { href: "/query", label: "Query", icon: IconQuery },
+      { href: "/ingest", label: "Ingest", icon: IconIngest },
+      { href: "/backlog", label: "Backlog", icon: IconBacklog },
+      { href: "/runs", label: "Runs", icon: IconRuns },
+    ],
+  },
+  {
+    title: "System",
+    items: [
+      { href: "/overview", label: "Overview", icon: IconOverview },
+      { href: "/settings", label: "Settings", icon: IconSettings },
+    ],
+  },
 ];
 
 export function Sidebar({ pathname, activePartition }: { pathname: string; activePartition: string | null }) {
@@ -29,17 +39,24 @@ export function Sidebar({ pathname, activePartition }: { pathname: string; activ
         <strong>Knowbase</strong>
       </div>
       <nav className="app-sidebar-nav" aria-label="Primary">
-        {navItems.map((item) => {
-          const href = withBasePath(item.href);
-          const active = pathname === item.href || (item.href === "/overview" && pathname === "/");
-          const Icon = item.icon;
-          return (
-            <a key={item.href} className={active ? "is-active" : ""} href={href}>
-              <Icon className="app-sidebar-nav-icon" />
-              <span>{item.label}</span>
-            </a>
-          );
-        })}
+        {navGroups.map((group) => (
+          <section key={group.title} className="app-sidebar-nav-group">
+            <header className="app-sidebar-nav-group-title">{group.title}</header>
+            <div className="app-sidebar-nav-group-items">
+              {group.items.map((item) => {
+                const href = withBasePath(item.href);
+                const active = pathname === item.href || (item.href === "/overview" && pathname === "/");
+                const Icon = item.icon;
+                return (
+                  <a key={item.href} className={active ? "is-active" : ""} href={href}>
+                    <Icon className="app-sidebar-nav-icon" />
+                    <span>{item.label}</span>
+                  </a>
+                );
+              })}
+            </div>
+          </section>
+        ))}
       </nav>
       <div className="app-sidebar-footer">
         <div className="app-sidebar-active-partition">
