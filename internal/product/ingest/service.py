@@ -109,17 +109,14 @@ class KnowbaseIngestService:
                 ),
             )
         )
-        backlog_event_ids = []
         event_record = publish_result.get("event")
         event_id = getattr(event_record, "event_id", "")
-        if event_id:
-            backlog_event_ids.append(event_id)
         result = IngestResult(
             case_id=case_document.case_id,
             partition=draft.partition,
             accepted=True,
             processing_status="queued",
-            backlog_event_ids=backlog_event_ids,
+            backlog_event_id=event_id,
             draft=draft,
         )
         result.facet_resolution_summary = (

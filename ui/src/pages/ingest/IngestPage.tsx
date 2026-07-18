@@ -1,112 +1,224 @@
+import type { ChangeEvent, ReactNode } from "react";
+import { useMemo, useState } from "react";
+
 import "./ingest.css";
+import { IconIngest, IconSend, IconTraceDetail } from "../../shared/icons";
+import { createKnowbaseCase, type IngestResponse } from "../../shared/api";
 
-const ingestSummary = [
-  { label: "Queue", value: "14", note: "pending" },
-  { label: "Accepted", value: "128", note: "today" },
-  { label: "Rejected", value: "3", note: "today" },
-];
+type IngestFormState = {
+  title: string;
+  sourceRefs: string;
+  sourceContent: string;
+};
 
-const resultLines = [
-  { label: "Status", value: "Ready to submit" },
-  { label: "Partition", value: "Claims" },
-  { label: "Case ID", value: "Pending" },
-  { label: "Backlog", value: "Not created" },
-];
+const defaultFormState: IngestFormState = {
+  title: "",
+  sourceRefs: "",
+  sourceContent: "",
+};
 
-export function IngestPage() {
+function PanelMark({ children }: { children: ReactNode }) {
+  return <span className="ingest-panel-mark">{children}</span>;
+}
+
+function buildResultLines(result: IngestResponse | null, activePartition: string | null) {
+  return [
+    { label: "Status", value: result?.detail.processing_status || "Idle" },
+    { label: "Partition", value: result?.partition || activePartition || "--" },
+    { label: "Case ID", value: result?.created_id || "Pending" },
+    {
+      label: "Backlog",
+      value: result?.detail.backlog_event_id || "Not created",
+    },
+  ];
+}
+
+function parseSourceRefs(value: string) {
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+}
+
+export function IngestPage({ activePartition }: { activePartition: string | null }) {
+  const [form, setForm] = useState<IngestFormState>(defaultFormState);
+  const [result, setResult] = useState<IngestResponse | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const resultLines = useMemo(() => buildResultLines(result, activePartition), [result, activePartition]);
+  const payloadPreview = useMemo(
+    () => ({
+      partition: activePartition || "",
+      title: form.title,
+      source_content: form.sourceContent,
+      source_refs: parseSourceRefs(form.sourceRefs),
+    }),
+    [activePartition, form],
+  );
+
+  function updateField<K extends keyof IngestFormState>(key: K) {
+    return (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      setForm((current) => ({ ...current, [key]: event.target.value }));
+    };
+  }
+
+  function handleClear() {
+    setForm(defaultFormState);
+    setResult(null);
+    setErrorMessage("");
+  }
+
+  async function handleSubmit() {
+    if (!activePartition?.trim()) {
+      setErrorMessage("Select or create a partition first.");
+      return;
+    }
+    setSubmitting(true);
+    setErrorMessage("");
+    try {
+      const response = await createKnowbaseCase({
+        partition: activePartition,
+        title: form.title,
+        source_content: form.sourceContent,
+        source_refs: parseSourceRefs(form.sourceRefs),
+      });
+      setResult(response);
+    } catch (error: unknown) {
+      setResult(null);
+      setErrorMessage(error instanceof Error ? error.message : "Failed to submit ingest request.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   return (
     <section className="ingest-page">
       <header className="ingest-page-header">
         <div className="ingest-page-copy">
           <h2>Ingest</h2>
-          <p>Paste one document, submit it, and review the returned result in the same workspace.</p>
         </div>
       </header>
-
-      <section className="ingest-summary-strip">
-        {ingestSummary.map((item) => (
-          <article key={item.label} className="ingest-summary-card">
-            <span>{item.label}</span>
-            <strong>{item.value}</strong>
-            <small>{item.note}</small>
-          </article>
-        ))}
-      </section>
 
       <section className="ingest-workspace">
         <article className="skeleton-card ingest-editor-card">
           <div className="ingest-panel-head">
-            <h3>Document Input</h3>
+            <div className="ingest-panel-heading">
+              <PanelMark>
+                <IconIngest />
+              </PanelMark>
+              <h3>Input</h3>
+            </div>
           </div>
 
           <div className="ingest-form-grid">
             <label className="ingest-field">
               <span>Partition</span>
-              <input type="text" value="Claims" readOnly />
+              <input type="text" value={activePartition || ""} readOnly placeholder="No active partition" />
             </label>
 
             <label className="ingest-field">
               <span>Title</span>
-              <input type="text" placeholder="Document title" />
+              <input type="text" placeholder="Document title" value={form.title} onChange={updateField("title")} />
             </label>
 
             <label className="ingest-field is-wide">
               <span>Source refs</span>
-              <input type="text" placeholder="url, file path, external ref..." />
+              <input
+                type="text"
+                placeholder="url, file path, external ref..."
+                value={form.sourceRefs}
+                onChange={updateField("sourceRefs")}
+              />
             </label>
 
-            <label className="ingest-field is-wide">
+            <label className="ingest-field is-wide is-fill">
               <span>Document content</span>
               <textarea
                 rows={11}
                 placeholder="Paste one document or case content here..."
+                value={form.sourceContent}
+                onChange={updateField("sourceContent")}
               />
             </label>
           </div>
 
           <div className="ingest-actions-bar">
             <div className="ingest-actions">
-              <button type="button" className="ingest-secondary-button">
+              <button type="button" className="ingest-secondary-button" onClick={handleClear}>
                 Clear
               </button>
-              <button type="button" className="ingest-primary-button">
-                Submit
+              <button
+                type="button"
+                className="ingest-primary-button"
+                onClick={() => void handleSubmit()}
+                disabled={!activePartition || submitting}
+              >
+                {submitting ? "Submitting..." : "Submit"}
               </button>
             </div>
           </div>
         </article>
 
-        <article className="skeleton-card ingest-result-card">
-          <div className="ingest-panel-head">
-            <h3>Submit Result</h3>
-          </div>
-
-          <div className="ingest-result-state">
-            <strong>No submission yet</strong>
-            <p>Submit one document to review accepted status, generated case id, and returned processing details here.</p>
-          </div>
-
-          <div className="ingest-result-list">
-            {resultLines.map((item) => (
-              <div key={item.label} className="ingest-result-row">
-                <span>{item.label}</span>
-                <strong>{item.value}</strong>
+        <div className={`ingest-side-stack${!result && !errorMessage ? " is-empty" : ""}`}>
+          {!result && !errorMessage ? (
+            <article className="skeleton-card ingest-empty-card">
+              <div className="ingest-empty-state">
+                <PanelMark>
+                  <IconTraceDetail />
+                </PanelMark>
+                <strong>No submission yet</strong>
               </div>
-            ))}
-          </div>
+            </article>
+          ) : (
+            <>
+              <article className="skeleton-card ingest-result-card">
+                <div className="ingest-panel-head">
+                  <div className="ingest-panel-heading">
+                    <PanelMark>
+                      <IconTraceDetail />
+                    </PanelMark>
+                    <h3>Result</h3>
+                  </div>
+                </div>
 
-          <div className="ingest-result-log">
-            <div className="ingest-result-log-head">
-              <span>Response preview</span>
-            </div>
-            <pre>{`{
-  "accepted": true,
-  "processing_status": "queued",
-  "case_id": "",
-  "backlog_event_ids": []
-}`}</pre>
-          </div>
-        </article>
+                <div className="ingest-result-state">
+                  <strong>
+                    {errorMessage
+                      ? "Submit failed"
+                      : result?.detail.accepted
+                        ? "Accepted"
+                        : "Rejected"}
+                  </strong>
+                  {errorMessage ? <span className="ingest-result-note is-error">{errorMessage}</span> : null}
+                </div>
+
+                <div className="ingest-result-list">
+                  {resultLines.map((item) => (
+                    <div key={item.label} className="ingest-result-row">
+                      <span>{item.label}</span>
+                      <strong>{item.value}</strong>
+                    </div>
+                  ))}
+                </div>
+              </article>
+
+              <article className="skeleton-card ingest-preview-card">
+                <div className="ingest-panel-head">
+                  <div className="ingest-panel-heading">
+                    <PanelMark>
+                      <IconSend />
+                    </PanelMark>
+                    <h3>Payload</h3>
+                  </div>
+                </div>
+
+                <div className="ingest-result-log">
+                  <pre>{JSON.stringify(result ?? payloadPreview, null, 2)}</pre>
+                </div>
+              </article>
+            </>
+          )}
+        </div>
       </section>
     </section>
   );

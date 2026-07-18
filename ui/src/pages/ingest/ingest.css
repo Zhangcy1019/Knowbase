@@ -1,6 +1,8 @@
 .ingest-page,
-.ingest-summary-strip,
-.ingest-workspace {
+.ingest-workspace,
+.ingest-side-stack,
+.ingest-form-grid,
+.ingest-result-list {
   display: grid;
   gap: 12px;
 }
@@ -8,15 +10,12 @@
 .ingest-page {
   min-height: 100%;
   height: 100%;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   overflow: hidden;
 }
 
 .ingest-page-header {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 12px;
+  display: block;
 }
 
 .ingest-page-copy h2 {
@@ -27,66 +26,39 @@
   letter-spacing: -0.04em;
 }
 
-.ingest-page-copy p {
-  margin: 4px 0 0;
-  color: var(--text-muted);
-  font-size: 14px;
-  line-height: 1.45;
-}
-
-.ingest-summary-strip {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-
-.ingest-summary-card {
-  display: grid;
-  gap: 4px;
-  border: 1px solid var(--line-soft);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.72);
-  padding: 12px 14px;
-}
-
-.ingest-summary-card span,
-.ingest-field span,
-.ingest-result-row span,
-.ingest-result-log-head span {
-  font-family: var(--font-body);
-}
-
-.ingest-summary-card span {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-.ingest-summary-card strong {
-  font-family: var(--font-display);
-  font-size: 28px;
-  font-weight: 600;
-  letter-spacing: -0.05em;
-  line-height: 1;
-}
-
-.ingest-summary-card small {
-  color: var(--text-muted);
-  font-size: 13px;
-}
-
 .ingest-workspace {
   min-height: 0;
-  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+  grid-template-columns: minmax(0, 1.16fr) minmax(320px, 0.84fr);
 }
 
 .ingest-editor-card,
-.ingest-result-card {
+.ingest-result-card,
+.ingest-preview-card {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
   min-height: 0;
   padding: 16px 18px;
   overflow: hidden;
+}
+
+.ingest-editor-card {
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.ingest-side-stack {
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.ingest-side-stack.is-empty {
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.ingest-result-card {
+  grid-template-rows: auto auto minmax(0, 1fr);
+}
+
+.ingest-preview-card {
+  grid-template-rows: auto minmax(0, 1fr);
 }
 
 .ingest-panel-head {
@@ -97,17 +69,44 @@
   margin-bottom: 10px;
 }
 
+.ingest-panel-heading {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ingest-panel-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 26px;
+  border-radius: 8px;
+  background: rgba(59, 130, 166, 0.14);
+  color: #255875;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.ingest-panel-mark svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 1.9;
+}
+
 .ingest-panel-head h3 {
   margin: 0;
   font-family: var(--font-display);
-  font-size: 19px;
+  font-size: 17px;
   font-weight: 600;
   letter-spacing: -0.03em;
 }
 
 .ingest-form-grid {
-  display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: auto auto minmax(0, 1fr);
   gap: 10px 12px;
   min-height: 0;
   align-content: start;
@@ -124,7 +123,14 @@
   grid-column: 1 / -1;
 }
 
-.ingest-field span {
+.ingest-field.is-fill {
+  min-height: 0;
+  align-self: stretch;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.ingest-field span,
+.ingest-result-row span {
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -152,8 +158,8 @@
 
 .ingest-field textarea {
   resize: none;
-  min-height: 220px;
-  max-height: 320px;
+  min-height: 0;
+  height: 100%;
   line-height: 1.5;
 }
 
@@ -161,8 +167,7 @@
   display: flex;
   justify-content: flex-end;
   flex-shrink: 0;
-  margin-top: 18px;
-  padding-top: 6px;
+  margin-top: 16px;
 }
 
 .ingest-actions {
@@ -192,18 +197,41 @@
   color: #fff;
 }
 
-.ingest-result-card {
-  grid-template-rows: auto auto auto minmax(0, 1fr);
-  gap: 12px;
-}
-
 .ingest-result-state {
   display: grid;
   gap: 6px;
-  border-radius: 6px;
+  border-radius: 7px;
   padding: 12px;
   border: 1px dashed rgba(40, 71, 104, 0.18);
   background: rgba(255, 255, 255, 0.46);
+}
+
+.ingest-empty-card {
+  display: grid;
+  min-height: 0;
+  height: 100%;
+  padding: 16px 18px;
+}
+
+.ingest-empty-state {
+  min-height: 100%;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  text-align: center;
+  gap: 10px;
+  border: 1px dashed rgba(40, 71, 104, 0.18);
+  border-radius: 7px;
+  padding: 18px;
+  background: rgba(255, 255, 255, 0.46);
+}
+
+.ingest-empty-state strong {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  color: #17314a;
 }
 
 .ingest-result-state strong {
@@ -214,16 +242,18 @@
   color: #17314a;
 }
 
-.ingest-result-state p {
-  margin: 0;
+.ingest-result-note {
   font-size: 13px;
   line-height: 1.5;
   color: var(--text-muted);
 }
 
+.ingest-result-note.is-error {
+  color: #9a4d1f;
+}
+
 .ingest-result-list {
-  display: grid;
-  gap: 6px;
+  align-content: start;
 }
 
 .ingest-result-row {
@@ -237,11 +267,6 @@
   border: 1px solid rgba(40, 71, 104, 0.08);
 }
 
-.ingest-result-row span {
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
 .ingest-result-row strong {
   font-size: 13px;
   color: #17314a;
@@ -250,24 +275,11 @@
 .ingest-result-log {
   min-height: 0;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   border-radius: 6px;
   border: 1px solid rgba(40, 71, 104, 0.08);
   background: rgba(255, 255, 255, 0.5);
   overflow: hidden;
-}
-
-.ingest-result-log-head {
-  padding: 10px 12px;
-  border-bottom: 1px solid rgba(40, 71, 104, 0.08);
-}
-
-.ingest-result-log-head span {
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-muted);
 }
 
 .ingest-result-log pre {
@@ -288,7 +300,6 @@
     overflow: visible;
   }
 
-  .ingest-summary-strip,
   .ingest-workspace,
   .ingest-form-grid {
     grid-template-columns: 1fr;
@@ -296,6 +307,7 @@
 
   .ingest-editor-card,
   .ingest-result-card,
+  .ingest-preview-card,
   .ingest-result-log pre {
     overflow: visible;
   }

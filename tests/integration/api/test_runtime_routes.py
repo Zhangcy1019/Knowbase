@@ -116,7 +116,7 @@ class RuntimeRoutesIntegrationTest(unittest.TestCase):
                 )
             )
 
-        self.assertEqual(len(ingest_result.backlog_event_ids), 1)
+        self.assertTrue(ingest_result.backlog_event_id)
         response = asyncio.run(
             self._post_json(
                 path="/api/knowbase/runtime/maintenance/drain-backlog",
@@ -133,13 +133,13 @@ class RuntimeRoutesIntegrationTest(unittest.TestCase):
         self.assertEqual(payload["details"]["attempted_count"], 1)
         self.assertEqual(payload["details"]["completed_count"], 1)
         self.assertEqual(payload["details"]["failed_count"], 0)
-        self.assertEqual(payload["details"]["event_ids"], ingest_result.backlog_event_ids)
+        self.assertEqual(payload["details"]["event_ids"], [ingest_result.backlog_event_id])
         self.assertTrue(payload["details"]["batch_id"])
         self.assertTrue(payload["details"]["run_id"])
         self.assertEqual(payload["details"]["run_status"], "completed")
         self.assertFalse(payload["details"]["requires_review"])
 
-        event_record = self._backlog_service.get_event(ingest_result.backlog_event_ids[0])
+        event_record = self._backlog_service.get_event(ingest_result.backlog_event_id)
         self.assertIsNotNone(event_record)
         assert event_record is not None
         self.assertEqual(event_record.status, "completed")

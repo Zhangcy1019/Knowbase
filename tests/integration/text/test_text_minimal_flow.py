@@ -140,7 +140,7 @@ class TextMinimalFlowIntegrationTest(unittest.TestCase):
 
         self.assertTrue(ingest_result.case_id)
         self.assertEqual(ingest_result.partition, "CI")
-        self.assertEqual(len(ingest_result.backlog_event_ids), 1)
+        self.assertTrue(ingest_result.backlog_event_id)
 
         events_before = backlog_service.list_events(partition="CI")
         self.assertEqual(len(events_before), 1)
