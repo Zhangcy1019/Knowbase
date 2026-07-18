@@ -55,6 +55,7 @@
 
 .ingest-result-card {
   grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 12px;
 }
 
 .ingest-preview-card {
@@ -333,6 +334,13 @@
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease,
+    transform 120ms ease,
+    opacity 160ms ease;
 }
 
 .ingest-secondary-button {
@@ -345,6 +353,49 @@
   border: 1px solid rgba(198, 122, 43, 0.18);
   background: #c67a2b;
   color: #fff;
+}
+
+.ingest-secondary-button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(40, 71, 104, 0.2);
+  box-shadow: 0 1px 2px rgba(31, 53, 76, 0.04);
+}
+
+.ingest-primary-button:hover:not(:disabled) {
+  background: #bc7328;
+  border-color: rgba(184, 111, 38, 0.22);
+  box-shadow: 0 1px 3px rgba(198, 122, 43, 0.12);
+}
+
+.ingest-secondary-button:active:not(:disabled),
+.ingest-primary-button:active:not(:disabled) {
+  transform: scale(0.992);
+  box-shadow: inset 0 1px 2px rgba(17, 24, 39, 0.06);
+}
+
+.ingest-secondary-button:focus-visible,
+.ingest-primary-button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(59, 130, 166, 0.18);
+}
+
+.ingest-secondary-button:disabled,
+.ingest-primary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  box-shadow: none;
+  transform: none;
+}
+
+.ingest-primary-button:disabled {
+  background: #d9c2a8;
+  border-color: rgba(142, 111, 81, 0.14);
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.ingest-secondary-button:disabled {
+  background: rgba(255, 255, 255, 0.62);
+  color: rgba(36, 58, 80, 0.5);
 }
 
 .ingest-result-state {
@@ -403,6 +454,8 @@
 }
 
 .ingest-result-list {
+  display: grid;
+  gap: 10px;
   align-content: start;
 }
 

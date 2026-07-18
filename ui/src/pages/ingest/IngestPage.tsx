@@ -49,6 +49,9 @@ export function IngestPage({ activePartition }: { activePartition: string | null
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [jsonError, setJsonError] = useState("");
+  const titleValid = form.title.trim().length > 0;
+  const contentValid = form.sourceContent.trim().length > 0;
+  const submitDisabled = !activePartition || submitting || !titleValid || !contentValid;
   const resultLines = useMemo(() => buildResultLines(result, activePartition), [result, activePartition]);
   const payloadPreview = useMemo(
     () => ({
@@ -80,6 +83,14 @@ export function IngestPage({ activePartition }: { activePartition: string | null
   async function handleSubmit() {
     if (!activePartition?.trim()) {
       setErrorMessage("Select or create a partition first.");
+      return;
+    }
+    if (!titleValid) {
+      setErrorMessage("Title is required.");
+      return;
+    }
+    if (!contentValid) {
+      setErrorMessage("Document content is required.");
       return;
     }
     if (jsonError) {
@@ -163,7 +174,7 @@ export function IngestPage({ activePartition }: { activePartition: string | null
                 type="button"
                 className="ingest-primary-button"
                 onClick={() => void handleSubmit()}
-                disabled={!activePartition || submitting}
+                disabled={submitDisabled}
               >
                 {submitting ? "Submitting..." : "Submit"}
               </button>

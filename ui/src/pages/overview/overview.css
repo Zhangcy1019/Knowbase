@@ -155,6 +155,13 @@
   font-weight: 600;
   line-height: 1;
   cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease,
+    transform 120ms ease,
+    opacity 160ms ease;
 }
 
 .overview-inline-button {
@@ -179,13 +186,50 @@
   border-color: rgba(156, 74, 60, 0.14);
 }
 
+.overview-inline-button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(40, 71, 104, 0.2);
+  box-shadow: 0 1px 2px rgba(31, 53, 76, 0.04);
+}
+
+.overview-inline-button.is-danger:hover:not(:disabled) {
+  background: rgba(178, 84, 66, 0.12);
+  border-color: rgba(178, 84, 66, 0.2);
+  box-shadow: 0 1px 2px rgba(140, 67, 55, 0.06);
+}
+
+.overview-primary-button:hover:not(:disabled) {
+  background: #28495f;
+  border-color: rgba(40, 71, 104, 0.18);
+  box-shadow: 0 1px 3px rgba(40, 71, 104, 0.12);
+}
+
+.overview-primary-button.is-danger:hover:not(:disabled) {
+  background: #8f4336;
+  border-color: rgba(156, 74, 60, 0.2);
+  box-shadow: 0 1px 3px rgba(156, 74, 60, 0.12);
+}
+
+.overview-inline-button:active:not(:disabled),
+.overview-primary-button:active:not(:disabled) {
+  transform: scale(0.992);
+  box-shadow: inset 0 1px 2px rgba(17, 24, 39, 0.06);
+}
+
+.overview-inline-button:focus-visible,
+.overview-primary-button:focus-visible,
+.overview-activate-button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(59, 130, 166, 0.18);
+}
+
 .overview-inline-button:disabled,
 .overview-primary-button:disabled,
 .overview-create-field input:disabled,
 .overview-create-field textarea:disabled,
 .overview-create-field select:disabled {
   cursor: not-allowed;
-  opacity: 0.7;
+  opacity: 0.55;
 }
 
 .overview-table-scroll,
@@ -336,12 +380,36 @@
   font-weight: 600;
   line-height: 1;
   cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease,
+    transform 120ms ease,
+    opacity 160ms ease;
 }
 
 .overview-activate-button.is-active {
-  background: rgba(59, 130, 166, 0.12);
-  border-color: rgba(59, 130, 166, 0.2);
-  color: #1f435e;
+  background: rgba(198, 122, 43, 0.14);
+  border-color: rgba(198, 122, 43, 0.24);
+  color: #8a561f;
+}
+
+.overview-activate-button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(40, 71, 104, 0.2);
+  box-shadow: 0 1px 2px rgba(31, 53, 76, 0.04);
+}
+
+.overview-activate-button.is-active:hover:not(:disabled) {
+  background: rgba(198, 122, 43, 0.18);
+  border-color: rgba(198, 122, 43, 0.28);
+  box-shadow: 0 1px 3px rgba(198, 122, 43, 0.1);
+}
+
+.overview-activate-button:active:not(:disabled) {
+  transform: scale(0.992);
+  box-shadow: inset 0 1px 2px rgba(17, 24, 39, 0.06);
 }
 
 .overview-detail-hero,
