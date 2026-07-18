@@ -53,8 +53,19 @@ export type PartitionSemanticIndexDocument = {
 export type KnowbaseCaseDocument = {
   case_id: string;
   partition: string;
+  created_at: string;
+  updated_at: string;
+  title: string;
+  source_content: string;
+  source_refs: string[];
+  summary_text: string;
   facets?: Record<string, string[]>;
   semantic_profile?: Record<string, string[]>;
+  metadata?: {
+    author?: string;
+    source?: string;
+    status?: string;
+  };
 };
 
 export function getPartition(partitionName: string) {
@@ -76,4 +87,8 @@ export function getPartitionSemanticIndex(partitionName: string) {
 export function listPartitionCases(partitionName: string) {
   const search = new URLSearchParams({ partition: partitionName });
   return requestJson<KnowbaseCaseDocument[]>(`/api/knowbase/cases?${search.toString()}`);
+}
+
+export function getCase(caseId: string) {
+  return requestJson<KnowbaseCaseDocument>(`/api/knowbase/cases/${encodeURIComponent(caseId)}`);
 }

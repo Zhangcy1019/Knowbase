@@ -53,7 +53,7 @@ export function AppRouter({
 }) {
   switch (pathname) {
     case "/explore":
-      return <ExplorePage />;
+      return <ExplorePage activePartition={activePartition} />;
     case "/backlog":
       return <BacklogPage activePartition={activePartition} />;
     case "/runs":

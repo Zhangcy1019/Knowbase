@@ -1,89 +1,48 @@
+import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { IconMagnify } from "../../shared/icons/IconMagnify";
-import { IconShrink } from "../../shared/icons/IconShrink";
+
+import { IconExplore, IconMagnify, IconShrink, IconTraceDetail, IconTraceList } from "../../shared/icons";
+import { getCase, listPartitionCases, type KnowbaseCaseDocument } from "../../shared/api";
 import "./explore.css";
 
-type ExploreCase = {
-  id: string;
-  title: string;
-  type: "case" | "summary" | "procedure";
-  topic: string;
-  partition: string;
-  status: "stable" | "review" | "elevated";
-  updatedAt: string;
-  summary: string;
-  facets: string[];
-};
+function PanelMark({ children }: { children: ReactNode }) {
+  return <span className="explore-panel-mark">{children}</span>;
+}
 
-const exploreCases: ExploreCase[] = [
-  {
-    id: "case-2014",
-    title: "Tax penalty appeal",
-    type: "case",
-    topic: "Tax",
-    partition: "Tax",
-    status: "stable",
-    updatedAt: "2m ago",
-    summary: "Appeal handling, reference documents, and supporting procedure chain.",
-    facets: ["Tax", "Appeal", "Penalty"],
-  },
-  {
-    id: "case-2088",
-    title: "Claims reassessment",
-    type: "case",
-    topic: "Claims",
-    partition: "Claims",
-    status: "elevated",
-    updatedAt: "6m ago",
-    summary: "Claims reassessment with pending backlog pressure and recent runtime activity.",
-    facets: ["Claims", "Review", "Escalation"],
-  },
-  {
-    id: "summary-190",
-    title: "Policy summary",
-    type: "summary",
-    topic: "Policy",
-    partition: "Policy",
-    status: "review",
-    updatedAt: "9m ago",
-    summary: "Condensed policy view used by downstream retrieval and case enrichment.",
-    facets: ["Policy", "Summary"],
-  },
-  {
-    id: "procedure-77",
-    title: "Finance procedure",
-    type: "procedure",
-    topic: "Finance",
-    partition: "Finance",
-    status: "stable",
-    updatedAt: "14m ago",
-    summary: "Procedure chain for finance intake, normalization, and case generation.",
-    facets: ["Finance", "Procedure", "Ingest"],
-  },
-];
+function formatTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
 
-const graphNodes = [
-  { id: "topic-tax", label: "Tax", kind: "topic" },
-  { id: "topic-claims", label: "Claims", kind: "topic" },
-  { id: "topic-policy", label: "Policy", kind: "topic" },
-  { id: "case-2014", label: "Tax penalty appeal", kind: "case" },
-  { id: "case-2088", label: "Claims reassessment", kind: "case" },
-  { id: "summary-190", label: "Policy summary", kind: "summary" },
-  { id: "procedure-77", label: "Finance procedure", kind: "procedure" },
-] as const;
+function flattenFacets(facets: Record<string, string[]> | undefined) {
+  return Object.entries(facets ?? {})
+    .flatMap(([key, values]) => values.slice(0, 2).map((value) => `${key}:${value}`))
+    .slice(0, 8);
+}
 
-export function ExplorePage() {
-  const [selectedCaseId, setSelectedCaseId] = useState("case-2088");
+function inferStatus(item: KnowbaseCaseDocument): "stable" | "review" | "elevated" {
+  const status = item.metadata?.status || "";
+  if (status === "archived") {
+    return "review";
+  }
+  return "stable";
+}
+
+export function ExplorePage({ activePartition }: { activePartition: string | null }) {
+  const [cases, setCases] = useState<KnowbaseCaseDocument[]>([]);
+  const [selectedCaseId, setSelectedCaseId] = useState("");
+  const [selectedCase, setSelectedCase] = useState<KnowbaseCaseDocument | null>(null);
   const [graphRatio, setGraphRatio] = useState(0.52);
   const [expandedPanel, setExpandedPanel] = useState<"graph" | "list" | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isPanelTransitioning, setIsPanelTransitioning] = useState(false);
+  const [loadingCases, setLoadingCases] = useState(false);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
   const leftStackRef = useRef<HTMLDivElement | null>(null);
-
-  const selectedCase = useMemo(
-    () => exploreCases.find((item) => item.id === selectedCaseId) ?? exploreCases[0],
-    [selectedCaseId],
-  );
 
   useEffect(() => {
     setIsPanelTransitioning(true);
@@ -145,6 +104,84 @@ export function ExplorePage() {
     };
   }, [expandedPanel]);
 
+  useEffect(() => {
+    let cancelled = false;
+    if (!activePartition?.trim()) {
+      setCases([]);
+      setSelectedCaseId("");
+      setSelectedCase(null);
+      setErrorMessage("");
+      setLoadingCases(false);
+      return () => {
+        cancelled = true;
+      };
+    }
+    setLoadingCases(true);
+    setErrorMessage("");
+    listPartitionCases(activePartition)
+      .then((items) => {
+        if (cancelled) {
+          return;
+        }
+        setCases(items);
+        setSelectedCaseId((current) => {
+          if (current && items.some((item) => item.case_id === current)) {
+            return current;
+          }
+          return items[0]?.case_id ?? "";
+        });
+      })
+      .catch((error: unknown) => {
+        if (cancelled) {
+          return;
+        }
+        setCases([]);
+        setSelectedCaseId("");
+        setSelectedCase(null);
+        setErrorMessage(error instanceof Error ? error.message : "Failed to load cases.");
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoadingCases(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activePartition]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!selectedCaseId) {
+      setSelectedCase(null);
+      setLoadingDetail(false);
+      return () => {
+        cancelled = true;
+      };
+    }
+    setLoadingDetail(true);
+    getCase(selectedCaseId)
+      .then((item) => {
+        if (!cancelled) {
+          setSelectedCase(item);
+        }
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setSelectedCase(null);
+          setErrorMessage(error instanceof Error ? error.message : "Failed to load case detail.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoadingDetail(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedCaseId]);
+
   const leftStackStyle =
     expandedPanel === null
       ? ({
@@ -152,12 +189,14 @@ export function ExplorePage() {
         } as const)
       : undefined;
 
+  const selectedStatus = selectedCase ? inferStatus(selectedCase) : "stable";
+  const selectedFacets = selectedCase ? flattenFacets(selectedCase.facets) : [];
+
   return (
     <section className="explore-page">
       <header className="explore-page-header">
         <div className="explore-page-copy">
           <h2>Explore</h2>
-          <p>Graph, case list, and detail stay linked in one workspace.</p>
         </div>
       </header>
 
@@ -170,7 +209,12 @@ export function ExplorePage() {
           {expandedPanel === "list" ? (
             <article className="skeleton-card explore-list-card is-solo">
               <div className="explore-panel-head">
-                <h3>Case List</h3>
+                <div className="explore-panel-heading">
+                  <PanelMark>
+                    <IconTraceList />
+                  </PanelMark>
+                  <h3>Case List</h3>
+                </div>
                 <button
                   type="button"
                   className="explore-panel-toggle is-active"
@@ -188,17 +232,17 @@ export function ExplorePage() {
                     <span>Status</span>
                     <span>Updated</span>
                   </div>
-                  {exploreCases.map((item) => (
+                  {cases.map((item) => (
                     <button
-                      key={item.id}
+                      key={item.case_id}
                       type="button"
-                      className={`explore-list-row${selectedCaseId === item.id ? " is-active" : ""}`}
-                      onClick={() => setSelectedCaseId(item.id)}
+                      className={`explore-list-row${selectedCaseId === item.case_id ? " is-active" : ""}`}
+                      onClick={() => setSelectedCaseId(item.case_id)}
                     >
-                      <strong>{item.title}</strong>
+                      <strong>{item.title || item.case_id}</strong>
                       <span>{item.partition}</span>
-                      <span className={`explore-inline-status is-${item.status}`}>{item.status}</span>
-                      <span>{item.updatedAt}</span>
+                      <span className={`explore-inline-status is-${inferStatus(item)}`}>{inferStatus(item)}</span>
+                      <span>{formatTime(item.updated_at)}</span>
                     </button>
                   ))}
                 </div>
@@ -207,7 +251,12 @@ export function ExplorePage() {
           ) : expandedPanel === "graph" ? (
             <article className="skeleton-card explore-graph-card is-solo">
               <div className="explore-panel-head">
-                <h3>Graph</h3>
+                <div className="explore-panel-heading">
+                  <PanelMark>
+                    <IconExplore />
+                  </PanelMark>
+                  <h3>Graph</h3>
+                </div>
                 <button
                   type="button"
                   className="explore-panel-toggle is-active"
@@ -217,34 +266,20 @@ export function ExplorePage() {
                   <IconShrink />
                 </button>
               </div>
-              <div className="explore-graph-stage">
-                {graphNodes.map((node) => {
-                  const relatedCase = exploreCases.find((item) => item.id === node.id);
-                  const isActive = selectedCaseId === node.id;
-                  const isInteractive = Boolean(relatedCase);
-                  return (
-                    <button
-                      key={node.id}
-                      type="button"
-                      className={`explore-graph-node is-${node.kind}${isActive ? " is-active" : ""}`}
-                      onClick={() => {
-                        if (isInteractive) {
-                          setSelectedCaseId(node.id);
-                        }
-                      }}
-                      disabled={!isInteractive}
-                    >
-                      <span>{node.label}</span>
-                    </button>
-                  );
-                })}
+              <div className="explore-empty-state">
+                <strong>Graph pending</strong>
               </div>
             </article>
           ) : (
             <>
               <article className="skeleton-card explore-graph-card">
                 <div className="explore-panel-head">
-                  <h3>Graph</h3>
+                  <div className="explore-panel-heading">
+                    <PanelMark>
+                      <IconExplore />
+                    </PanelMark>
+                    <h3>Graph</h3>
+                  </div>
                   <button
                     type="button"
                     className="explore-panel-toggle"
@@ -254,27 +289,8 @@ export function ExplorePage() {
                     <IconMagnify />
                   </button>
                 </div>
-                <div className="explore-graph-stage">
-                  {graphNodes.map((node) => {
-                    const relatedCase = exploreCases.find((item) => item.id === node.id);
-                    const isActive = selectedCaseId === node.id;
-                    const isInteractive = Boolean(relatedCase);
-                    return (
-                      <button
-                        key={node.id}
-                        type="button"
-                        className={`explore-graph-node is-${node.kind}${isActive ? " is-active" : ""}`}
-                        onClick={() => {
-                          if (isInteractive) {
-                            setSelectedCaseId(node.id);
-                          }
-                        }}
-                        disabled={!isInteractive}
-                      >
-                        <span>{node.label}</span>
-                      </button>
-                    );
-                  })}
+                <div className="explore-empty-state">
+                  <strong>Graph pending</strong>
                 </div>
               </article>
 
@@ -284,7 +300,12 @@ export function ExplorePage() {
 
               <article className="skeleton-card explore-list-card">
                 <div className="explore-panel-head">
-                  <h3>Case List</h3>
+                  <div className="explore-panel-heading">
+                    <PanelMark>
+                      <IconTraceList />
+                    </PanelMark>
+                    <h3>Case List</h3>
+                  </div>
                   <button
                     type="button"
                     className="explore-panel-toggle"
@@ -296,25 +317,35 @@ export function ExplorePage() {
                 </div>
                 <div className="explore-list-scroll">
                   <div className="explore-list-table">
-                    <div className="explore-list-header">
-                      <span>Case</span>
-                      <span>Partition</span>
-                      <span>Status</span>
-                      <span>Updated</span>
-                    </div>
-                    {exploreCases.map((item) => (
-                      <button
-                        key={item.id}
-                        type="button"
-                        className={`explore-list-row${selectedCaseId === item.id ? " is-active" : ""}`}
-                        onClick={() => setSelectedCaseId(item.id)}
-                      >
-                        <strong>{item.title}</strong>
-                        <span>{item.partition}</span>
-                        <span className={`explore-inline-status is-${item.status}`}>{item.status}</span>
-                        <span>{item.updatedAt}</span>
-                      </button>
-                    ))}
+                    {!activePartition ? <div className="explore-empty-state"><strong>No active partition</strong></div> : null}
+                    {loadingCases ? <div className="explore-empty-state"><strong>Loading...</strong></div> : null}
+                    {!loadingCases && errorMessage ? <div className="explore-empty-state"><strong>{errorMessage}</strong></div> : null}
+                    {!loadingCases && activePartition && !errorMessage && cases.length === 0 ? (
+                      <div className="explore-empty-state"><strong>No cases</strong></div>
+                    ) : null}
+                    {cases.length > 0 ? (
+                      <>
+                        <div className="explore-list-header">
+                          <span>Case</span>
+                          <span>Partition</span>
+                          <span>Status</span>
+                          <span>Updated</span>
+                        </div>
+                        {cases.map((item) => (
+                          <button
+                            key={item.case_id}
+                            type="button"
+                            className={`explore-list-row${selectedCaseId === item.case_id ? " is-active" : ""}`}
+                            onClick={() => setSelectedCaseId(item.case_id)}
+                          >
+                            <strong>{item.title || item.case_id}</strong>
+                            <span>{item.partition}</span>
+                            <span className={`explore-inline-status is-${inferStatus(item)}`}>{inferStatus(item)}</span>
+                            <span>{formatTime(item.updated_at)}</span>
+                          </button>
+                        ))}
+                      </>
+                    ) : null}
                   </div>
                 </div>
               </article>
@@ -324,38 +355,58 @@ export function ExplorePage() {
 
         <article className="skeleton-card explore-detail-card">
           <div className="explore-panel-head">
-            <h3>Case Detail</h3>
+            <div className="explore-panel-heading">
+              <PanelMark>
+                <IconTraceDetail />
+              </PanelMark>
+              <h3>Case Detail</h3>
+            </div>
           </div>
           <div className="explore-detail-scroll">
-            <div className="explore-detail-meta">
-              <span className={`explore-inline-status is-${selectedCase.status}`}>{selectedCase.status}</span>
-              <code>{selectedCase.id}</code>
-            </div>
-            <h4>{selectedCase.title}</h4>
-            <p>{selectedCase.summary}</p>
-            <dl className="explore-detail-grid">
-              <div>
-                <dt>Partition</dt>
-                <dd>{selectedCase.partition}</dd>
+            {!selectedCase && !loadingDetail ? (
+              <div className="explore-empty-state">
+                <strong>Select a case</strong>
               </div>
-              <div>
-                <dt>Topic</dt>
-                <dd>{selectedCase.topic}</dd>
+            ) : null}
+            {loadingDetail ? (
+              <div className="explore-empty-state">
+                <strong>Loading...</strong>
               </div>
-              <div>
-                <dt>Type</dt>
-                <dd>{selectedCase.type}</dd>
-              </div>
-              <div>
-                <dt>Updated</dt>
-                <dd>{selectedCase.updatedAt}</dd>
-              </div>
-            </dl>
-            <div className="explore-facet-row">
-              {selectedCase.facets.map((facet) => (
-                <span key={facet}>{facet}</span>
-              ))}
-            </div>
+            ) : null}
+            {selectedCase ? (
+              <>
+                <div className="explore-detail-meta">
+                  <span className={`explore-inline-status is-${selectedStatus}`}>{selectedStatus}</span>
+                  <code>{selectedCase.case_id}</code>
+                </div>
+                <h4>{selectedCase.title || selectedCase.case_id}</h4>
+                <p>{selectedCase.partition}</p>
+                <dl className="explore-detail-grid">
+                  <div>
+                    <dt>Partition</dt>
+                    <dd>{selectedCase.partition}</dd>
+                  </div>
+                  <div>
+                    <dt>Status</dt>
+                    <dd>{selectedCase.metadata?.status || "--"}</dd>
+                  </div>
+                  <div>
+                    <dt>Source</dt>
+                    <dd>{selectedCase.metadata?.source || "--"}</dd>
+                  </div>
+                  <div>
+                    <dt>Updated</dt>
+                    <dd>{formatTime(selectedCase.updated_at)}</dd>
+                  </div>
+                </dl>
+                <div className="explore-facet-row">
+                  {selectedFacets.length === 0 ? <span>no facets</span> : null}
+                  {selectedFacets.map((facet) => (
+                    <span key={facet}>{facet}</span>
+                  ))}
+                </div>
+              </>
+            ) : null}
           </div>
         </article>
       </section>
