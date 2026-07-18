@@ -4,7 +4,6 @@ startup:
   api:
     host: 0.0.0.0
     port: 8000
-  default_partition: "CI"
 
 storage:
   backend: es # es or text

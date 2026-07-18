@@ -8,6 +8,12 @@ export type PartitionDocument = {
   updated_at: string;
 };
 
+export type CreatePartitionRequest = {
+  partition_name: string;
+  scenario_description?: string;
+  status?: "active" | "disabled" | "archived";
+};
+
 export type PartitionFacetDefinition = {
   key: string;
   display_name: string;
@@ -74,6 +80,21 @@ export function getPartition(partitionName: string) {
 
 export function listPartitions() {
   return requestJson<PartitionDocument[]>("/api/knowbase/partitions");
+}
+
+export function createPartition(payload: CreatePartitionRequest) {
+  return requestJson<PartitionDocument>("/api/knowbase/partitions", {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      partition_name: payload.partition_name,
+      scenario_description: payload.scenario_description ?? "",
+      status: payload.status ?? "active",
+    }),
+  });
 }
 
 export function getPartitionFacetSchema(partitionName: string) {

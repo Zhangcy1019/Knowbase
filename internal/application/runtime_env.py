@@ -57,7 +57,6 @@ def apply_runtime_config_to_env(runtime_cfg: RuntimeConfig) -> None:
     )
     os.environ.setdefault("CIAGENT_KNOWBASE_EVENT_RECORDS_INDEX", runtime_cfg.es.event_records_index)
 
-    os.environ.setdefault("CIAGENT_KNOWBASE_DEFAULT_PARTITION", runtime_cfg.startup.default_partition)
     os.environ.setdefault("CIAGENT_KNOWBASE_EMBEDDING_PROVIDER", runtime_cfg.embedding.provider)
     os.environ.setdefault("CIAGENT_KNOWBASE_EMBEDDING_MODEL", runtime_cfg.embedding.model_name)
     os.environ.setdefault("CIAGENT_KNOWBASE_EMBEDDING_ENDPOINT", runtime_cfg.embedding.endpoint)

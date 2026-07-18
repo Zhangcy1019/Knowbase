@@ -86,7 +86,6 @@ class ApiServerRuntimeConfig:
 @dataclass(frozen=True)
 class StartupRuntimeConfig:
     api_server: ApiServerRuntimeConfig
-    default_partition: str = "CI"
 
 
 @dataclass(frozen=True)
@@ -209,10 +208,6 @@ def load_runtime_config(config_path: str | None) -> RuntimeConfig:
                 int(_get_nested(file_cfg, "startup", "api", "port", default=8000)),
             ),
         ),
-        default_partition=_str_env(
-            "CIAGENT_KNOWBASE_DEFAULT_PARTITION",
-            str(_get_nested(file_cfg, "startup", "default_partition", default="CI")),
-        ),
     )
 
     es = KnowbaseElasticsearchConfig(
@@ -332,8 +327,6 @@ def load_runtime_config(config_path: str | None) -> RuntimeConfig:
             missing.append("CIAGENT_KNOWBASE_ES_URL")
         if not es.api_key:
             missing.append("CIAGENT_KNOWBASE_ES_API_KEY")
-    if not startup.default_partition:
-        missing.append("CIAGENT_KNOWBASE_DEFAULT_PARTITION")
     if not embedding.endpoint and not embedding.base_url:
         missing.append("CIAGENT_KNOWBASE_EMBEDDING_ENDPOINT or CIAGENT_KNOWBASE_EMBEDDING_BASE_URL")
     if not llm_config.openai_api_key:

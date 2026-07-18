@@ -2,8 +2,10 @@ import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 
 import "./overview.css";
+import { CreatePartitionCard } from "./CreatePartitionCard";
 import { IconBacklog, IconOverview, IconPartition, IconRuns, IconTraceList } from "../../shared/icons";
 import {
+  createPartition,
   listBacklogEvents,
   listPartitionCases,
   listPartitions,
@@ -100,55 +102,58 @@ export function OverviewPage({
   const [runs, setRuns] = useState<RuntimeRunSummary[]>([]);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [createOpen, setCreateOpen] = useState(false);
+
+  async function loadOverview(isCancelled?: () => boolean) {
+    setLoading(true);
+    setErrorMessage("");
+    try {
+      const [partitions, events, runtimeRuns] = await Promise.all([listPartitions(), listBacklogEvents({}), listRuntimeRuns("")]);
+      const rowPayload = await Promise.all(
+        partitions.map(async (partition) => {
+          const [cases, partitionRuns, partitionEvents] = await Promise.all([
+            listPartitionCases(partition.partition_name),
+            Promise.resolve(runtimeRuns.filter((item) => item.partition === partition.partition_name)),
+            Promise.resolve(events.filter((item) => item.partition === partition.partition_name)),
+          ]);
+          const lastRunAt = partitionRuns
+            .map((item) => item.updated_at || item.finished_at || item.created_at)
+            .filter((item): item is string => Boolean(item))
+            .sort((left, right) => new Date(right).getTime() - new Date(left).getTime())[0] ?? null;
+          return {
+            name: partition.partition_name,
+            cases: cases.length,
+            backlog: partitionEvents.length,
+            runAt: lastRunAt,
+            status: normalizePartitionStatus(partition, partitionEvents.length, partitionRuns),
+          } satisfies OverviewPartitionRow;
+        }),
+      );
+      rowPayload.sort((left, right) => left.name.localeCompare(right.name));
+      if (isCancelled?.()) {
+        return;
+      }
+      setPartitionRows(rowPayload);
+      setBacklogEvents(events);
+      setRuns(runtimeRuns);
+    } catch (error: unknown) {
+      if (isCancelled?.()) {
+        return;
+      }
+      setPartitionRows([]);
+      setBacklogEvents([]);
+      setRuns([]);
+      setErrorMessage(error instanceof Error ? error.message : "Failed to load overview.");
+    } finally {
+      if (!isCancelled?.()) {
+        setLoading(false);
+      }
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    setErrorMessage("");
-    Promise.all([listPartitions(), listBacklogEvents({}), listRuntimeRuns("")])
-      .then(async ([partitions, events, runtimeRuns]) => {
-        const rowPayload = await Promise.all(
-          partitions.map(async (partition) => {
-            const [cases, partitionRuns, partitionEvents] = await Promise.all([
-              listPartitionCases(partition.partition_name),
-              Promise.resolve(runtimeRuns.filter((item) => item.partition === partition.partition_name)),
-              Promise.resolve(events.filter((item) => item.partition === partition.partition_name)),
-            ]);
-            const lastRunAt = partitionRuns
-              .map((item) => item.updated_at || item.finished_at || item.created_at)
-              .filter((item): item is string => Boolean(item))
-              .sort((left, right) => new Date(right).getTime() - new Date(left).getTime())[0] ?? null;
-            return {
-              name: partition.partition_name,
-              cases: cases.length,
-              backlog: partitionEvents.length,
-              runAt: lastRunAt,
-              status: normalizePartitionStatus(partition, partitionEvents.length, partitionRuns),
-            } satisfies OverviewPartitionRow;
-          }),
-        );
-        rowPayload.sort((left, right) => left.name.localeCompare(right.name));
-        if (cancelled) {
-          return;
-        }
-        setPartitionRows(rowPayload);
-        setBacklogEvents(events);
-        setRuns(runtimeRuns);
-      })
-      .catch((error: unknown) => {
-        if (cancelled) {
-          return;
-        }
-        setPartitionRows([]);
-        setBacklogEvents([]);
-        setRuns([]);
-        setErrorMessage(error instanceof Error ? error.message : "Failed to load overview.");
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      });
+    void loadOverview(() => cancelled);
     return () => {
       cancelled = true;
     };
@@ -245,7 +250,7 @@ export function OverviewPage({
               </PanelMark>
               <h3>Partition List</h3>
             </div>
-            <button type="button" className="overview-inline-button">Create</button>
+            <button type="button" className="overview-inline-button" onClick={() => setCreateOpen(true)}>Create</button>
           </div>
           <div className="overview-table-scroll">
             <div className="overview-table">
@@ -330,6 +335,20 @@ export function OverviewPage({
           </article>
         </div>
       </section>
+
+      <CreatePartitionCard
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onSubmit={async ({ partitionName, scenarioDescription }) => {
+          const created = await createPartition({
+            partition_name: partitionName,
+            scenario_description: scenarioDescription,
+            status: "active",
+          });
+          await loadOverview();
+          onActivatePartition(created.partition_name);
+        }}
+      />
     </section>
   );
 }
