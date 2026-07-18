@@ -10,7 +10,7 @@ import {
   type RuntimeRunSummary,
   type RuntimeTraceReplayResponse,
   type RuntimeTraceTurnResponse,
-} from "../../shared/api/runtime";
+} from "../../shared/api";
 
 function PanelMark({ children }: { children: ReactNode }) {
   return <span className="runs-panel-mark">{children}</span>;

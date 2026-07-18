@@ -1,5 +1,4 @@
 .backlog-page,
-.backlog-status-strip,
 .backlog-control-grid,
 .backlog-workbench,
 .backlog-center-stack,
@@ -15,15 +14,12 @@
 .backlog-page {
   min-height: 100%;
   height: 100%;
-  grid-template-rows: auto auto auto minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
   overflow: hidden;
 }
 
 .backlog-page-header {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 12px;
+  display: block;
 }
 
 .backlog-page-copy h2 {
@@ -32,69 +28,6 @@
   font-size: 24px;
   font-weight: 600;
   letter-spacing: -0.04em;
-}
-
-.backlog-page-status {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.backlog-page-pill {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 34px;
-  min-height: 30px;
-  border-radius: 999px;
-  border: 1px solid rgba(40, 71, 104, 0.1);
-  background: rgba(255, 255, 255, 0.7);
-  padding: 0 12px;
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--text-muted);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.backlog-page-pill.is-accent {
-  background: rgba(210, 134, 58, 0.12);
-  border-color: rgba(210, 134, 58, 0.16);
-  color: #8a571f;
-}
-
-.backlog-status-strip {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.backlog-status-card {
-  display: grid;
-  gap: 4px;
-  border: 1px solid var(--line-soft);
-  border-radius: 7px;
-  background: rgba(255, 255, 255, 0.72);
-  padding: 10px 12px;
-}
-
-.backlog-status-card span {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-.backlog-status-card strong {
-  font-family: var(--font-display);
-  font-size: 26px;
-  font-weight: 600;
-  letter-spacing: -0.05em;
-  line-height: 1;
-}
-
-.backlog-status-card.is-accent {
-  background: rgba(210, 134, 58, 0.12);
-  border-color: rgba(210, 134, 58, 0.16);
 }
 
 .backlog-workbench {
@@ -244,6 +177,22 @@
 .backlog-control-actions button.is-primary {
   background: rgba(59, 130, 166, 0.12);
   border-color: rgba(59, 130, 166, 0.18);
+  color: #255875;
+}
+
+.backlog-console-note,
+.backlog-empty-state {
+  border: 1px dashed rgba(40, 71, 104, 0.16);
+  border-radius: 7px;
+  padding: 12px;
+  color: var(--text-muted);
+  font-size: 13px;
+  background: rgba(255, 255, 255, 0.4);
+}
+
+.backlog-console-note {
+  border-style: solid;
+  background: rgba(238, 246, 250, 0.72);
   color: #255875;
 }
 
@@ -448,6 +397,13 @@
   letter-spacing: -0.02em;
 }
 
+.backlog-detail-subsection {
+  display: grid;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(40, 71, 104, 0.08);
+}
+
 .backlog-detail-actions {
   display: flex;
   flex-wrap: wrap;
@@ -511,7 +467,6 @@
 }
 
 @media (max-width: 1080px) {
-  .backlog-status-strip,
   .backlog-workbench,
   .backlog-summary-stats,
   .backlog-mini-stats {

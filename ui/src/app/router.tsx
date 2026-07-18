@@ -55,7 +55,7 @@ export function AppRouter({
     case "/explore":
       return <ExplorePage />;
     case "/backlog":
-      return <BacklogPage />;
+      return <BacklogPage activePartition={activePartition} />;
     case "/runs":
       return <RunsPage activePartition={activePartition} />;
     case "/settings":

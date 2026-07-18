@@ -1,3 +1,5 @@
+import { requestJson } from "./base";
+
 export type RuntimeRunSummary = {
   run_id: string;
   partition: string;
@@ -82,17 +84,6 @@ export type RuntimeTraceReplayResponse = {
   steps: RuntimeRunStepResponse[];
   artifacts: RuntimeRunArtifactResponse[];
 };
-
-async function requestJson<T>(path: string) {
-  const response = await fetch(path, {
-    credentials: "same-origin",
-    headers: { Accept: "application/json" },
-  });
-  if (!response.ok) {
-    throw new Error(`Request failed: ${response.status}`);
-  }
-  return (await response.json()) as T;
-}
 
 export function listRuntimeRuns(partition: string) {
   const search = new URLSearchParams();
