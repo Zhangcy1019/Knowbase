@@ -185,7 +185,10 @@ class KnowbaseCaseWriteService:
             if content_text.strip():
                 document.content_vector = self._embedding_provider.embed_documents([content_text])[0]
         except Exception as exc:  # pragma: no cover - operational path
-            logger.warning(
+            logger.exception(
                 "Online knowbase case write failed to build embeddings",
                 extra={"case_id": document.case_id, "partition": document.partition, "error": str(exc)},
             )
+            raise RuntimeError(
+                f"Failed to build case embedding for {document.case_id}: {exc}"
+            ) from exc
