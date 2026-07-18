@@ -23,12 +23,11 @@ def generate_text(
     user_prompt: str,
     metadata: dict[str, object] | None = None,
 ) -> str:
-    response = client.create_chat(
+    response = client.create_text_chat(
         request=OpenAIChatRequest(
             model=model.strip() or "gpt-4o-mini",
             system_prompt=system_prompt,
             user_prompt=user_prompt,
-            response_format="json_object",
             temperature=float(temperature),
             max_output_tokens=max(1, int(max_output_tokens)),
             metadata=dict(metadata or {}),

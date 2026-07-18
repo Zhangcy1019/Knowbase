@@ -43,6 +43,9 @@ class OpenAIClientPort(Protocol):
     def create_chat(self, *, request: OpenAIChatRequest) -> OpenAIChatResponse:
         ...
 
+    def create_text_chat(self, *, request: OpenAIChatRequest) -> OpenAIChatResponse:
+        ...
+
 
 class DefaultOpenAIClient:
     """OpenAI-backed structured chat client."""
@@ -67,6 +70,27 @@ class DefaultOpenAIClient:
         )
 
     def create_chat(self, *, request: OpenAIChatRequest) -> OpenAIChatResponse:
+        completion = self._create_completion(request=request, include_response_format=True)
+        content_text = self._extract_content_text(completion=completion)
+        content_json = self._extract_content_json(content_text=content_text)
+        return self._build_response(
+            completion=completion,
+            request=request,
+            content_text=content_text,
+            content_json=content_json,
+        )
+
+    def create_text_chat(self, *, request: OpenAIChatRequest) -> OpenAIChatResponse:
+        completion = self._create_completion(request=request, include_response_format=False)
+        content_text = self._extract_content_text(completion=completion)
+        return self._build_response(
+            completion=completion,
+            request=request,
+            content_text=content_text,
+            content_json={},
+        )
+
+    def _create_completion(self, *, request: OpenAIChatRequest, include_response_format: bool) -> Any:
         request_kwargs: dict[str, Any] = {
             "model": request.model,
             "messages": [
@@ -77,11 +101,18 @@ class DefaultOpenAIClient:
             "max_completion_tokens": max(1, int(request.max_output_tokens)),
             "metadata": self._build_api_metadata(request=request) or None,
         }
-        if self._supports_native_response_format:
+        if include_response_format and self._supports_native_response_format:
             request_kwargs["response_format"] = self._build_response_format(request=request)
-        completion = self._client.chat.completions.create(**request_kwargs)
-        content_text = self._extract_content_text(completion=completion)
-        content_json = self._extract_content_json(content_text=content_text)
+        return self._client.chat.completions.create(**request_kwargs)
+
+    def _build_response(
+        self,
+        *,
+        completion: Any,
+        request: OpenAIChatRequest,
+        content_text: str,
+        content_json: dict[str, Any],
+    ) -> OpenAIChatResponse:
         usage = {
             "input_tokens": int(getattr(getattr(completion, "usage", None), "prompt_tokens", 0) or 0),
             "output_tokens": int(getattr(getattr(completion, "usage", None), "completion_tokens", 0) or 0),
