@@ -3,24 +3,18 @@
 from importlib import import_module
 
 _EXPORTS = {
-    "KnowbaseCaseDraftBuilder": "domain.case",
-    "KnowbaseCaseIngestor": "domain.case",
-    "KnowbaseCaseRepository": "domain.case",
-    "KnowbaseCaseRetriever": "domain.case",
-    "KnowbaseCaseService": "domain.case",
-    "KnowbaseCaseSummaryExtractor": "domain.case",
-    "KnowbaseCaseWriteService": "domain.case",
-    "KnowbaseSemanticProfileExtractor": "domain.case",
-    "build_case_content_representation": "domain.case",
-    "build_case_search_representation": "domain.case",
-    "PartitionRepository": "domain.partition",
-    "PartitionService": "domain.partition",
-    "EventRecordRepository": "domain.event",
-    "KnowbaseEventInboxService": "domain.event",
-    "KnowbaseEventPublisher": "domain.event",
-    "AgentRunRepository": "domain.run",
-    "RunArtifactRepository": "domain.run",
-    "RunStepRepository": "domain.run",
+    "KnowbaseCaseDraftBuilder": "internal.domain.case",
+    "KnowbaseCaseIngestor": "internal.domain.case",
+    "KnowbaseCaseRetriever": "internal.domain.case",
+    "KnowbaseCaseService": "internal.domain.case",
+    "KnowbaseCaseSummaryExtractor": "internal.domain.case",
+    "KnowbaseCaseWriteService": "internal.domain.case",
+    "KnowbaseSemanticProfileExtractor": "internal.domain.case",
+    "build_case_content_representation": "internal.domain.case",
+    "build_case_search_representation": "internal.domain.case",
+    "PartitionService": "internal.domain.partition",
+    "KnowbaseEventInboxService": "internal.domain.event",
+    "KnowbaseEventPublisher": "internal.domain.event",
 }
 
 
@@ -35,11 +29,8 @@ def __getattr__(name: str):
 
 
 __all__ = [
-    "AgentRunRepository",
-    "EventRecordRepository",
     "KnowbaseCaseDraftBuilder",
     "KnowbaseCaseIngestor",
-    "KnowbaseCaseRepository",
     "KnowbaseCaseRetriever",
     "KnowbaseCaseService",
     "KnowbaseCaseSummaryExtractor",
@@ -49,8 +40,5 @@ __all__ = [
     "KnowbaseSemanticProfileExtractor",
     "build_case_content_representation",
     "build_case_search_representation",
-    "PartitionRepository",
     "PartitionService",
-    "RunArtifactRepository",
-    "RunStepRepository",
 ]

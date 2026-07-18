@@ -19,8 +19,8 @@ from internal.models.facet import PartitionFacetIndexDocument, PartitionFacetSch
 from internal.models.partition_semantic_index import PartitionSemanticIndex, PartitionSemanticIndexDocument
 
 
-class PartitionAccessPort(Protocol):
-    """Stable partition read/write surface used across modules."""
+class PartitionReadPort(Protocol):
+    """Stable partition read surface used across modules."""
 
     def list_partitions(self) -> list[PartitionDocument]:
         ...
@@ -28,7 +28,27 @@ class PartitionAccessPort(Protocol):
     def get_partition(self, partition_name: str) -> PartitionDocument | None:
         ...
 
+
+class PartitionWritePort(Protocol):
+    """Stable partition write surface used by API and maintenance flows."""
+
     def save_partition(self, document: PartitionDocument) -> PartitionDocument:
+        ...
+
+    def delete_partition(self, partition_name: str):
+        ...
+
+
+class PartitionProfileReadPort(Protocol):
+    """Read surface for partition schema, facet, and semantic profiles."""
+
+    def get_facet_schema(self, partition_name: str) -> PartitionFacetSchema | None:
+        ...
+
+    def get_facet_schema_document(self, partition_name: str) -> PartitionFacetSchemaDocument | None:
+        ...
+
+    def list_facet_definitions(self, partition_name: str) -> list[PartitionFacetDefinition]:
         ...
 
     def get_facet_index(self, partition_name: str) -> PartitionFacetIndex | None:
@@ -37,8 +57,15 @@ class PartitionAccessPort(Protocol):
     def get_facet_index_document(self, partition_name: str) -> PartitionFacetIndexDocument | None:
         ...
 
-    def get_facet_schema_document(self, partition_name: str) -> PartitionFacetSchemaDocument | None:
+    def get_semantic_index(self, partition_name: str) -> PartitionSemanticIndex | None:
         ...
+
+    def get_semantic_index_document(self, partition_name: str) -> PartitionSemanticIndexDocument | None:
+        ...
+
+
+class PartitionProfileWritePort(Protocol):
+    """Write surface for partition schema/profile maintenance."""
 
     def save_facet_schema(
         self,
@@ -46,15 +73,6 @@ class PartitionAccessPort(Protocol):
         partition_name: str,
         facet_schema: PartitionFacetSchema,
     ) -> PartitionFacetSchemaDocument:
-        ...
-
-    def list_facet_definitions(self, partition_name: str) -> list[PartitionFacetDefinition]:
-        ...
-
-    def get_semantic_index(self, partition_name: str) -> PartitionSemanticIndex | None:
-        ...
-
-    def get_semantic_index_document(self, partition_name: str) -> PartitionSemanticIndexDocument | None:
         ...
 
     def refresh_semantic_index(
@@ -73,18 +91,19 @@ class PartitionAccessPort(Protocol):
     ) -> PartitionFacetIndexDocument:
         ...
 
-    def delete_partition(self, partition_name: str):
-        ...
+
+class PartitionAccessPort(
+    PartitionReadPort,
+    PartitionWritePort,
+    PartitionProfileReadPort,
+    PartitionProfileWritePort,
+    Protocol,
+):
+    """Composite partition surface kept for broader existing integrations."""
 
 
-class PartitionLookupPort(Protocol):
+class PartitionLookupPort(PartitionReadPort, PartitionProfileReadPort, Protocol):
     """Narrow partition lookup surface used by skills and tools."""
-
-    def get_partition(self, partition_name: str) -> PartitionDocument | None:
-        ...
-
-    def list_facet_definitions(self, partition_name: str) -> list[PartitionFacetDefinition]:
-        ...
 
 
 class PartitionSchemaSuggestPort(Protocol):
@@ -257,7 +276,11 @@ __all__ = [
     "CaseWritePort",
     "CaseFacetResolutionPort",
     "EventPublisherPort",
+    "PartitionProfileReadPort",
+    "PartitionProfileWritePort",
+    "PartitionReadPort",
     "PartitionAccessPort",
     "PartitionLookupPort",
     "PartitionSchemaSuggestPort",
+    "PartitionWritePort",
 ]

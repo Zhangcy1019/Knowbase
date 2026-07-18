@@ -15,7 +15,7 @@ from internal.models import (
 )
 from internal.models.facet import PartitionFacetIndex
 from internal.models.partition_semantic_index import PartitionSemanticIndex
-from internal.ports import CaseReadPort, PartitionAccessPort
+from internal.ports import CaseReadPort, PartitionProfileReadPort, PartitionReadPort
 
 
 @dataclass(slots=True)
@@ -34,7 +34,7 @@ class BacklogPreparationPlanner:
     def __init__(
         self,
         *,
-        partition_service: PartitionAccessPort,
+        partition_service: PartitionReadPort | PartitionProfileReadPort,
         case_repository: CaseReadPort,
     ):
         self._partition_service = partition_service
@@ -296,14 +296,15 @@ class BacklogPreparationPlanner:
         for item in semantic_index.key_stats:
             normalized_key = item.key.strip()
             if normalized_key:
-                counts[normalized_key] = int(item.document_count)
+                counts[normalized_key] = int(item.count)
         return counts
 
     @staticmethod
     def _resolve_index_case_count(*, semantic_index: PartitionSemanticIndex | None) -> int:
         if semantic_index is None:
             return 0
-        return int(semantic_index.case_count)
+        raw_case_count = semantic_index.metadata.get("case_count", 0)
+        return int(raw_case_count) if isinstance(raw_case_count, (int, float, str)) else 0
 
     @staticmethod
     def _resolve_promotable_keys(

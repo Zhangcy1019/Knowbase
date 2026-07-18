@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -57,6 +56,12 @@ class KnowbaseEmbeddingConfig:
 
 
 @dataclass(frozen=True)
+class StorageRuntimeConfig:
+    backend: str = "es"
+    local_root: str = ".data/knowbase"
+
+
+@dataclass(frozen=True)
 class WebUIRuntimeConfig:
     enabled: bool = True
     mode: str = "build"
@@ -80,11 +85,11 @@ class ApiServerRuntimeConfig:
 @dataclass(frozen=True)
 class StartupRuntimeConfig:
     api_server: ApiServerRuntimeConfig
-    default_partition: str = "CI"
 
 
 @dataclass(frozen=True)
 class RuntimeConfig:
+    storage: StorageRuntimeConfig
     web: WebRuntimeConfig
     startup: StartupRuntimeConfig
     es: KnowbaseElasticsearchConfig
@@ -117,210 +122,90 @@ def _get_nested(config: dict[str, Any], *keys: str, default: Any = None) -> Any:
     return value
 
 
-def _str_env(name: str, default: str = "") -> str:
-    return str(os.getenv(name, default) or "").strip()
-
-
-def _bool_env(name: str, default: bool) -> bool:
-    raw = os.getenv(name)
-    if raw is None:
-        return default
-    return raw.strip().lower() in {"1", "true", "yes", "on"}
-
-
-def _int_env(name: str, default: int) -> int:
-    raw = os.getenv(name)
-    return int(raw) if raw and raw.strip() else default
-
-
-def _float_env(name: str, default: float) -> float:
-    raw = os.getenv(name)
-    return float(raw) if raw and raw.strip() else default
-
-
-def _csv_env(name: str) -> tuple[str, ...]:
-    raw = os.getenv(name, "").strip()
-    if not raw:
-        return ()
-    return tuple(item.strip() for item in raw.split(",") if item.strip())
-
-
 def load_runtime_config(config_path: str | None) -> RuntimeConfig:
     file_cfg = _load_yaml_config(config_path)
 
+    storage = StorageRuntimeConfig(
+        backend=str(_get_nested(file_cfg, "storage", "backend", default="es")).strip().lower() or "es",
+        local_root=str(_get_nested(file_cfg, "storage", "local_root", default=".data/knowbase")).strip()
+        or ".data/knowbase",
+    )
+
     web = WebRuntimeConfig(
         ui=WebUIRuntimeConfig(
-            enabled=_bool_env(
-                "CIAGENT_WEB_UI_ENABLED",
-                bool(_get_nested(file_cfg, "web", "ui", "enabled", default=True)),
-            ),
-            mode=_str_env(
-                "CIAGENT_WEB_UI_MODE",
-                str(_get_nested(file_cfg, "web", "ui", "mode", default="build")),
-            ).lower()
-            or "build",
-            auto_build=_bool_env(
-                "CIAGENT_WEB_UI_AUTO_BUILD",
-                bool(_get_nested(file_cfg, "web", "ui", "auto_build", default=True)),
-            ),
-            dist_dir=_str_env(
-                "CIAGENT_WEB_UI_DIST_DIR",
-                str(_get_nested(file_cfg, "web", "ui", "dist_dir", default="")),
-            ),
-            dev_host=_str_env(
-                "CIAGENT_WEB_UI_DEV_HOST",
-                str(_get_nested(file_cfg, "web", "ui", "dev_host", default="127.0.0.1")),
-            ),
-            dev_port=_int_env(
-                "CIAGENT_WEB_UI_DEV_PORT",
-                int(_get_nested(file_cfg, "web", "ui", "dev_port", default=5173)),
-            ),
+            enabled=bool(_get_nested(file_cfg, "web", "ui", "enabled", default=True)),
+            mode=str(_get_nested(file_cfg, "web", "ui", "mode", default="build")).strip().lower() or "build",
+            auto_build=bool(_get_nested(file_cfg, "web", "ui", "auto_build", default=True)),
+            dist_dir=str(_get_nested(file_cfg, "web", "ui", "dist_dir", default="")).strip(),
+            dev_host=str(_get_nested(file_cfg, "web", "ui", "dev_host", default="127.0.0.1")).strip(),
+            dev_port=int(_get_nested(file_cfg, "web", "ui", "dev_port", default=5173)),
         )
     )
 
     startup = StartupRuntimeConfig(
         api_server=ApiServerRuntimeConfig(
-            host=_str_env(
-                "CIAGENT_API_HOST",
-                str(_get_nested(file_cfg, "startup", "api", "host", default="0.0.0.0")),
-            ),
-            port=_int_env(
-                "CIAGENT_API_PORT",
-                int(_get_nested(file_cfg, "startup", "api", "port", default=8000)),
-            ),
-        ),
-        default_partition=_str_env(
-            "CIAGENT_KNOWBASE_DEFAULT_PARTITION",
-            str(_get_nested(file_cfg, "startup", "default_partition", default="CI")),
+            host=str(_get_nested(file_cfg, "startup", "api", "host", default="0.0.0.0")).strip(),
+            port=int(_get_nested(file_cfg, "startup", "api", "port", default=8000)),
         ),
     )
 
     es = KnowbaseElasticsearchConfig(
-        url=_str_env("CIAGENT_KNOWBASE_ES_URL", str(_get_nested(file_cfg, "es", "url", default=""))),
-        api_key=_str_env("CIAGENT_KNOWBASE_ES_API_KEY", str(_get_nested(file_cfg, "es", "api_key", default=""))),
-        partitions_index=_str_env(
-            "CIAGENT_KNOWBASE_PARTITIONS_INDEX",
-            str(_get_nested(file_cfg, "es", "partitions_index", default="ci_knowbase_partitions_v1")),
-        ),
-        cases_index=_str_env(
-            "CIAGENT_KNOWBASE_CASES_INDEX",
-            str(_get_nested(file_cfg, "es", "cases_index", default="ci_knowbase_cases_v1")),
-        ),
-        agent_runs_index=_str_env(
-            "CIAGENT_KNOWBASE_AGENT_RUNS_INDEX",
-            str(_get_nested(file_cfg, "es", "agent_runs_index", default="ci_knowbase_agent_runs_v1")),
-        ),
-        run_steps_index=_str_env(
-            "CIAGENT_KNOWBASE_RUN_STEPS_INDEX",
-            str(_get_nested(file_cfg, "es", "run_steps_index", default="ci_knowbase_run_steps_v1")),
-        ),
-        run_artifacts_index=_str_env(
-            "CIAGENT_KNOWBASE_RUN_ARTIFACTS_INDEX",
-            str(_get_nested(file_cfg, "es", "run_artifacts_index", default="ci_knowbase_run_artifacts_v1")),
-        ),
-        partition_semantic_index_index=_str_env(
-            "CIAGENT_KNOWBASE_PARTITION_SEMANTIC_INDEX_INDEX",
-            str(_get_nested(file_cfg, "es", "partition_semantic_index_index", default="ci_knowbase_partition_semantic_index_v1")),
-        ),
-        partition_facet_schemas_index=_str_env(
-            "CIAGENT_KNOWBASE_PARTITION_FACET_SCHEMAS_INDEX",
-            str(_get_nested(file_cfg, "es", "partition_facet_schemas_index", default="ci_knowbase_partition_facet_schemas_v1")),
-        ),
-        partition_facet_index_index=_str_env(
-            "CIAGENT_KNOWBASE_PARTITION_FACET_INDEX_INDEX",
-            str(_get_nested(file_cfg, "es", "partition_facet_index_index", default="ci_knowbase_partition_facet_index_v1")),
-        ),
-        event_records_index=_str_env(
-            "CIAGENT_KNOWBASE_EVENT_RECORDS_INDEX",
-            str(_get_nested(file_cfg, "es", "event_records_index", default="ci_knowbase_event_records_v1")),
-        ),
-        verify_certs=_bool_env(
-            "CIAGENT_KNOWBASE_ES_VERIFY_CERTS",
-            bool(_get_nested(file_cfg, "es", "verify_certs", default=True)),
-        ),
+        url=str(_get_nested(file_cfg, "es", "url", default="")).strip(),
+        api_key=str(_get_nested(file_cfg, "es", "api_key", default="")).strip(),
+        partitions_index=str(_get_nested(file_cfg, "es", "partitions_index", default="knowbase_partitions_v1")).strip(),
+        cases_index=str(_get_nested(file_cfg, "es", "cases_index", default="knowbase_cases_v1")).strip(),
+        agent_runs_index=str(_get_nested(file_cfg, "es", "agent_runs_index", default="knowbase_agent_runs_v1")).strip(),
+        run_steps_index=str(_get_nested(file_cfg, "es", "run_steps_index", default="knowbase_run_steps_v1")).strip(),
+        run_artifacts_index=str(_get_nested(file_cfg, "es", "run_artifacts_index", default="knowbase_run_artifacts_v1")).strip(),
+        partition_semantic_index_index=str(_get_nested(file_cfg, "es", "partition_semantic_index_index", default="knowbase_partition_semantic_index_v1")).strip(),
+        partition_facet_schemas_index=str(_get_nested(file_cfg, "es", "partition_facet_schemas_index", default="knowbase_partition_facet_schemas_v1")).strip(),
+        partition_facet_index_index=str(_get_nested(file_cfg, "es", "partition_facet_index_index", default="knowbase_partition_facet_index_v1")).strip(),
+        event_records_index=str(_get_nested(file_cfg, "es", "event_records_index", default="knowbase_event_records_v1")).strip(),
+        verify_certs=bool(_get_nested(file_cfg, "es", "verify_certs", default=True)),
     )
 
     embedding = KnowbaseEmbeddingConfig(
-        provider=_str_env(
-            "CIAGENT_KNOWBASE_EMBEDDING_PROVIDER",
-            str(_get_nested(file_cfg, "embedding", "provider", default="openai_compatible")),
-        ),
-        model_name=_str_env(
-            "CIAGENT_KNOWBASE_EMBEDDING_MODEL",
-            str(_get_nested(file_cfg, "embedding", "model_name", default="")),
-        ),
-        endpoint=_str_env(
-            "CIAGENT_KNOWBASE_EMBEDDING_ENDPOINT",
-            str(_get_nested(file_cfg, "embedding", "endpoint", default="")),
-        ),
-        base_url=_str_env(
-            "CIAGENT_KNOWBASE_EMBEDDING_BASE_URL",
-            str(_get_nested(file_cfg, "embedding", "base_url", default="")),
-        ),
-        api_key=_str_env(
-            "CIAGENT_KNOWBASE_EMBEDDING_API_KEY",
-            str(_get_nested(file_cfg, "embedding", "api_key", default="")),
-        ),
-        dimensions=_int_env(
-            "CIAGENT_KNOWBASE_EMBEDDING_DIMENSIONS",
-            int(_get_nested(file_cfg, "embedding", "dimensions", default=0)),
-        ),
-        query_prefix=_str_env(
-            "CIAGENT_KNOWBASE_EMBEDDING_QUERY_PREFIX",
-            str(_get_nested(file_cfg, "embedding", "query_prefix", default="search_query: ")),
-        ),
-        document_prefix=_str_env(
-            "CIAGENT_KNOWBASE_EMBEDDING_DOCUMENT_PREFIX",
-            str(_get_nested(file_cfg, "embedding", "document_prefix", default="search_document: ")),
-        ),
-        timeout_seconds=_int_env(
-            "CIAGENT_KNOWBASE_EMBEDDING_TIMEOUT_SECONDS",
-            int(_get_nested(file_cfg, "embedding", "timeout_seconds", default=30)),
-        ),
+        provider=str(_get_nested(file_cfg, "embedding", "provider", default="openai_compatible")).strip(),
+        model_name=str(_get_nested(file_cfg, "embedding", "model_name", default="")).strip(),
+        endpoint=str(_get_nested(file_cfg, "embedding", "endpoint", default="")).strip(),
+        base_url=str(_get_nested(file_cfg, "embedding", "base_url", default="")).strip(),
+        api_key=str(_get_nested(file_cfg, "embedding", "api_key", default="")).strip(),
+        dimensions=int(_get_nested(file_cfg, "embedding", "dimensions", default=0)),
+        query_prefix=str(_get_nested(file_cfg, "embedding", "query_prefix", default="search_query: ")).strip(),
+        document_prefix=str(_get_nested(file_cfg, "embedding", "document_prefix", default="search_document: ")).strip(),
+        timeout_seconds=int(_get_nested(file_cfg, "embedding", "timeout_seconds", default=30)),
     )
 
     logging_config = LoggingConfig(
-        level=_str_env("CIAGENT_LOG_LEVEL", str(_get_nested(file_cfg, "logging", "level", default="INFO"))),
-        json_format=_bool_env(
-            "CIAGENT_LOG_JSON",
-            bool(_get_nested(file_cfg, "logging", "json_format", default=False)),
-        ),
+        level=str(_get_nested(file_cfg, "logging", "level", default="INFO")).strip(),
+        json_format=bool(_get_nested(file_cfg, "logging", "json_format", default=False)),
     )
 
     llm_config = LLMRuntimeConfig(
-        provider=_str_env("CIAGENT_LEAD_AGENT_PROVIDER", str(_get_nested(file_cfg, "llm", "provider", default="openai"))),
-        model=_str_env("CIAGENT_LEAD_AGENT_MODEL", str(_get_nested(file_cfg, "llm", "model", default="gpt-4o-mini"))),
-        temperature=_float_env(
-            "CIAGENT_LEAD_AGENT_TEMPERATURE",
-            float(_get_nested(file_cfg, "llm", "temperature", default=0.0)),
-        ),
-        max_output_tokens=_int_env(
-            "CIAGENT_LEAD_AGENT_MAX_OUTPUT_TOKENS",
-            int(_get_nested(file_cfg, "llm", "max_output_tokens", default=1200)),
-        ),
-        timeout_seconds=_int_env(
-            "CIAGENT_LEAD_AGENT_TIMEOUT_SECONDS",
-            int(_get_nested(file_cfg, "llm", "timeout_seconds", default=60)),
-        ),
-        openai_api_key=_str_env("OPENAI_API_KEY", str(_get_nested(file_cfg, "llm", "openai", "api_key", default=""))) or None,
-        openai_base_url=_str_env("OPENAI_BASE_URL", str(_get_nested(file_cfg, "llm", "openai", "base_url", default=""))) or None,
+        provider=str(_get_nested(file_cfg, "llm", "provider", default="openai")).strip(),
+        model=str(_get_nested(file_cfg, "llm", "model", default="gpt-4o-mini")).strip(),
+        temperature=float(_get_nested(file_cfg, "llm", "temperature", default=0.0)),
+        max_output_tokens=int(_get_nested(file_cfg, "llm", "max_output_tokens", default=1200)),
+        timeout_seconds=int(_get_nested(file_cfg, "llm", "timeout_seconds", default=60)),
+        openai_api_key=str(_get_nested(file_cfg, "llm", "openai", "api_key", default="")).strip() or None,
+        openai_base_url=str(_get_nested(file_cfg, "llm", "openai", "base_url", default="")).strip() or None,
     )
 
     missing: list[str] = []
-    if not es.url:
-        missing.append("CIAGENT_KNOWBASE_ES_URL")
-    if not es.api_key:
-        missing.append("CIAGENT_KNOWBASE_ES_API_KEY")
-    if not startup.default_partition:
-        missing.append("CIAGENT_KNOWBASE_DEFAULT_PARTITION")
+    if storage.backend == "es":
+        if not es.url:
+            missing.append("es.url")
+        if not es.api_key:
+            missing.append("es.api_key")
     if not embedding.endpoint and not embedding.base_url:
-        missing.append("CIAGENT_KNOWBASE_EMBEDDING_ENDPOINT or CIAGENT_KNOWBASE_EMBEDDING_BASE_URL")
+        missing.append("embedding.endpoint or embedding.base_url")
     if not llm_config.openai_api_key:
-        missing.append("OPENAI_API_KEY")
+        missing.append("llm.openai.api_key")
     if missing:
         raise ValueError(f"missing required config values: {', '.join(missing)}")
 
     return RuntimeConfig(
+        storage=storage,
         web=web,
         startup=startup,
         es=es,

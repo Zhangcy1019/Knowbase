@@ -14,7 +14,12 @@ from internal.models import (
     KnowbaseEvent,
     KnowbaseEventType,
 )
-from internal.ports import CaseWritePort, EventPublisherPort, PartitionAccessPort
+from internal.ports import (
+    CaseWritePort,
+    EventPublisherPort,
+    PartitionProfileReadPort,
+    PartitionReadPort,
+)
 from internal.product.ingest.validator import KnowbaseIngestValidator
 
 
@@ -28,7 +33,7 @@ class KnowbaseIngestService:
         draft_builder: KnowbaseCaseDraftBuilder,
         case_write_service: CaseWritePort,
         event_publisher: EventPublisherPort,
-        partition_service: PartitionAccessPort,
+        partition_service: PartitionReadPort | PartitionProfileReadPort,
         semantic_profile_extractor: KnowbaseSemanticProfileExtractor | None = None,
         summary_extractor: KnowbaseCaseSummaryExtractor | None = None,
         facet_resolver: KnowbaseCaseFacetResolver | None = None,
@@ -76,6 +81,7 @@ class KnowbaseIngestService:
             metadata=draft.metadata,
             facets=draft.facets,
         )
+        resolved_facets = case_document.facets.model_dump()
         publish_result = await self._event_publisher.publish(
             KnowbaseEvent(
                 event_type=KnowbaseEventType.CASE_CREATED,
@@ -88,7 +94,7 @@ class KnowbaseIngestService:
                     after=CaseEventSnapshot(
                         title=case_document.title,
                         facet_count=sum(len(values) for values in case_document.facets.values()),
-                        facets=case_document.facets,
+                        facets=resolved_facets,
                     ),
                     changed_fields=[
                         "title",
@@ -99,21 +105,18 @@ class KnowbaseIngestService:
                         "metadata",
                         "facets",
                     ],
-                    observed_facets=case_document.facets,
+                    observed_facets=resolved_facets,
                 ),
             )
         )
-        backlog_event_ids = []
         event_record = publish_result.get("event")
         event_id = getattr(event_record, "event_id", "")
-        if event_id:
-            backlog_event_ids.append(event_id)
         result = IngestResult(
             case_id=case_document.case_id,
             partition=draft.partition,
             accepted=True,
             processing_status="queued",
-            backlog_event_ids=backlog_event_ids,
+            backlog_event_id=event_id,
             draft=draft,
         )
         result.facet_resolution_summary = (

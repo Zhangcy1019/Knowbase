@@ -111,8 +111,27 @@ a {
 
 .app-sidebar-nav {
   display: grid;
-  gap: 6px;
+  gap: 14px;
   margin-top: 10px;
+}
+
+.app-sidebar-nav-group {
+  display: grid;
+  gap: 6px;
+}
+
+.app-sidebar-nav-group-title {
+  padding: 0 8px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.app-sidebar-nav-group-items {
+  display: grid;
+  gap: 6px;
 }
 
 .app-sidebar-active-partition {
@@ -183,7 +202,7 @@ a {
 
 .app-sidebar-footer {
   margin-top: auto;
-  padding: 12px 8px 2px;
+  padding: 14px 8px 2px;
 }
 
 .app-shell-main {

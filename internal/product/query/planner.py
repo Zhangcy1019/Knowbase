@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from internal.embedding.service import create_embedding_provider
+from internal.infrastructure.ai.embedding_contracts import EmbeddingProvider
 from internal.models import PartitionFacetDefinition, QueryPlan, QueryRequest
 from internal.models.partition_semantic_index import PartitionSemanticIndex
 from internal.models.semantic_profile import DynamicSemanticProfile
@@ -20,8 +20,12 @@ class KnowbaseQueryPlanner:
     def __init__(
         self,
         semantic_profile_extractor: KnowbaseQuerySemanticProfileExtractor | None = None,
+        embedding_provider: EmbeddingProvider | None = None,
     ):
         self._semantic_profile_extractor = semantic_profile_extractor or KnowbaseQuerySemanticProfileExtractor()
+        if embedding_provider is None:
+            raise ValueError("KnowbaseQueryPlanner requires an explicit embedding_provider")
+        self._embedding_provider = embedding_provider
 
     async def plan(
         self,
@@ -51,7 +55,7 @@ class KnowbaseQueryPlanner:
         )
         embedding: list[float] = []
         try:
-            embedding = create_embedding_provider().embed_query(search_representation)
+            embedding = self._embedding_provider.embed_query(search_representation)
         except Exception as exc:  # pragma: no cover - fallback path
             logger.warning("Failed to build query embedding", extra={"error": str(exc)})
         return QueryPlan(

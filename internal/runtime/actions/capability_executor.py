@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from internal.domain.run.run_repository import AgentRunRepository
 from internal.models import (
     AgentRun,
     SkillExecutionContext,
@@ -27,7 +26,7 @@ class RuntimeCapabilityExecutor:
     def __init__(
         self,
         *,
-        run_repository: AgentRunRepository,
+        run_repository,
         tool_runtime: ToolRuntime,
         skill_runtime: SkillRuntime,
         trace_recorder: RuntimeTraceRecorder,

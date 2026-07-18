@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from internal.domain.case.repository import KnowbaseCaseRepository
 from internal.domain.case.retriever import KnowbaseCaseRetriever
 from internal.models import KnowbaseCaseDocument, KnowbaseCaseSearchExplain, KnowbaseCaseSearchHit, KnowbaseCaseSearchQuery
 
@@ -13,7 +12,7 @@ class KnowbaseCaseService:
     def __init__(
         self,
         *,
-        repository: KnowbaseCaseRepository,
+        repository,
         retriever: KnowbaseCaseRetriever | None = None,
     ):
         self._repository = repository

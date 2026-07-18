@@ -26,7 +26,7 @@ class IngestResult(BaseModel):
     partition: str = ""
     accepted: bool = True
     processing_status: str = "queued"
-    backlog_event_ids: list[str] = Field(default_factory=list)
+    backlog_event_id: str = ""
     draft: KnowbaseCaseDraft | None = None
     facet_resolution_summary: str = ""
     resolved_facets: CaseFacetProfile = Field(default_factory=CaseFacetProfile)

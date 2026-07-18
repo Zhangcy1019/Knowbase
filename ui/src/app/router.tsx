@@ -48,16 +48,16 @@ export function AppRouter({
   onActivatePartition,
 }: {
   pathname: string;
-  activePartition: string;
-  onActivatePartition: (partitionName: string) => void;
+  activePartition: string | null;
+  onActivatePartition: (partitionName: string | null) => void;
 }) {
   switch (pathname) {
     case "/explore":
-      return <ExplorePage />;
+      return <ExplorePage activePartition={activePartition} />;
     case "/backlog":
-      return <BacklogPage />;
+      return <BacklogPage activePartition={activePartition} />;
     case "/runs":
-      return <RunsPage />;
+      return <RunsPage activePartition={activePartition} />;
     case "/settings":
       return <SettingsPage />;
     case "/design":
@@ -65,9 +65,9 @@ export function AppRouter({
     case "/query":
       return <QueryPage />;
     case "/partition":
-      return <PartitionPage />;
+      return <PartitionPage activePartition={activePartition} />;
     case "/ingest":
-      return <IngestPage />;
+      return <IngestPage activePartition={activePartition} />;
     case "/overview":
     default:
       return <OverviewPage activePartition={activePartition} onActivatePartition={onActivatePartition} />;

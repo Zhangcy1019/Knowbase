@@ -2,23 +2,23 @@
 
 from __future__ import annotations
 
-import os
 from textwrap import dedent
 from typing import Any
 
-from langchain_core.messages import HumanMessage
-
 from internal.models import PartitionFacetDefinition, QuerySemanticExtractionEnvelope, QuerySemanticProfile, ensure_partition_profile_keys, resolve_partition_profile_fields
 from internal.models.partition_semantic_index import PartitionSemanticIndex
+from internal.infrastructure.ai.generation import build_openai_client, generate_structured
+from internal.utils.config import LLMRuntimeConfig
 from internal.utils.logger import get_logger
 
 
 class KnowbaseQuerySemanticProfileExtractor:
     """Infer a structured query semantic profile and hypothetical answer."""
 
-    def __init__(self):
+    def __init__(self, *, llm_config: LLMRuntimeConfig | None = None):
         self._logger = get_logger(__name__)
-        self._model = self._build_model()
+        self._llm_config = llm_config
+        self._client = self._build_client()
 
     async def extract(
         self,
@@ -32,7 +32,7 @@ class KnowbaseQuerySemanticProfileExtractor:
         profile_fields = resolve_partition_profile_fields(facet_definitions)
         if not normalized_text:
             return QuerySemanticProfile.from_partition_schema(facet_definitions=facet_definitions), ""
-        if self._model is None:
+        if self._client is None:
             raise RuntimeError("KnowbaseQuerySemanticProfileExtractor is unavailable: LLM model initialization failed")
 
         prompt = self._build_prompt(
@@ -41,9 +41,17 @@ class KnowbaseQuerySemanticProfileExtractor:
             profile_fields=profile_fields,
             semantic_index=semantic_index,
         )
-        structured_model = self._model.with_structured_output(QuerySemanticExtractionEnvelope)
         try:
-            result = await structured_model.ainvoke([HumanMessage(content=prompt)])
+            result = generate_structured(
+                client=self._client,
+                model=self._llm_config.model if self._llm_config is not None else "",
+                temperature=self._llm_config.temperature if self._llm_config is not None else 0.0,
+                max_output_tokens=self._llm_config.max_output_tokens if self._llm_config is not None else 1200,
+                system_prompt="You are Knowbase query semantic profile extractor.",
+                user_prompt=prompt,
+                response_model=QuerySemanticExtractionEnvelope,
+                metadata={"component": "query_semantic_profile_extractor"},
+            )
         except Exception as exc:  # noqa: BLE001
             self._logger.exception(
                 "Query semantic profile extraction failed",
@@ -52,29 +60,20 @@ class KnowbaseQuerySemanticProfileExtractor:
             raise RuntimeError(f"Query semantic profile extraction failed: {exc}") from exc
         return self._sanitize_result(result, facet_definitions=facet_definitions)
 
-    def _build_model(self):
-        provider = os.getenv("CIAGENT_LEAD_AGENT_PROVIDER", "openai").strip().lower()
-        if provider != "openai":
+    def _build_client(self):
+        if self._llm_config is None:
             self._logger.error(
-                "KnowbaseQuerySemanticProfileExtractor unsupported provider",
-                extra={"provider": provider},
+                "KnowbaseQuerySemanticProfileExtractor unavailable: missing llm_config",
             )
             return None
         try:
-            from langchain_openai import ChatOpenAI
+            return build_openai_client(config=self._llm_config)
         except Exception as exc:  # noqa: BLE001
             self._logger.exception(
-                "KnowbaseQuerySemanticProfileExtractor unavailable: langchain_openai import failed",
+                "KnowbaseQuerySemanticProfileExtractor unavailable: OpenAI client initialization failed",
                 extra={"error": str(exc)},
             )
             return None
-        if not os.getenv("OPENAI_API_KEY"):
-            self._logger.error("KnowbaseQuerySemanticProfileExtractor unavailable: OPENAI_API_KEY missing")
-            return None
-
-        model_name = os.getenv("CIAGENT_LEAD_AGENT_MODEL", "gpt-4o-mini").strip() or "gpt-4o-mini"
-        temperature = float(os.getenv("CIAGENT_LEAD_AGENT_TEMPERATURE", "0").strip() or "0")
-        return ChatOpenAI(model=model_name, temperature=temperature)
 
     @staticmethod
     def _build_prompt(

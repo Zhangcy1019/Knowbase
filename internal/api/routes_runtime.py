@@ -17,6 +17,8 @@ from .schemas import (
     RuntimeRunDetail,
     RuntimeRunStepResponse,
     RuntimeRunSummary,
+    RuntimeTraceReplayResponse,
+    RuntimeTraceTurnResponse,
 )
 
 
@@ -93,6 +95,7 @@ def _to_run_summary(run: AgentRun) -> RuntimeRunSummary:
         agent_id=run.agent_id,
         mode=run.mode,
         status=run.status,
+        requires_review=run.requires_review,
         source_type=run.source_type,
         source_event_type=run.source_event_type,
         source_ref=run.source_ref,
@@ -197,6 +200,27 @@ def _to_run_artifact_response(artifact: RunArtifact) -> RuntimeRunArtifactRespon
     )
 
 
+def _to_trace_turn_response(turn) -> RuntimeTraceTurnResponse:
+    return RuntimeTraceTurnResponse(
+        turn_index=turn.turn_index,
+        decision_step=None if turn.decision_step is None else _to_run_step_response(turn.decision_step),
+        decision_artifact=None if turn.decision_artifact is None else _to_run_artifact_response(turn.decision_artifact),
+        planner_context_artifact=(
+            None if turn.planner_context_artifact is None else _to_run_artifact_response(turn.planner_context_artifact)
+        ),
+        llm_prompt_artifact=None if turn.llm_prompt_artifact is None else _to_run_artifact_response(turn.llm_prompt_artifact),
+        llm_response_artifact=(
+            None if turn.llm_response_artifact is None else _to_run_artifact_response(turn.llm_response_artifact)
+        ),
+        action_steps=[_to_run_step_response(step) for step in turn.action_steps],
+        tool_calls=[_to_run_step_response(step) for step in turn.tool_calls],
+        tool_results=[_to_run_step_response(step) for step in turn.tool_results],
+        skill_calls=[_to_run_step_response(step) for step in turn.skill_calls],
+        skill_results=[_to_run_step_response(step) for step in turn.skill_results],
+        errors=[_to_run_step_response(step) for step in turn.errors],
+    )
+
+
 async def _execute_maintenance_skill(
     *,
     deps: KnowbaseRouteDeps,
@@ -271,35 +295,21 @@ def register_runtime_routes(app: FastAPI, *, deps: KnowbaseRouteDeps) -> None:
     @app.post("/api/knowbase/runtime/maintenance/drain-backlog", response_model=MaintenanceActionResponse)
     async def drain_backlog(req: PartitionMaintenanceRequest) -> MaintenanceActionResponse:
         result = await deps.event_worker.run_once(partition=req.partition, limit=req.limit, trigger_source="manual")
+        runtime_result = result.runtime_result
         return MaintenanceActionResponse(
             action="drain_backlog",
             ok=result.failed_count == 0,
             summary=f"Attempted {result.attempted_count} backlog event(s), completed {result.completed_count}, failed {result.failed_count}.",
             details={
-                "batch_id": result.batch_id,
-                "attempted_count": result.attempted_count,
-                "completed_count": result.completed_count,
-                "failed_count": result.failed_count,
-                "event_ids": result.event_ids,
-                "run_id": "" if result.runtime_result is None or result.runtime_result.run is None else result.runtime_result.run.run_id,
-            },
-        )
-
-    @app.post("/api/knowbase/runtime/maintenance/reconcile-partition", response_model=MaintenanceActionResponse)
-    async def reconcile_partition(req: PartitionMaintenanceRequest) -> MaintenanceActionResponse:
-        result = await deps.event_worker.run_once(partition=req.partition, limit=req.limit, trigger_source="manual")
-        return MaintenanceActionResponse(
-            action="reconcile_partition",
-            ok=result.failed_count == 0,
-            summary=f"Reconciled partition {req.partition} through backlog drain of {result.attempted_count} event(s).",
-            details={
-                "batch_id": result.batch_id,
                 "partition": req.partition,
+                "batch_id": result.batch_id,
                 "attempted_count": result.attempted_count,
                 "completed_count": result.completed_count,
                 "failed_count": result.failed_count,
                 "event_ids": result.event_ids,
-                "run_id": "" if result.runtime_result is None or result.runtime_result.run is None else result.runtime_result.run.run_id,
+                "run_id": "" if runtime_result is None else runtime_result.run_id,
+                "run_status": "" if runtime_result is None else runtime_result.status,
+                "requires_review": False if runtime_result is None else runtime_result.requires_review,
             },
         )
 
@@ -337,6 +347,21 @@ def register_runtime_routes(app: FastAPI, *, deps: KnowbaseRouteDeps) -> None:
         if run is None:
             raise HTTPException(status_code=404, detail=f"runtime run not found: {run_id}")
         return [_to_run_artifact_response(artifact) for artifact in deps.runtime_service.list_artifacts(run_id)]
+
+    @app.get("/api/knowbase/runtime/runs/{run_id}/trace", response_model=RuntimeTraceReplayResponse)
+    async def get_runtime_run_trace(run_id: str) -> RuntimeTraceReplayResponse:
+        replay = deps.runtime_service.get_trace_replay(run_id)
+        if replay is None:
+            raise HTTPException(status_code=404, detail=f"runtime run trace not found: {run_id}")
+        return RuntimeTraceReplayResponse(
+            run=_to_run_detail(replay.run, replay.artifacts),
+            request_artifact=(
+                None if replay.request_artifact is None else _to_run_artifact_response(replay.request_artifact)
+            ),
+            turns=[_to_trace_turn_response(turn) for turn in replay.turns],
+            steps=[_to_run_step_response(step) for step in replay.steps],
+            artifacts=[_to_run_artifact_response(artifact) for artifact in replay.artifacts],
+        )
 
     @app.delete("/api/knowbase/runtime/runs/{run_id}")
     async def delete_runtime_run(run_id: str) -> dict[str, str]:

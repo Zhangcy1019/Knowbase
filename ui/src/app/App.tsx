@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+
+import { listPartitions } from "../shared/api";
 import { stripBasePath } from "./basePath";
 import { AppShell } from "./shell/AppShell";
 import { AppRouter, resolvePath } from "./router";
@@ -6,7 +8,7 @@ import "../pages/shared/page.css";
 
 export function App() {
   const [pathname, setPathname] = useState(resolvePath(stripBasePath(window.location.pathname)));
-  const [activePartition, setActivePartition] = useState("Claims");
+  const [activePartition, setActivePartition] = useState<string | null>(null);
 
   useEffect(() => {
     function onPopState() {
@@ -35,6 +37,29 @@ export function App() {
       document.removeEventListener("click", onDocumentClick);
     };
   }, []);
+
+  useEffect(() => {
+    if (activePartition) {
+      return;
+    }
+
+    let cancelled = false;
+
+    void listPartitions()
+      .then((partitions) => {
+        if (cancelled || activePartition || partitions.length === 0) {
+          return;
+        }
+        setActivePartition(partitions[0].partition_name);
+      })
+      .catch(() => {
+        // Ignore initial partition bootstrap failure and keep empty state.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activePartition]);
 
   return (
     <AppShell pathname={pathname} activePartition={activePartition}>

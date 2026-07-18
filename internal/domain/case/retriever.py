@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-from internal.domain.case.repository import KnowbaseCaseRepository
 from internal.models import KnowbaseCaseSearchHit, KnowbaseCaseSearchQuery
 
 
 class KnowbaseCaseRetriever:
     """Thin retrieval wrapper around the case repository."""
 
-    def __init__(self, repository: KnowbaseCaseRepository):
+    def __init__(self, repository):
         self._repository = repository
 
     def recall_lexical(self, query: KnowbaseCaseSearchQuery) -> list[KnowbaseCaseSearchHit]:

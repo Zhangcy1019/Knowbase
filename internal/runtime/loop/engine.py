@@ -8,7 +8,7 @@ from internal.runtime.contracts import RuntimeExecutionStatus
 from internal.runtime.core.memory import RuntimeMemoryManager
 from internal.runtime.core.state import RuntimeRunState
 from internal.runtime.core.termination import RuntimeTerminationPolicy
-from internal.runtime.loop.agent import RuntimeAgentPort
+from internal.runtime.loop.turn_planner import RuntimeTurnPlannerPort
 from internal.runtime.trace.recorder import RuntimeTraceRecorder
 from internal.utils.logger import get_logger
 
@@ -23,14 +23,14 @@ class RuntimeLoopEngine:
         self,
         *,
         capability_executor: RuntimeCapabilityExecutor,
-        agent: RuntimeAgentPort,
+        planner: RuntimeTurnPlannerPort,
         action_runner: RuntimeActionRunner,
         memory_manager: RuntimeMemoryManager,
         termination_policy: RuntimeTerminationPolicy,
         trace_recorder: RuntimeTraceRecorder,
     ):
         self._capability_executor = capability_executor
-        self._agent = agent
+        self._planner = planner
         self._action_runner = action_runner
         self._memory_manager = memory_manager
         self._termination_policy = termination_policy
@@ -42,7 +42,7 @@ class RuntimeLoopEngine:
         run,
         request,
         state: RuntimeRunState,
-    ) -> tuple[RuntimeRunState, RuntimeExecutionStatus]:
+    ) -> tuple[RuntimeRunState, RuntimeExecutionStatus, bool]:
         logger.debug(
             "Initializing runtime loop state.",
             extra={
@@ -53,6 +53,7 @@ class RuntimeLoopEngine:
         )
         self._memory_manager.initialize_state(run=run, request=request, state=state)
         final_status: RuntimeExecutionStatus = "completed"
+        requires_review = False
         while True:
             turn_input = self._memory_manager.build_turn_input(
                 run=run,
@@ -64,13 +65,14 @@ class RuntimeLoopEngine:
                 extra={
                     "run_id": run.run_id,
                     "turn_index": turn_input.turn_index,
-                    "step_count": len(state.steps),
+                    "decision_count": len(state.decision_history),
+                    "applied_action_count": len(state.applied_actions),
                     "tool_results": len(state.tool_results),
                     "skill_results": len(state.skill_results),
                     "failures": len(state.failure_messages),
                 },
             )
-            decision = self._agent.decide(
+            decision = self._planner.plan_turn(
                 run=run,
                 request=request,
                 state=state,
@@ -98,12 +100,14 @@ class RuntimeLoopEngine:
             termination = self._termination_policy.should_stop(run=run, request=request, state=state, decision=decision)
             if termination.should_stop and not decision.actions:
                 final_status = termination.status
+                requires_review = termination.requires_review
                 logger.warning(
                     "Runtime loop stopped before action execution.",
                     extra={
                         "run_id": run.run_id,
                         "turn_index": turn_input.turn_index,
                         "status": termination.status,
+                        "requires_review": termination.requires_review,
                         "reason": termination.reason,
                     },
                 )
@@ -136,14 +140,16 @@ class RuntimeLoopEngine:
             termination = self._termination_policy.should_stop(run=run, request=request, state=state, decision=decision)
             if termination.should_stop:
                 final_status = termination.status
+                requires_review = termination.requires_review
                 logger.info(
                     "Runtime loop finished.",
                     extra={
                         "run_id": run.run_id,
                         "turn_index": turn_input.turn_index,
                         "status": termination.status,
+                        "requires_review": termination.requires_review,
                         "reason": termination.reason,
                     },
                 )
                 break
-        return state, final_status
+        return state, final_status, requires_review

@@ -1,10 +1,9 @@
-"""Unified logging utilities for CIAgent."""
+"""Unified logging utilities for Knowbase."""
 
 from __future__ import annotations
 
 import json
 import logging
-import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
@@ -62,13 +61,6 @@ class LoggingConfig:
 
     level: str = "INFO"
     json_format: bool = False
-
-    @classmethod
-    def from_env(cls) -> "LoggingConfig":
-        return cls(
-            level=os.getenv("CIAGENT_LOG_LEVEL", "INFO"),
-            json_format=os.getenv("CIAGENT_LOG_JSON", "false").lower() in {"1", "true", "yes", "on"},
-        )
 
 
 class JsonLogFormatter(logging.Formatter):
@@ -183,7 +175,7 @@ def _apply_library_verbosity(level_name: str) -> None:
 def configure_logging(config: LoggingConfig | None = None) -> None:
     """Configure root logger once per process."""
     _install_trace_level()
-    cfg = config or LoggingConfig.from_env()
+    cfg = config or LoggingConfig()
     root_logger = logging.getLogger()
     normalized_level = cfg.level.upper().strip()
 

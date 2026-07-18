@@ -22,7 +22,7 @@ class KnowledgeTaskBuilder:
     def build_task(self, *, batch: BacklogBatch) -> KnowledgeTask:
         working_set = self._working_set_builder.build(batch=batch)
         preparation = self._preparation_planner.build_preparation(batch_working_set=working_set)
-        action_hints = self._build_action_hints(preparation=preparation)
+        action_hints: list[KnowledgeTaskActionHint] = []
         return KnowledgeTask(
             task_id=batch.batch_id,
             source_batch_id=batch.batch_id,
@@ -30,7 +30,7 @@ class KnowledgeTaskBuilder:
             partition=batch.partition,
             domain="backlog_maintenance",
             objective=f"Process backlog batch {batch.batch_id} for partition {batch.partition or 'global'}",
-            prompt=preparation.summary,
+            prompt=self._build_runtime_prompt(batch=batch, preparation=preparation),
             task_payload={
                 "batch_id": batch.batch_id,
                 "batch_summary": batch.summary,
@@ -42,29 +42,33 @@ class KnowledgeTaskBuilder:
                 "batch_preparation": preparation.model_dump(mode="json"),
             },
             action_hints=action_hints,
-            allowed_skills=sorted(
-                {
-                    hint.skill_id
-                    for hint in action_hints
-                    if hint.kind == "skill_call" and hint.skill_id.strip()
-                }
-            ),
-            allowed_tools=sorted(
-                {
-                    hint.tool_id
-                    for hint in action_hints
-                    if hint.kind == "tool_call" and hint.tool_id.strip()
-                }
-            ),
-            max_steps=max(16, len(action_hints) * 3 or 16),
-            max_tool_calls=24,
-            max_skill_calls=max(8, len(action_hints) or 8),
+            allowed_skills=[],
+            allowed_tools=[],
+            max_steps=8,
+            max_tool_calls=0,
+            max_skill_calls=0,
             risk_level=preparation.risk_level,
             requires_review=preparation.requires_review,
             metadata={
+                "runtime_mode": "analysis_only",
                 "preparation_notes": list(preparation.notes),
                 "knowledge_domain": "backlog_maintenance",
             },
+        )
+
+    @staticmethod
+    def _build_runtime_prompt(*, batch: BacklogBatch, preparation) -> str:
+        return (
+            f"Analyze backlog batch {batch.batch_id} for partition {batch.partition or 'global'}.\n\n"
+            f"Preparation summary:\n{preparation.summary}\n\n"
+            "Current runtime mode is analysis-only.\n"
+            "Rules:\n"
+            "- Do not propose any tool_call actions.\n"
+            "- Do not propose any skill_call actions.\n"
+            "- You may return one respond action with a concise summary for trace visibility.\n"
+            "- If no response is needed, return should_stop=true with no actions.\n"
+            "- Keep reasoning_summary and action_plan_summary concise.\n"
+            "- Focus on summarizing what the batch contains and whether follow-up work is needed later.\n"
         )
 
     @staticmethod

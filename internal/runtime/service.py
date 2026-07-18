@@ -5,10 +5,7 @@ from __future__ import annotations
 from internal.models import AgentRun, RunArtifact, RunStep, RuntimeTraceReplay
 from internal.models.skill import SkillResult
 from internal.models.tool import ToolResult
-from internal.domain.run.artifact_repository import RunArtifactRepository
-from internal.domain.run.run_repository import AgentRunRepository
-from internal.domain.run.step_repository import RunStepRepository
-from internal.ports import PartitionAccessPort, SkillExecutionPort
+from internal.ports import PartitionReadPort, SkillExecutionPort
 from internal.runtime.actions.action_runner import RuntimeActionRunner
 from internal.runtime.actions.capability_executor import RuntimeCapabilityExecutor
 from internal.runtime.contracts import RuntimeRunRequest, RuntimeRunResult
@@ -16,8 +13,8 @@ from internal.runtime.core.memory import RuntimeMemoryManager
 from internal.runtime.core.policy import RuntimePolicy
 from internal.runtime.core.state import RuntimeRunState
 from internal.runtime.core.termination import RuntimeTerminationPolicy
-from internal.runtime.loop.agent import RuntimeAgentPort
 from internal.runtime.loop.engine import RuntimeLoopEngine
+from internal.runtime.loop.turn_planner import RuntimeTurnPlannerPort
 from internal.runtime.trace.recorder import RuntimeTraceRecorder
 from internal.runtime.tools.runtime import ToolRuntime
 from internal.utils.logger import get_logger
@@ -32,14 +29,14 @@ class KnowbaseRuntimeService:
     def __init__(
         self,
         *,
-        partition_service: PartitionAccessPort,
+        partition_service: PartitionReadPort,
         case_repository,
-        run_repository: AgentRunRepository,
-        step_repository: RunStepRepository,
-        artifact_repository: RunArtifactRepository,
+        run_repository,
+        step_repository,
+        artifact_repository,
         tool_runtime: ToolRuntime,
         skill_runtime: SkillExecutionPort,
-        agent: RuntimeAgentPort,
+        planner: RuntimeTurnPlannerPort,
         trace_recorder: RuntimeTraceRecorder,
     ):
         self._partition_service = partition_service
@@ -59,7 +56,7 @@ class KnowbaseRuntimeService:
         self._memory_manager = RuntimeMemoryManager()
         self._policy = RuntimePolicy(capability_executor=self._capability_executor)
         self._termination_policy = RuntimeTerminationPolicy()
-        self._agent = agent
+        self._planner = planner
         self._action_runner = RuntimeActionRunner(
             capability_executor=self._capability_executor,
             policy=self._policy,
@@ -68,7 +65,7 @@ class KnowbaseRuntimeService:
         )
         self._engine = RuntimeLoopEngine(
             capability_executor=self._capability_executor,
-            agent=self._agent,
+            planner=self._planner,
             action_runner=self._action_runner,
             memory_manager=self._memory_manager,
             termination_policy=self._termination_policy,
@@ -100,7 +97,7 @@ class KnowbaseRuntimeService:
             request_payload=request.model_dump(mode="json"),
         )
         state = RuntimeRunState(artifacts=[request_artifact])
-        state, final_status = self._engine.run(
+        state, final_status, requires_review = self._engine.run(
             run=run,
             request=request,
             state=state,
@@ -110,6 +107,7 @@ class KnowbaseRuntimeService:
             run.model_copy(
                 update={
                     "status": final_status,
+                    "requires_review": requires_review,
                     "reasoning_summary": self._memory_manager.build_reasoning_summary(request=request, state=state),
                     "final_summary": final_summary,
                 }
@@ -158,7 +156,16 @@ class KnowbaseRuntimeService:
 
     def _create_request_run(self, *, request: RuntimeRunRequest) -> AgentRun:
         partition = request.partition.strip()
-        if partition and self._partition_service.get_partition(partition) is None:
+        if not partition:
+            logger.error(
+                "Runtime request missing partition.",
+                extra={
+                    "request_id": request.request_id,
+                },
+            )
+            raise ValueError("runtime request partition must not be empty")
+        partition_document = self._partition_service.get_partition(partition)
+        if partition_document is None:
             logger.error(
                 "Runtime request references unknown partition.",
                 extra={
@@ -167,6 +174,19 @@ class KnowbaseRuntimeService:
                 },
             )
             raise ValueError(f"partition not found: {partition}")
+        partition_status = getattr(partition_document, "status", None)
+        if isinstance(partition_document, dict):
+            partition_status = partition_document.get("status")
+        if partition_status and partition_status != "active":
+            logger.error(
+                "Runtime request references inactive partition.",
+                extra={
+                    "request_id": request.request_id,
+                    "partition": partition,
+                    "partition_status": partition_status,
+                },
+            )
+            raise ValueError(f"partition is not active: {partition}")
         return self._run_repository.save(
             AgentRun(
                 partition=partition,
@@ -185,6 +205,7 @@ class KnowbaseRuntimeService:
                 max_tool_calls=request.max_tool_calls,
                 max_skill_calls=request.max_skill_calls,
                 risk_level=request.risk_level,
+                requires_review=request.requires_review,
             )
         )
 
@@ -197,11 +218,10 @@ class KnowbaseRuntimeService:
         skill_results: list[SkillResult],
         applied_actions: list[str],
     ) -> RuntimeRunResult:
-        normalized_status = run.status if run.status in {"completed", "failed", "cancelled"} else "requires_review"
         return RuntimeRunResult(
             request_id=request.request_id,
             run_id=run.run_id,
-            status=normalized_status,
+            status=run.status,
             final_summary=run.final_summary,
             reasoning_summary=run.reasoning_summary,
             steps=self._step_repository.list_for_run(run.run_id),
@@ -209,6 +229,6 @@ class KnowbaseRuntimeService:
             skill_results=skill_results,
             tool_results=tool_results,
             applied_actions=applied_actions,
-            requires_review=request.requires_review,
+            requires_review=run.requires_review,
             metadata={"source_type": request.source_type},
         )

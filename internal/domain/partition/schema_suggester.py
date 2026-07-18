@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-import os
 from textwrap import dedent
 
-from langchain_core.messages import HumanMessage
 from pydantic import BaseModel, Field
 
+from internal.infrastructure.ai.generation import build_openai_client, generate_structured
 from internal.models.facet import PartitionFacetDefinition
 from internal.models.semantic_profile import resolve_partition_profile_fields
+from internal.utils.config import LLMRuntimeConfig
 from internal.utils.logger import get_logger
 
 
@@ -27,9 +27,10 @@ class PartitionSchemaSuggestion(BaseModel):
 class PartitionSchemaSuggester:
     """Generate partition facet suggestions from scenario description and current config."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, llm_config: LLMRuntimeConfig | None = None) -> None:
         self._logger = get_logger(__name__)
-        self._model = self._build_model()
+        self._llm_config = llm_config
+        self._client = None
 
     def suggest(
         self,
@@ -39,7 +40,9 @@ class PartitionSchemaSuggester:
         current_facet_definitions: list[PartitionFacetDefinition] | None = None,
         cautious_update: bool = False,
     ) -> PartitionSchemaSuggestion:
-        if self._model is None:
+        if self._client is None:
+            self._client = self._build_client()
+        if self._client is None:
             raise RuntimeError("PartitionSchemaSuggester is unavailable: LLM model initialization failed")
 
         current_fields = resolve_partition_profile_fields(current_facet_definitions)
@@ -49,9 +52,17 @@ class PartitionSchemaSuggester:
             current_fields=current_fields,
             cautious_update=cautious_update,
         )
-        structured_model = self._model.with_structured_output(PartitionSchemaSuggestion)
         try:
-            return structured_model.invoke([HumanMessage(content=prompt)])
+            return generate_structured(
+                client=self._client,
+                model=self._llm_config.model if self._llm_config is not None else "",
+                temperature=self._llm_config.temperature if self._llm_config is not None else 0.0,
+                max_output_tokens=self._llm_config.max_output_tokens if self._llm_config is not None else 1200,
+                system_prompt="You are Knowbase partition facet schema designer.",
+                user_prompt=prompt,
+                response_model=PartitionSchemaSuggestion,
+                metadata={"component": "partition_schema_suggester"},
+            )
         except Exception as exc:  # noqa: BLE001
             self._logger.exception(
                 "Partition schema suggestion failed",
@@ -59,25 +70,18 @@ class PartitionSchemaSuggester:
             )
             raise RuntimeError(f"Partition schema suggestion failed: {exc}") from exc
 
-    def _build_model(self):
-        provider = os.getenv("CIAGENT_LEAD_AGENT_PROVIDER", "openai").strip().lower()
-        if provider != "openai":
-            self._logger.error("PartitionSchemaSuggester unsupported provider", extra={"provider": provider})
+    def _build_client(self):
+        if self._llm_config is None:
+            self._logger.error("PartitionSchemaSuggester unavailable: missing llm_config")
             return None
         try:
-            from langchain_openai import ChatOpenAI
+            return build_openai_client(config=self._llm_config)
         except Exception as exc:  # noqa: BLE001
             self._logger.exception(
-                "PartitionSchemaSuggester unavailable: langchain_openai import failed",
+                "PartitionSchemaSuggester unavailable: OpenAI client initialization failed",
                 extra={"error": str(exc)},
             )
             return None
-        if not os.getenv("OPENAI_API_KEY"):
-            self._logger.error("PartitionSchemaSuggester unavailable: OPENAI_API_KEY missing")
-            return None
-        model_name = os.getenv("CIAGENT_LEAD_AGENT_MODEL", "gpt-4o-mini").strip() or "gpt-4o-mini"
-        temperature = float(os.getenv("CIAGENT_LEAD_AGENT_TEMPERATURE", "0").strip() or "0")
-        return ChatOpenAI(model=model_name, temperature=temperature)
 
     @staticmethod
     def _build_prompt(

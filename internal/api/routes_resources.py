@@ -47,7 +47,7 @@ def register_resource_routes(app: FastAPI, *, deps: KnowbaseRouteDeps) -> None:
             detail={
                 "accepted": ingest_result.accepted,
                 "processing_status": ingest_result.processing_status,
-                "backlog_event_ids": ingest_result.backlog_event_ids,
+                "backlog_event_id": ingest_result.backlog_event_id,
             },
         )
 

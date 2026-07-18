@@ -20,11 +20,12 @@ from internal.product.query.flow import KnowbaseQueryFlow
 from internal.product.query.normalizer import QueryNormalizer
 from internal.product.query.planner import KnowbaseQueryPlanner
 from internal.product.query.ranking import KnowbaseRanking
+from internal.product.query.semantic_profile_extractor import KnowbaseQuerySemanticProfileExtractor
 from internal.product.query.service import KnowbaseQueryService
 from internal.runtime.llm import DefaultRuntimeDecisionGenerator, DefaultRuntimePromptBuilder
-from internal.runtime.loop.agent import RuntimeLoopAgent
 from internal.runtime.loop.turn_planner import RuntimeTurnPlanner
-from internal.runtime.providers import DefaultOpenAIClient, DefaultRuntimeModelAdapter
+from internal.infrastructure.ai import DefaultOpenAIClient
+from internal.runtime.llm.model_adapter import DefaultRuntimeModelAdapter
 from internal.runtime.skills import SkillRuntime
 from internal.runtime.service import KnowbaseRuntimeService
 from internal.runtime.trace import RuntimeTraceRecorder
@@ -68,6 +69,7 @@ def build_runtime_module(
         ),
         model_adapter=DefaultRuntimeModelAdapter(client=openai_client),
         trace_recorder=trace_recorder,
+        llm_config=runtime_cfg.llm,
     )
     runtime_service = KnowbaseRuntimeService(
         partition_service=core.partition_service,
@@ -77,7 +79,7 @@ def build_runtime_module(
         artifact_repository=core.artifact_repository,
         tool_runtime=tool_runtime,
         skill_runtime=skill_runtime,
-        agent=RuntimeLoopAgent(planner=RuntimeTurnPlanner(decision_generator=decision_generator)),
+        planner=RuntimeTurnPlanner(decision_generator=decision_generator),
         trace_recorder=trace_recorder,
     )
     event_backlog_service = KnowbaseEventBacklogService(repository=core.event_record_repository)
@@ -123,7 +125,10 @@ def build_ingest_service(
 def build_query_flow(*, core: CoreProviders) -> QueryUseCase:
     query_normalizer = QueryNormalizer()
     return KnowbaseQueryFlow(
-        planner=KnowbaseQueryPlanner(),
+        planner=KnowbaseQueryPlanner(
+            semantic_profile_extractor=KnowbaseQuerySemanticProfileExtractor(llm_config=core.runtime_cfg.llm),
+            embedding_provider=core.embedding_provider,
+        ),
         normalizer=query_normalizer,
         query_service=KnowbaseQueryService(
             case_service=core.case_service,

@@ -11,8 +11,11 @@
   "dependencies": {
     "@mantine/core": "^9.3.1",
     "@mantine/hooks": "^9.3.1",
+    "@monaco-editor/react": "^4.7.0",
     "@radix-ui/react-dialog": "^1.1.16",
+    "@uiw/react-md-editor": "^4.1.1",
     "@xyflow/react": "^12.11.0",
+    "monaco-editor": "^0.55.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },

@@ -2,82 +2,89 @@
 
 from __future__ import annotations
 
-import os
 from textwrap import dedent
 
-from langchain_core.messages import HumanMessage
-
+from internal.infrastructure.ai.generation import build_openai_client, generate_text
+from internal.utils.config import LLMRuntimeConfig
 from internal.utils.logger import get_logger
 
 
 class KnowbaseCaseSummaryExtractor:
     """Extract a short human-readable summary from one knowledge entry."""
 
-    def __init__(self):
+    def __init__(self, *, llm_config: LLMRuntimeConfig | None = None):
         self._logger = get_logger(__name__)
-        self._model = self._build_model()
+        self._llm_config = llm_config
+        self._client = self._build_client()
 
     async def extract(self, *, title: str, source_content: str) -> str:
         normalized_title = title.strip()
         normalized_content = source_content.strip()
         if not normalized_title and not normalized_content:
             return ""
-        if self._model is None:
+        if self._client is None:
             raise RuntimeError("KnowbaseCaseSummaryExtractor is unavailable: LLM model initialization failed")
 
         prompt = self._build_prompt(title=normalized_title, source_content=normalized_content)
         try:
-            result = await self._model.ainvoke([HumanMessage(content=prompt)])
+            result = generate_text(
+                client=self._client,
+                model=self._llm_config.model if self._llm_config is not None else "",
+                temperature=self._llm_config.temperature if self._llm_config is not None else 0.0,
+                max_output_tokens=self._llm_config.max_output_tokens if self._llm_config is not None else 1200,
+                system_prompt="You are Knowbase case summary extractor.",
+                user_prompt=prompt,
+                metadata={"component": "case_summary_extractor"},
+            )
         except Exception as exc:  # noqa: BLE001
             self._logger.exception(
                 "Case summary extraction failed",
                 extra={"error": str(exc)},
             )
             raise RuntimeError(f"Case summary extraction failed: {exc}") from exc
-        return self._sanitize_result(getattr(result, "content", result))
+        return self._sanitize_result(result)
 
     def extract_sync(self, *, title: str, source_content: str) -> str:
         normalized_title = title.strip()
         normalized_content = source_content.strip()
         if not normalized_title and not normalized_content:
             return ""
-        if self._model is None:
+        if self._client is None:
             raise RuntimeError("KnowbaseCaseSummaryExtractor is unavailable: LLM model initialization failed")
 
         prompt = self._build_prompt(title=normalized_title, source_content=normalized_content)
         try:
-            result = self._model.invoke([HumanMessage(content=prompt)])
+            result = generate_text(
+                client=self._client,
+                model=self._llm_config.model if self._llm_config is not None else "",
+                temperature=self._llm_config.temperature if self._llm_config is not None else 0.0,
+                max_output_tokens=self._llm_config.max_output_tokens if self._llm_config is not None else 1200,
+                system_prompt="You are Knowbase case summary extractor.",
+                user_prompt=prompt,
+                metadata={"component": "case_summary_extractor"},
+            )
         except Exception as exc:  # noqa: BLE001
             self._logger.exception(
                 "Case summary extraction failed",
                 extra={"error": str(exc)},
             )
             raise RuntimeError(f"Case summary extraction failed: {exc}") from exc
-        return self._sanitize_result(getattr(result, "content", result))
+        return self._sanitize_result(result)
 
-    def _build_model(self):
-        provider = os.getenv("CIAGENT_LEAD_AGENT_PROVIDER", "openai").strip().lower()
-        if provider != "openai":
+    def _build_client(self):
+        if self._llm_config is None:
             self._logger.error(
-                "KnowbaseCaseSummaryExtractor unsupported provider",
-                extra={"provider": provider},
+                "KnowbaseCaseSummaryExtractor unavailable: missing llm_config",
             )
             return None
         try:
-            from langchain_openai import ChatOpenAI
+            return build_openai_client(config=self._llm_config)
         except Exception as exc:  # noqa: BLE001
             self._logger.exception(
-                "KnowbaseCaseSummaryExtractor unavailable: langchain_openai import failed",
+                "KnowbaseCaseSummaryExtractor unavailable: OpenAI client initialization failed",
                 extra={"error": str(exc)},
             )
             return None
-        if not os.getenv("OPENAI_API_KEY"):
-            self._logger.error("KnowbaseCaseSummaryExtractor unavailable: OPENAI_API_KEY missing")
-            return None
-
-        model_name = os.getenv("CIAGENT_LEAD_AGENT_MODEL", "gpt-4o-mini").strip() or "gpt-4o-mini"
-        temperature = float(os.getenv("CIAGENT_LEAD_AGENT_TEMPERATURE", "0").strip() or "0")
-        return ChatOpenAI(model=model_name, temperature=temperature)
 
     @staticmethod
     def _build_prompt(*, title: str, source_content: str) -> str:

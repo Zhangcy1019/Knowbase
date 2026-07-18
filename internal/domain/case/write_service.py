@@ -5,10 +5,9 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from internal.embedding.service import create_embedding_provider
+from internal.infrastructure.ai.embedding_contracts import EmbeddingProvider
 from internal.domain.case.facet_resolver import KnowbaseCaseFacetResolver
 from internal.domain.case.ingestor import KnowbaseCaseIngestor
-from internal.domain.case.repository import KnowbaseCaseRepository
 from internal.models import CaseFacetProfile, CaseSemanticProfile, KnowbaseCaseDocument, KnowbaseCaseDraft, KnowbaseCaseMetadata
 from internal.domain.partition.service import PartitionService
 from internal.utils.logger import get_logger
@@ -23,15 +22,19 @@ class KnowbaseCaseWriteService:
     def __init__(
         self,
         *,
-        repository: KnowbaseCaseRepository,
+        repository,
         partition_service: PartitionService,
         ingestor: KnowbaseCaseIngestor | None = None,
         facet_resolver: KnowbaseCaseFacetResolver | None = None,
+        embedding_provider: EmbeddingProvider | None = None,
     ):
         self._repository = repository
         self._partition_service = partition_service
         self._ingestor = ingestor or KnowbaseCaseIngestor()
         self._facet_resolver = facet_resolver or KnowbaseCaseFacetResolver()
+        if embedding_provider is None:
+            raise ValueError("KnowbaseCaseWriteService requires an explicit embedding_provider")
+        self._embedding_provider = embedding_provider
 
     def create_case(
         self,
@@ -177,13 +180,15 @@ class KnowbaseCaseWriteService:
         if not document.search_text.strip():
             return
         try:
-            provider = create_embedding_provider()
-            document.search_vector = provider.embed_documents([document.search_text])[0]
+            document.search_vector = self._embedding_provider.embed_documents([document.search_text])[0]
             content_text = self._ingestor.build_content_text(draft=draft)
             if content_text.strip():
-                document.content_vector = provider.embed_documents([content_text])[0]
+                document.content_vector = self._embedding_provider.embed_documents([content_text])[0]
         except Exception as exc:  # pragma: no cover - operational path
-            logger.warning(
+            logger.exception(
                 "Online knowbase case write failed to build embeddings",
                 extra={"case_id": document.case_id, "partition": document.partition, "error": str(exc)},
             )
+            raise RuntimeError(
+                f"Failed to build case embedding for {document.case_id}: {exc}"
+            ) from exc
