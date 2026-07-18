@@ -72,6 +72,10 @@ export function getPartition(partitionName: string) {
   return requestJson<PartitionDocument>(`/api/knowbase/partitions/${encodeURIComponent(partitionName)}`);
 }
 
+export function listPartitions() {
+  return requestJson<PartitionDocument[]>("/api/knowbase/partitions");
+}
+
 export function getPartitionFacetSchema(partitionName: string) {
   return requestJson<PartitionFacetSchemaResponse>(
     `/api/knowbase/partitions/${encodeURIComponent(partitionName)}/facet-schema`,
