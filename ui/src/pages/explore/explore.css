@@ -232,6 +232,11 @@
   overflow: auto;
 }
 
+.explore-detail-scroll {
+  padding-right: 14px;
+  scrollbar-gutter: stable;
+}
+
 .explore-empty-state {
   display: grid;
   place-items: center;
@@ -254,15 +259,478 @@
   color: #17314a;
 }
 
+.explore-detail-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.explore-detail-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.explore-detail-meta code,
+.explore-ref-list code {
+  border-radius: 6px;
+  background: rgba(40, 71, 104, 0.08);
+  padding: 4px 8px;
+  font-size: 12px;
+  color: #284768;
+}
+
+.explore-detail-card h4 {
+  font-size: 21px;
+  margin-bottom: 6px;
+}
+
+.explore-detail-card > .explore-detail-scroll > p {
+  margin: 0 0 14px;
+  color: #52697f;
+  line-height: 1.5;
+}
+
+.explore-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0 0 16px;
+}
+
+.explore-detail-grid div {
+  border: 1px solid rgba(40, 71, 104, 0.1);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.65);
+  padding: 10px 12px;
+}
+
+.explore-detail-grid dt {
+  margin: 0 0 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #6b7f91;
+}
+
+.explore-detail-grid dd {
+  margin: 0;
+  color: #17314a;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.explore-detail-error {
+  margin: 0 0 16px;
+  border-radius: 7px;
+  border: 1px solid rgba(192, 80, 77, 0.18);
+  background: rgba(255, 243, 241, 0.92);
+  padding: 12px 14px;
+  color: #8f352f;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.explore-detail-section {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(40, 71, 104, 0.1);
+}
+
+.explore-detail-section-head h5 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: #17314a;
+}
+
+.explore-detail-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.explore-detail-section-titleline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.explore-detail-format {
+  border-radius: 999px;
+  background: rgba(40, 71, 104, 0.08);
+  color: #5f7386;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.explore-detail-format-select {
+  border: 1px solid rgba(40, 71, 104, 0.12);
+  border-radius: 999px;
+  background: rgba(247, 249, 252, 0.96);
+  padding: 6px 10px;
+  color: #39556d;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.explore-detail-empty {
+  border-radius: 7px;
+  border: 1px dashed rgba(40, 71, 104, 0.16);
+  background: rgba(255, 255, 255, 0.42);
+  padding: 12px 14px;
+  color: #64798d;
+  font-size: 13px;
+}
+
+.explore-detail-summary {
+  border-radius: 7px;
+  border: 1px solid rgba(40, 71, 104, 0.1);
+  background: rgba(255, 255, 255, 0.68);
+  padding: 12px 14px;
+  color: #24384d;
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.explore-detail-action {
+  border: 1px solid rgba(40, 71, 104, 0.12);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #39556d;
+  padding: 7px 11px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease,
+    transform 120ms ease;
+}
+
+.explore-detail-action:hover:not(:disabled) {
+  border-color: rgba(198, 122, 43, 0.24);
+  background: rgba(255, 248, 240, 0.96);
+  color: #8c5521;
+}
+
+.explore-detail-action:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.explore-detail-action:disabled {
+  opacity: 0.56;
+  cursor: not-allowed;
+}
+
+.explore-detail-action.is-primary {
+  border-color: rgba(198, 122, 43, 0.22);
+  background: rgba(198, 122, 43, 0.14);
+  color: #8c5521;
+}
+
+.explore-detail-action.is-secondary {
+  background: rgba(247, 249, 252, 0.96);
+}
+
+.explore-detail-title-input {
+  width: 100%;
+  border: 1px solid rgba(40, 71, 104, 0.12);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.94);
+  color: #17314a;
+  padding: 10px 12px;
+  font-family: var(--font-display);
+  font-size: 21px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  outline: none;
+  margin-bottom: 6px;
+}
+
+.explore-detail-title-input:focus {
+  border-color: rgba(198, 122, 43, 0.34);
+  box-shadow: 0 0 0 3px rgba(198, 122, 43, 0.1);
+}
+
+.explore-detail-editor-shell {
+  min-height: 360px;
+}
+
+.explore-detail-editor-shell .ingest-field {
+  min-height: 360px;
+  height: 100%;
+}
+
+.explore-detail-editor-shell .ingest-content-frame,
+.explore-detail-editor-shell .ingest-markdown-editor-shell,
+.explore-detail-editor-shell .w-md-editor {
+  min-height: 320px;
+  height: 100% !important;
+}
+
+.explore-detail-editor-shell .ingest-markdown-editor-shell {
+  overflow: visible;
+}
+
+.explore-detail-editor-shell .w-md-editor-content,
+.explore-detail-editor-shell .w-md-editor-area,
+.explore-detail-editor-shell .w-md-editor-text {
+  height: 100% !important;
+  min-height: 100% !important;
+}
+
+.explore-detail-editor-shell .w-md-editor-preview {
+  height: auto !important;
+  min-height: 100% !important;
+}
+
+.explore-detail-editor-shell .w-md-editor-preview,
+.explore-detail-editor-shell .w-md-editor-preview > div,
+.explore-detail-editor-shell .wmde-markdown,
+.explore-detail-editor-shell .wmde-markdown-color {
+  overflow: visible !important;
+  max-height: none !important;
+}
+
+.explore-kv-list {
+  display: grid;
+  gap: 10px;
+}
+
+.explore-kv-item {
+  display: grid;
+  gap: 8px;
+  border: 1px solid rgba(40, 71, 104, 0.1);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.68);
+  padding: 10px 12px;
+}
+
+.explore-kv-item strong {
+  font-size: 13px;
+  color: #17314a;
+}
+
+.explore-kv-values,
+.explore-ref-list,
+.explore-facet-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.explore-kv-values span,
+.explore-facet-row span {
+  border-radius: 999px;
+  background: rgba(59, 130, 166, 0.1);
+  color: #255875;
+  padding: 5px 9px;
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.explore-kv-values span.is-empty {
+  background: rgba(40, 71, 104, 0.08);
+  color: #6a7d8f;
+}
+
+.explore-detail-content {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 7px;
+  border: 1px solid rgba(40, 71, 104, 0.1);
+  background: rgba(255, 255, 255, 0.72);
+  color: #24384d;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow: visible;
+}
+
+.explore-detail-markdown {
+  border-radius: 7px;
+  border: 1px solid rgba(40, 71, 104, 0.1);
+  background: rgba(255, 255, 255, 0.72);
+  padding: 14px 16px;
+  color: #24384d;
+  line-height: 1.7;
+  overflow: visible;
+}
+
+.explore-detail-markdown > * {
+  overflow: visible !important;
+  max-height: none !important;
+}
+
+.explore-detail-markdown .wmde-markdown,
+.explore-detail-markdown .wmde-markdown-color {
+  overflow: visible !important;
+  max-height: none !important;
+  white-space: normal;
+}
+
+.explore-detail-markdown :where(h1, h2, h3, h4, h5, h6) {
+  margin: 0 0 10px;
+  font-family: var(--font-display);
+  color: #17314a;
+  letter-spacing: -0.02em;
+}
+
+.explore-detail-markdown :where(p, ul, ol, pre, blockquote) {
+  margin-top: 0;
+  margin-bottom: 12px;
+}
+
+.explore-detail-markdown :where(ul, ol) {
+  padding-left: 20px;
+}
+
+.explore-detail-markdown :where(code) {
+  font-family: var(--font-mono);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.explore-detail-markdown :where(pre) {
+  overflow: visible;
+  white-space: pre-wrap;
+  word-break: break-word;
+  border-radius: 6px;
+  background: rgba(40, 71, 104, 0.06);
+  padding: 10px 12px;
+}
+
+.explore-detail-markdown .wmde-markdown pre,
+.explore-detail-markdown .wmde-markdown-color pre,
+.explore-detail-markdown .wmde-markdown pre code,
+.explore-detail-markdown .wmde-markdown-color pre code {
+  overflow: visible !important;
+  max-height: none !important;
+  white-space: pre-wrap !important;
+  word-break: break-word !important;
+}
+
 .explore-list-table {
   display: grid;
   gap: 4px;
 }
 
+.explore-list-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1.8fr) minmax(90px, 0.9fr) minmax(70px, 0.7fr) minmax(70px, 0.7fr) 32px;
+  align-items: center;
+  gap: 10px;
+  padding: 0 10px 6px;
+}
+
+.explore-list-header span {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #6b7f91;
+}
+
+.explore-list-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.8fr) minmax(90px, 0.9fr) minmax(70px, 0.7fr) minmax(70px, 0.7fr) 32px;
+  align-items: center;
+  gap: 10px;
+  position: relative;
+  border: 1px solid rgba(40, 71, 104, 0.08);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.72);
+  padding: 10px;
+  cursor: pointer;
+}
+
+.explore-list-row.is-active {
+  border-color: rgba(198, 122, 43, 0.28);
+  box-shadow: inset 0 0 0 1px rgba(198, 122, 43, 0.2);
+}
+
+.explore-list-row > strong {
+  min-width: 0;
+  font-size: 13px;
+  color: #17314a;
+}
+
+.explore-list-row > span,
+.explore-list-row > strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.explore-list-row-action {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.explore-list-delete {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid rgba(187, 61, 61, 0.16);
+  border-radius: 7px;
+  background: rgba(255, 248, 248, 0.94);
+  color: #a64040;
+  padding: 0;
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease,
+    transform 120ms ease, opacity 160ms ease;
+}
+
+.explore-list-delete:hover:not(:disabled) {
+  border-color: rgba(187, 61, 61, 0.24);
+  background: rgba(255, 241, 241, 0.98);
+  color: #8f2f2f;
+}
+
+.explore-list-delete:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.explore-list-delete:disabled {
+  opacity: 0.56;
+  cursor: not-allowed;
+}
+
+.explore-list-delete svg {
+  width: 15px;
+  height: 15px;
+  stroke-width: 1.8;
+}
+
+.explore-delete-popover {
+  position: fixed;
+  z-index: 10;
+}
+
 .explore-list-header,
 .explore-list-row {
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) 0.85fr 0.9fr 0.7fr;
+  grid-template-columns: minmax(0, 1.35fr) minmax(72px, 0.85fr) minmax(74px, 0.9fr) minmax(64px, 0.7fr) 32px;
   align-items: center;
   gap: 10px;
 }

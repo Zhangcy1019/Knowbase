@@ -1,4 +1,5 @@
 export { IconBacklog } from "./IconBacklog";
+export { IconDelete } from "./IconDelete";
 export { IconExplore } from "./IconExplore";
 export { IconIngest } from "./IconIngest";
 export { IconMagnify } from "./IconMagnify";

@@ -74,6 +74,11 @@ export type KnowbaseCaseDocument = {
   };
 };
 
+export type UpdateCaseRequest = {
+  title?: string;
+  source_content?: string;
+};
+
 export function getPartition(partitionName: string) {
   return requestJson<PartitionDocument>(`/api/knowbase/partitions/${encodeURIComponent(partitionName)}`);
 }
@@ -143,4 +148,24 @@ export function listPartitionCases(partitionName: string) {
 
 export function getCase(caseId: string) {
   return requestJson<KnowbaseCaseDocument>(`/api/knowbase/cases/${encodeURIComponent(caseId)}`);
+}
+
+export function deleteCase(caseId: string) {
+  return requestJson<{ deleted_type: string; deleted_id: string }>(
+    `/api/knowbase/cases/${encodeURIComponent(caseId)}`,
+    {
+      method: "DELETE",
+    },
+  );
+}
+
+export function updateCase(caseId: string, payload: UpdateCaseRequest) {
+  return requestJson<KnowbaseCaseDocument>(`/api/knowbase/cases/${encodeURIComponent(caseId)}`, {
+    method: "PUT",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
 }

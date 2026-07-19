@@ -5,7 +5,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Literal
 
-KnowbaseSource = Literal["agent", "user", "system", "import"]
+KnowbaseSource = Literal["user", "runtime"]
 KnowbaseStatus = Literal["draft", "published", "archived"]
 RunRiskLevel = Literal["low", "medium", "high", "critical"]
 AgentRunMode = Literal["deterministic", "plan", "agent"]
