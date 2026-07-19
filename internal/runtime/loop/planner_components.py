@@ -143,8 +143,11 @@ class DefaultRuntimeStopEvaluator:
         turn_input: RuntimeTurnInput,
         planner_context: RuntimePlannerContext,
     ) -> RuntimePlannerStopAssessment:
+        runtime_mode = str(request.metadata.get("runtime_mode") or planner_context.hint_metadata.get("runtime_mode") or "")
         if planner_context.remaining_step_budget <= 0:
             return RuntimePlannerStopAssessment(should_stop=True, reason="step_budget_exhausted")
+        if runtime_mode == "analysis_only":
+            return RuntimePlannerStopAssessment()
         if planner_context.remaining_tool_budget <= 0 and planner_context.remaining_skill_budget <= 0:
             return RuntimePlannerStopAssessment(should_stop=True, reason="action_budget_exhausted")
         return RuntimePlannerStopAssessment()

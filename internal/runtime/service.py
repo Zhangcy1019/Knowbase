@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from internal.models import AgentRun, RunArtifact, RunStep, RuntimeTraceReplay
 from internal.models.skill import SkillResult
 from internal.models.tool import ToolResult
@@ -97,22 +99,59 @@ class KnowbaseRuntimeService:
             request_payload=request.model_dump(mode="json"),
         )
         state = RuntimeRunState(artifacts=[request_artifact])
-        state, final_status, requires_review = self._engine.run(
-            run=run,
-            request=request,
-            state=state,
-        )
-        final_summary = self._memory_manager.build_final_summary(request=request, state=state)
-        finished_run = self._run_repository.save(
-            run.model_copy(
-                update={
-                    "status": final_status,
-                    "requires_review": requires_review,
-                    "reasoning_summary": self._memory_manager.build_reasoning_summary(request=request, state=state),
-                    "final_summary": final_summary,
-                }
+
+        def load_current_run() -> AgentRun:
+            return self._run_repository.get(run.run_id) or run
+
+        try:
+            state, final_status, requires_review = self._engine.run(
+                run=run,
+                request=request,
+                state=state,
             )
-        )
+            final_summary = self._memory_manager.build_final_summary(request=request, state=state)
+            current_run = load_current_run()
+            finished_run = self._run_repository.save(
+                current_run.model_copy(
+                    update={
+                        "status": final_status,
+                        "requires_review": requires_review,
+                        "reasoning_summary": self._memory_manager.build_reasoning_summary(request=request, state=state),
+                        "final_summary": final_summary,
+                        "finished_at": datetime.now(timezone.utc),
+                    }
+                )
+            )
+        except Exception as exc:
+            message = str(exc)
+            state.failure_messages.append(message)
+            logger.error(
+                "Runtime request crashed before completion.",
+                extra={
+                    "request_id": request.request_id,
+                    "run_id": run.run_id,
+                    "partition": request.partition,
+                    "error": message,
+                },
+            )
+            self._trace_recorder.record_decision_error(
+                run=run,
+                name=f"{run.run_id}:fatal",
+                error_message=message,
+            )
+            current_run = load_current_run()
+            finished_run = self._run_repository.save(
+                current_run.model_copy(
+                    update={
+                        "status": "failed",
+                        "requires_review": True,
+                        "reasoning_summary": self._memory_manager.build_reasoning_summary(request=request, state=state),
+                        "final_summary": message,
+                        "finished_at": datetime.now(timezone.utc),
+                    }
+                )
+            )
+            raise
         logger.info(
             "Runtime request finished.",
             extra={

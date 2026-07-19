@@ -63,7 +63,7 @@ def _build_request() -> RuntimeRunRequest:
         objective="Inspect the current runtime context and decide the next safe action.",
         prompt=(
             "You are testing the runtime decision generator. "
-            "Return a safe minimal decision. Prefer responding or stopping. "
+            "Return a safe minimal decision. Prefer stopping when no real action is needed. "
             "Do not invent tool or skill ids."
         ),
         task_payload={
@@ -73,7 +73,7 @@ def _build_request() -> RuntimeRunRequest:
         task_hints=[
             {
                 "kind": "guidance",
-                "summary": "Prefer a direct response or a stop decision because no tools or skills are allowed.",
+                "summary": "Prefer stopping because no tools or skills are allowed.",
             }
         ],
         allowed_tools=[],
@@ -207,7 +207,7 @@ class RuntimeDecisionGeneratorIntegrationTest(unittest.TestCase):
         if decision.actions:
             for action in decision.actions:
                 self.assertTrue(action.summary)
-                self.assertIn(action.kind, {"respond", "stop", "tool_call", "skill_call"})
+                self.assertIn(action.kind, {"tool_call", "skill_call"})
                 if action.kind == "tool_call":
                     self.assertFalse(action.tool_id, "no tools are allowed in this integration test")
                 if action.kind == "skill_call":

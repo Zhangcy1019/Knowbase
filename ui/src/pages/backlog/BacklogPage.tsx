@@ -275,6 +275,21 @@ export function BacklogPage({ activePartition }: { activePartition: string | nul
       ? nextSelectedId
       : items[0]?.event_id ?? "";
     setSelectedEventId(fallbackId);
+    return fallbackId;
+  }
+
+  async function reloadSelectedEvent(eventId: string) {
+    if (!eventId) {
+      setSelectedEvent(null);
+      return;
+    }
+    setLoadingDetail(true);
+    try {
+      const event = await getBacklogEvent(eventId);
+      setSelectedEvent(event);
+    } finally {
+      setLoadingDetail(false);
+    }
   }
 
   async function handleRequeue() {
@@ -286,7 +301,10 @@ export function BacklogPage({ activePartition }: { activePartition: string | nul
     try {
       const updated = await requeueBacklogEvent(selectedEvent.event_id);
       setConsoleMessage(`Requeued ${updated.event_id}.`);
-      await reloadEvents(updated.event_id);
+      const refreshedEventId = await reloadEvents(updated.event_id);
+      if (refreshedEventId) {
+        await reloadSelectedEvent(refreshedEventId);
+      }
     } catch (error: unknown) {
       setErrorMessage(error instanceof Error ? error.message : "Failed to requeue event.");
     } finally {
@@ -348,7 +366,10 @@ export function BacklogPage({ activePartition }: { activePartition: string | nul
       const result = await drainBacklog(activePartition);
       setConsoleMessage(buildDrainMessage(result));
       setDrainConfirmOpen(false);
-      await reloadEvents(selectedEventId);
+      const refreshedEventId = await reloadEvents(selectedEventId);
+      if (refreshedEventId) {
+        await reloadSelectedEvent(refreshedEventId);
+      }
     } catch (error: unknown) {
       setErrorMessage(error instanceof Error ? error.message : "Failed to drain backlog.");
     } finally {

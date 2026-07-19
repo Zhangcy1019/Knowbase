@@ -67,7 +67,7 @@ class RuntimeTurnPlannerIntegrationTest(unittest.TestCase):
         if decision.actions:
             for action in decision.actions:
                 self.assertTrue(action.summary)
-                self.assertIn(action.kind, {"respond", "stop", "tool_call", "skill_call"})
+                self.assertIn(action.kind, {"tool_call", "skill_call"})
         else:
             self.assertTrue(
                 decision.should_stop,

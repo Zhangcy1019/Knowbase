@@ -105,6 +105,13 @@ export function getRuntimeRunTrace(runId: string) {
   return requestJson<RuntimeTraceReplayResponse>(`/api/knowbase/runtime/runs/${encodeURIComponent(runId)}/trace`);
 }
 
+export function deleteRuntimeRun(runId: string) {
+  return requestJson<{ deleted_type: string; deleted_id: string }>(
+    `/api/knowbase/runtime/runs/${encodeURIComponent(runId)}`,
+    { method: "DELETE" },
+  );
+}
+
 export function rebuildCase(caseId: string, partition: string) {
   return requestJson<MaintenanceActionResponse>(`/api/knowbase/runtime/maintenance/rebuild-case/${encodeURIComponent(caseId)}`, {
     method: "POST",

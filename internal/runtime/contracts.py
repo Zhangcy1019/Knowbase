@@ -11,7 +11,7 @@ from internal.models import RunArtifact, RunStep, SkillResult, ToolResult
 
 RuntimeRequestSource = Literal["backlog", "manual", "api", "scheduled", "system"]
 RuntimeExecutionStatus = Literal["completed", "failed", "cancelled", "requires_review"]
-RuntimeActionKind = Literal["tool_call", "skill_call", "respond", "stop"]
+RuntimeActionKind = Literal["tool_call", "skill_call"]
 RuntimeStopReason = Literal["completed", "requires_review", "failed", "budget_exhausted", "no_action"]
 
 
@@ -45,7 +45,7 @@ class RuntimeAction(BaseModel):
     """One atomic action emitted by the planner and executed by the runtime."""
 
     action_id: str = ""
-    kind: RuntimeActionKind = "respond"
+    kind: RuntimeActionKind = "tool_call"
     title: str = ""
     summary: str = ""
     tool_id: str = ""

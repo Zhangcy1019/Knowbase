@@ -40,7 +40,7 @@ RuntimeDecisionDraftReviewReason = Literal[
     "unknown",
 ]
 
-RuntimeProposedActionKind = Literal["tool_call", "skill_call", "respond", "stop"]
+RuntimeProposedActionKind = Literal["tool_call", "skill_call"]
 
 
 @dataclass(slots=True)
@@ -49,7 +49,6 @@ class RuntimeDecisionConstraints:
 
     max_actions: int = 4
     allow_mixed_capabilities: bool = True
-    allow_respond_action: bool = True
     allow_empty_continue: bool = False
 
 
@@ -376,12 +375,6 @@ class RuntimeDecisionNormalizer:
     def _validate_proposed_action(self, item: RuntimeProposedAction) -> None:
         if not item.summary.strip():
             raise ValueError("runtime proposed action missing summary")
-        if item.kind == "respond":
-            if not self._constraints.allow_respond_action:
-                raise ValueError("runtime decision draft includes forbidden respond action")
-            if not item.prompt.strip():
-                raise ValueError("runtime respond action missing prompt")
-            return
         if item.kind == "tool_call":
             if not item.tool_id.strip():
                 raise ValueError("runtime tool_call action missing tool_id")
@@ -389,8 +382,6 @@ class RuntimeDecisionNormalizer:
         if item.kind == "skill_call":
             if not item.skill_id.strip():
                 raise ValueError("runtime skill_call action missing skill_id")
-            return
-        if item.kind == "stop":
             return
         raise ValueError(f"unsupported runtime proposed action kind: {item.kind}")
 

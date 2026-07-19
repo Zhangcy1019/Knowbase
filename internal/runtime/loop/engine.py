@@ -97,6 +97,10 @@ class RuntimeLoopEngine:
                 decision_payload=decision.model_dump(mode="json"),
                 summary=decision.reasoning_summary or "Planner produced a decision.",
             )
+            summary_message = decision.metadata.get("action_plan_summary") or decision.reasoning_summary
+            if isinstance(summary_message, str) and summary_message.strip():
+                state.response_messages.append(summary_message.strip())
+                self._memory_manager.record_response(state=state, content=summary_message.strip())
             termination = self._termination_policy.should_stop(run=run, request=request, state=state, decision=decision)
             if termination.should_stop and not decision.actions:
                 final_status = termination.status

@@ -109,7 +109,7 @@ RUNTIME_DECISION_PAYLOAD_JSON_SCHEMA: dict[str, Any] = {
                 "properties": {
                     "kind": {
                         "type": "string",
-                        "enum": ["tool_call", "skill_call", "respond", "stop"],
+                        "enum": ["tool_call", "skill_call"],
                     },
                     "title": {"type": "string"},
                     "summary": {"type": "string"},

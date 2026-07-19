@@ -150,21 +150,21 @@ class RuntimeServiceIntegrationTest(unittest.TestCase):
         self.assertGreaterEqual(len(result.artifacts), 1)
         self.assertIn("runtime_request", [item.artifact_type for item in result.artifacts])
 
-    def test_runtime_service_run_request_executes_respond_action(self) -> None:
+    def test_runtime_service_run_request_records_runtime_summary_without_actions(self) -> None:
         service = self._build_service()
         request = _build_request().model_copy(
             update={
                 "prompt": (
                     "This is a runtime service integration test. "
-                    "Return exactly one respond action with a short response, "
-                    "and set should_stop=true. Do not propose tool or skill actions."
+                    "Return should_stop=true with no actions. "
+                    "Provide a short action_plan_summary and do not propose tool or skill actions."
                 ),
             }
         )
 
         result = asyncio.run(service.run_request(request=request))
         print(
-            "[runtime.service] respond result "
+            "[runtime.service] summary result "
             f"run_id={result.run_id} status={result.status} "
             f"final_summary={result.final_summary!r} reasoning_summary={result.reasoning_summary!r} "
             f"applied_actions={result.applied_actions} "
@@ -178,11 +178,10 @@ class RuntimeServiceIntegrationTest(unittest.TestCase):
         self.assertTrue(result.run_id)
         self.assertTrue(result.final_summary)
         self.assertTrue(result.reasoning_summary)
-        self.assertTrue(result.applied_actions)
-        self.assertGreaterEqual(len(result.steps), 2)
-        self.assertGreaterEqual(len(result.artifacts), 2)
+        self.assertEqual(result.applied_actions, [])
+        self.assertGreaterEqual(len(result.steps), 1)
+        self.assertGreaterEqual(len(result.artifacts), 1)
         self.assertIn("runtime_request", [item.artifact_type for item in result.artifacts])
-        self.assertIn("decision", [item.artifact_type for item in result.artifacts])
 
 
 if __name__ == "__main__":

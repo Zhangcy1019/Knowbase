@@ -76,18 +76,6 @@ class RuntimeActionRunner:
                 action_output={"kind": action.kind, "summary": action.summary},
                 summary=action.summary or f"Executing runtime action {action.action_id or action.kind}",
             )
-            if action.kind == "respond":
-                state.applied_actions.append(action.action_id or action.title or "respond")
-                state.response_messages.append(action.prompt or action.summary or request.objective)
-                self._memory_manager.record_response(state=state, content=state.response_messages[-1])
-                logger.debug(
-                    "Recorded runtime respond action.",
-                    extra={
-                        "run_id": run.run_id,
-                        "action_id": action.action_id,
-                    },
-                )
-                continue
             if action.kind == "tool_call":
                 result_set = self._capability_executor.execute_tool_calls(
                     run=run,
