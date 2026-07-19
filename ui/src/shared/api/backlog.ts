@@ -7,7 +7,6 @@ export type EventRecordResponse = {
   resource_type: string;
   resource_id: string;
   status: string;
-  disposition: string;
   priority: number;
   policy_id: string;
   ready_at: string | null;
@@ -33,12 +32,10 @@ export type MaintenanceActionResponse = {
 export function listBacklogEvents({
   partition,
   status = "",
-  disposition = "",
   eventType = "",
 }: {
   partition?: string;
   status?: string;
-  disposition?: string;
   eventType?: string;
 }) {
   const search = new URLSearchParams();
@@ -47,9 +44,6 @@ export function listBacklogEvents({
   }
   if (status.trim()) {
     search.set("status", status.trim());
-  }
-  if (disposition.trim()) {
-    search.set("disposition", disposition.trim());
   }
   if (eventType.trim()) {
     search.set("event_type", eventType.trim());
@@ -62,8 +56,8 @@ export function getBacklogEvent(eventId: string) {
   return requestJson<EventRecordResponse>(`/api/knowbase/runtime/backlog/${encodeURIComponent(eventId)}`);
 }
 
-export function retryBacklogEvent(eventId: string) {
-  return requestJson<EventRecordResponse>(`/api/knowbase/runtime/backlog/${encodeURIComponent(eventId)}/retry`, {
+export function requeueBacklogEvent(eventId: string) {
+  return requestJson<EventRecordResponse>(`/api/knowbase/runtime/backlog/${encodeURIComponent(eventId)}/requeue`, {
     method: "POST",
   });
 }

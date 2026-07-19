@@ -40,7 +40,7 @@ from internal.models.events import (
     KnowbaseEventPayload,
     TextFieldChange,
 )
-from internal.models.event_record import EventDisposition, EventRecord, EventRecordStatus
+from internal.models.event_record import EventRecord, EventRecordStatus
 from internal.models.governance import (
     ExecutionDelta,
     PartitionFacetCoverageAssessment,
@@ -103,7 +103,6 @@ __all__ = [
     "EventRelatedTarget",
     "EventRecord",
     "EventRecordStatus",
-    "EventDisposition",
     "RuntimeRunConfig",
     "RuntimeTraceReplay",
     "RuntimeTraceTurn",

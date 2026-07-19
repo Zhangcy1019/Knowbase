@@ -11,8 +11,7 @@ from internal.models.events import KnowbaseEventPayload
 from internal.models.types import KnowbaseEventType
 
 
-EventRecordStatus = Literal["recorded", "ready", "materialized", "completed", "failed", "ignored"]
-EventDisposition = Literal["record_only", "immediate", "deferred", "batched", "ignore"]
+EventRecordStatus = Literal["pending", "completed", "failed"]
 
 
 class EventRecord(BaseModel):
@@ -24,8 +23,7 @@ class EventRecord(BaseModel):
     resource_type: str = ""
     resource_id: str = ""
     payload: KnowbaseEventPayload | dict[str, Any]
-    status: EventRecordStatus = "recorded"
-    disposition: EventDisposition = "record_only"
+    status: EventRecordStatus = "pending"
     priority: int = 100
     policy_id: str = ""
     ready_at: datetime | None = None

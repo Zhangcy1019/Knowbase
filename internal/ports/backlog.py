@@ -17,7 +17,6 @@ class EventBacklogPort(Protocol):
         *,
         partition: str = "",
         status: str = "",
-        disposition: str = "",
         event_type: str = "",
     ) -> list[EventRecord]:
         ...
@@ -25,7 +24,7 @@ class EventBacklogPort(Protocol):
     def get_event(self, event_id: str) -> EventRecord | None:
         ...
 
-    def retry_event(self, *, event_id: str) -> EventRecord:
+    def requeue_event(self, *, event_id: str) -> EventRecord:
         ...
 
     def delete_event(self, event_id: str) -> None:

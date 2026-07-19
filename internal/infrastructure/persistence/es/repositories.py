@@ -280,14 +280,12 @@ class EventRecordRepository:
             return None
         return EventRecord.model_validate(response.get("_source") or {})
 
-    def list(self, *, partition: str = "", status: str = "", disposition: str = "", event_type: str = "", size: int = 500) -> list[EventRecord]:
+    def list(self, *, partition: str = "", status: str = "", event_type: str = "", size: int = 500) -> list[EventRecord]:
         filters: list[dict[str, Any]] = []
         if partition.strip():
             filters.append({"term": {"partition": partition.strip()}})
         if status.strip():
             filters.append({"term": {"status": status.strip()}})
-        if disposition.strip():
-            filters.append({"term": {"disposition": disposition.strip()}})
         if event_type.strip():
             filters.append({"term": {"event_type": event_type.strip()}})
         query: dict[str, Any] = {"bool": {"filter": filters}} if filters else {"match_all": {}}
@@ -299,7 +297,7 @@ class EventRecordRepository:
 
     @staticmethod
     def build_index_mapping() -> dict[str, Any]:
-        return {"mappings": {"properties": {"event_id": {"type": "keyword"}, "event_type": {"type": "keyword"}, "partition": {"type": "keyword"}, "resource_type": {"type": "keyword"}, "resource_id": {"type": "keyword"}, "payload": {"type": "flattened"}, "status": {"type": "keyword"}, "disposition": {"type": "keyword"}, "priority": {"type": "integer"}, "policy_id": {"type": "keyword"}, "ready_at": {"type": "date"}, "next_retry_at": {"type": "date"}, "last_run_at": {"type": "date"}, "run_id": {"type": "keyword"}, "batch_key": {"type": "keyword"}, "attempt_count": {"type": "integer"}, "error_message": {"type": "text"}, "occurred_at": {"type": "date"}, "created_at": {"type": "date"}, "updated_at": {"type": "date"}, "metadata": {"type": "flattened"}}}}
+        return {"mappings": {"properties": {"event_id": {"type": "keyword"}, "event_type": {"type": "keyword"}, "partition": {"type": "keyword"}, "resource_type": {"type": "keyword"}, "resource_id": {"type": "keyword"}, "payload": {"type": "flattened"}, "status": {"type": "keyword"}, "priority": {"type": "integer"}, "policy_id": {"type": "keyword"}, "ready_at": {"type": "date"}, "next_retry_at": {"type": "date"}, "last_run_at": {"type": "date"}, "run_id": {"type": "keyword"}, "batch_key": {"type": "keyword"}, "attempt_count": {"type": "integer"}, "error_message": {"type": "text"}, "occurred_at": {"type": "date"}, "created_at": {"type": "date"}, "updated_at": {"type": "date"}, "metadata": {"type": "flattened"}}}}
 
 
 class AgentRunRepository:

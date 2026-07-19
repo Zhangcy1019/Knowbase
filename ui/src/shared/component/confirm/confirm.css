@@ -38,3 +38,15 @@
   justify-content: flex-end;
   gap: 8px;
 }
+
+.confirm-delete-actions .overview-primary-button.is-danger {
+  background: #9c4a3c;
+  border-color: rgba(156, 74, 60, 0.14);
+  color: #ffffff;
+}
+
+.confirm-delete-actions .overview-primary-button.is-danger:hover:not(:disabled) {
+  background: #8f4336;
+  border-color: rgba(156, 74, 60, 0.2);
+  color: #ffffff;
+}

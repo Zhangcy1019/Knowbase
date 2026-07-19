@@ -15,8 +15,7 @@ class KnowbaseEventInboxService:
         self._repository = repository
 
     def record_event(self, *, event: KnowbaseEvent) -> EventRecord:
-        disposition = "deferred"
-        status = "recorded"
+        status = "pending"
         return self._repository.save(
             EventRecord(
                 event_type=event.event_type,
@@ -25,7 +24,6 @@ class KnowbaseEventInboxService:
                 resource_id=event.resource_id,
                 payload=event.payload,
                 occurred_at=event.occurred_at,
-                disposition=disposition,
                 status=status,
                 priority=100,
                 policy_id="",
@@ -34,7 +32,7 @@ class KnowbaseEventInboxService:
                 last_run_at=None,
                 metadata={
                     "source": "event_inbox",
-                    "intake_mode": "default_deferred",
+                    "intake_mode": "default_queue",
                 },
             )
         )

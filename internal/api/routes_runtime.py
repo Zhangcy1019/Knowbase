@@ -30,7 +30,6 @@ def _to_event_record_response(record: EventRecord) -> EventRecordResponse:
         resource_type=record.resource_type,
         resource_id=record.resource_id,
         status=record.status,
-        disposition=record.disposition,
         priority=record.priority,
         policy_id=record.policy_id,
         ready_at=record.ready_at,
@@ -258,13 +257,11 @@ def register_runtime_routes(app: FastAPI, *, deps: KnowbaseRouteDeps) -> None:
     async def list_backlog_events(
         partition: str = "",
         status: str = "",
-        disposition: str = "",
         event_type: str = "",
     ) -> list[EventRecordResponse]:
         records = deps.event_backlog_service.list_events(
             partition=partition,
             status=status,
-            disposition=disposition,
             event_type=event_type,
         )
         return [_to_event_record_response(item) for item in records]
@@ -276,10 +273,10 @@ def register_runtime_routes(app: FastAPI, *, deps: KnowbaseRouteDeps) -> None:
             raise HTTPException(status_code=404, detail=f"backlog event not found: {event_id}")
         return _to_event_record_response(record)
 
-    @app.post("/api/knowbase/runtime/backlog/{event_id}/retry", response_model=EventRecordResponse)
-    async def retry_backlog_event(event_id: str) -> EventRecordResponse:
+    @app.post("/api/knowbase/runtime/backlog/{event_id}/requeue", response_model=EventRecordResponse)
+    async def requeue_backlog_event(event_id: str) -> EventRecordResponse:
         try:
-            record = deps.event_backlog_service.retry_event(event_id=event_id)
+            record = deps.event_backlog_service.requeue_event(event_id=event_id)
         except ValueError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         return _to_event_record_response(record)

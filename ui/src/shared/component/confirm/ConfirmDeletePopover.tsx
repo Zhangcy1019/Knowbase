@@ -8,6 +8,8 @@ type ConfirmDeletePopoverProps = {
   description: string;
   errorMessage?: string;
   pending?: boolean;
+  confirmLabel?: string;
+  pendingLabel?: string;
   className?: string;
   style?: CSSProperties;
   onCancel: () => void;
@@ -21,6 +23,8 @@ export const ConfirmDeletePopover = forwardRef<HTMLDivElement, ConfirmDeletePopo
       description,
       errorMessage = "",
       pending = false,
+      confirmLabel = "Delete",
+      pendingLabel = "Deleting...",
       className = "",
       style,
       onCancel,
@@ -38,7 +42,7 @@ export const ConfirmDeletePopover = forwardRef<HTMLDivElement, ConfirmDeletePopo
             Cancel
           </button>
           <button type="button" className="overview-primary-button is-danger" onClick={onConfirm} disabled={pending}>
-            {pending ? "Deleting..." : "Delete"}
+            {pending ? pendingLabel : confirmLabel}
           </button>
         </div>
       </div>
