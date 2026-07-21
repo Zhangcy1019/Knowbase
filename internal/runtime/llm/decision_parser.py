@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Protocol
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 if TYPE_CHECKING:
     from internal.runtime.llm.decisioning import RuntimeDecisionDraft
@@ -14,18 +14,41 @@ if TYPE_CHECKING:
 class RuntimeDecisionActionPayload(BaseModel):
     """Structured parser payload for one proposed action."""
 
-    kind: str
+    capability_id: str
     title: str = ""
     summary: str = ""
     target_ref: str = ""
-    tool_id: str = ""
-    skill_id: str = ""
     prompt: str = ""
     inputs: dict[str, Any] = Field(default_factory=dict)
     metadata: dict[str, Any] = Field(default_factory=dict)
     risk_level: str = "medium"
     requires_review: bool = False
     action_id: str = ""
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_nullable_fields(cls, value: Any) -> Any:
+        if not isinstance(value, dict):
+            return value
+        normalized = dict(value)
+        for field_name in (
+            "capability_id",
+            "title",
+            "summary",
+            "target_ref",
+            "prompt",
+            "risk_level",
+            "action_id",
+        ):
+            if normalized.get(field_name) is None:
+                normalized[field_name] = ""
+        if normalized.get("inputs") is None:
+            normalized["inputs"] = {}
+        if normalized.get("metadata") is None:
+            normalized["metadata"] = {}
+        if normalized.get("requires_review") is None:
+            normalized["requires_review"] = False
+        return normalized
 
 
 class RuntimeDecisionPayload(BaseModel):
@@ -41,19 +64,38 @@ class RuntimeDecisionPayload(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
     actions: list[RuntimeDecisionActionPayload] = Field(default_factory=list)
 
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_nullable_fields(cls, value: Any) -> Any:
+        if not isinstance(value, dict):
+            return value
+        normalized = dict(value)
+        for field_name in (
+            "reasoning_summary",
+            "action_plan_summary",
+            "stop_reason",
+            "review_reason",
+        ):
+            if normalized.get(field_name) is None:
+                normalized[field_name] = ""
+        if normalized.get("metadata") is None:
+            normalized["metadata"] = {}
+        if normalized.get("notes") is None:
+            normalized["notes"] = []
+        if normalized.get("actions") is None:
+            normalized["actions"] = []
+        if normalized.get("should_stop") is None:
+            normalized["should_stop"] = False
+        if normalized.get("requires_review") is None:
+            normalized["requires_review"] = False
+        return normalized
+
 
 RUNTIME_DECISION_PAYLOAD_JSON_SCHEMA: dict[str, Any] = {
     "type": "object",
     "additionalProperties": False,
     "required": [
-        "reasoning_summary",
-        "action_plan_summary",
         "should_stop",
-        "stop_reason",
-        "requires_review",
-        "review_reason",
-        "notes",
-        "metadata",
         "actions",
     ],
     "properties": {
@@ -93,29 +135,14 @@ RUNTIME_DECISION_PAYLOAD_JSON_SCHEMA: dict[str, Any] = {
                 "type": "object",
                 "additionalProperties": False,
                 "required": [
-                    "kind",
-                    "title",
-                    "summary",
-                    "target_ref",
-                    "tool_id",
-                    "skill_id",
-                    "prompt",
+                    "capability_id",
                     "inputs",
-                    "metadata",
-                    "risk_level",
-                    "requires_review",
-                    "action_id",
                 ],
                 "properties": {
-                    "kind": {
-                        "type": "string",
-                        "enum": ["tool_call", "skill_call"],
-                    },
+                    "capability_id": {"type": "string"},
                     "title": {"type": "string"},
                     "summary": {"type": "string"},
                     "target_ref": {"type": "string"},
-                    "tool_id": {"type": "string"},
-                    "skill_id": {"type": "string"},
                     "prompt": {"type": "string"},
                     "inputs": {"type": "object"},
                     "metadata": {"type": "object"},
@@ -161,12 +188,10 @@ class DefaultRuntimeDecisionParser:
             metadata=dict(normalized.metadata),
             actions=[
                 RuntimeProposedAction(
-                    kind=item.kind,  # type: ignore[arg-type]
+                    capability_id=item.capability_id,
                     title=item.title,
                     summary=item.summary,
                     target_ref=item.target_ref,
-                    tool_id=item.tool_id,
-                    skill_id=item.skill_id,
                     prompt=item.prompt,
                     inputs=dict(item.inputs),
                     metadata=dict(item.metadata),

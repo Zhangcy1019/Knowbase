@@ -15,6 +15,23 @@ class GetCaseTool:
             tool_id="case.get",
             title="Get Case",
             description="Load one case document by case id.",
+            input_schema={
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["case_id"],
+                "properties": {
+                    "case_id": {"type": "string", "description": "Case id to load."},
+                },
+            },
+            examples=[
+                {"inputs": {"case_id": "case-123"}},
+            ],
+            usage_notes=[
+                "Use this tool when one specific case needs inspection before a write action.",
+            ],
+            argument_binding_hints={
+                "case_id": "input_context.case_id",
+            },
         )
 
     @property

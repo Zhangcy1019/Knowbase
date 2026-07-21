@@ -12,13 +12,13 @@ import unittest
 from datetime import datetime, timezone
 
 from internal.models import AgentRun, RunArtifact, RunStep
-from internal.runtime.actions.action_runner import RuntimeActionRunner
-from internal.runtime.actions.capability_executor import RuntimeCapabilityExecutor
-from internal.runtime.core.memory import RuntimeMemoryManager
-from internal.runtime.core.policy import RuntimePolicy
-from internal.runtime.core.state import RuntimeRunState
-from internal.runtime.core.termination import RuntimeTerminationPolicy
+from internal.runtime.execution.action_runner import RuntimeActionRunner
+from internal.runtime.execution.capability_executor import RuntimeCapabilityExecutor
+from internal.runtime.execution.policy import RuntimePolicy
+from internal.runtime.memory.manager import RuntimeMemoryManager
+from internal.runtime.memory.state import RuntimeRunState
 from internal.runtime.loop.engine import RuntimeLoopEngine
+from internal.runtime.loop.termination import RuntimeTerminationPolicy
 from internal.runtime.loop.turn_planner import RuntimeTurnPlanner
 from internal.runtime.trace.recorder import RuntimeTraceRecorder
 from tests.integration.runtime.llm.test_decision_generator import (
@@ -166,11 +166,11 @@ class RuntimeLoopEngineIntegrationTest(unittest.TestCase):
         run = run_repository.save(_build_run())
         request = _build_request().model_copy(
             update={
-                "prompt": (
-                    "This is a runtime loop engine integration test. "
-                    "Return should_stop=true with no actions. "
-                    "Use a short reasoning summary and do not propose tool or skill calls."
-                ),
+                "instructions": [
+                    "This is a runtime loop engine integration test.",
+                    "Return should_stop=true with no actions.",
+                    "Use a short reasoning summary and do not propose tool or skill calls.",
+                ],
             }
         )
         state = RuntimeRunState()
@@ -202,11 +202,11 @@ class RuntimeLoopEngineIntegrationTest(unittest.TestCase):
         run = run_repository.save(_build_run())
         request = _build_request().model_copy(
             update={
-                "prompt": (
-                    "This is a runtime loop engine integration test. "
-                    "Return should_stop=true with no actions. "
-                    "Provide a short action_plan_summary and do not propose tool_call or skill_call actions."
-                ),
+                "instructions": [
+                    "This is a runtime loop engine integration test.",
+                    "Return should_stop=true with no actions.",
+                    "Provide a short action_plan_summary and do not propose tool_call or skill_call actions.",
+                ],
             }
         )
         state = RuntimeRunState()

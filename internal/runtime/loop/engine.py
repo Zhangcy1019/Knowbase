@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from internal.runtime.actions.action_runner import RuntimeActionRunner
-from internal.runtime.actions.capability_executor import RuntimeCapabilityExecutor
+from internal.runtime.execution.action_runner import RuntimeActionRunner
+from internal.runtime.execution.capability_executor import RuntimeCapabilityExecutor
 from internal.runtime.contracts import RuntimeExecutionStatus
-from internal.runtime.core.memory import RuntimeMemoryManager
-from internal.runtime.core.state import RuntimeRunState
-from internal.runtime.core.termination import RuntimeTerminationPolicy
+from internal.runtime.memory.manager import RuntimeMemoryManager
+from internal.runtime.memory.state import RuntimeRunState
+from internal.runtime.loop.termination import RuntimeTerminationPolicy
 from internal.runtime.loop.turn_planner import RuntimeTurnPlannerPort
 from internal.runtime.trace.recorder import RuntimeTraceRecorder
 from internal.utils.logger import get_logger

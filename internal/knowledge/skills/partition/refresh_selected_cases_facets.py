@@ -37,7 +37,29 @@ class RefreshSelectedCasesFacetsSkill:
             description="Recompute resolved facets for selected cases under the current partition schema.",
             execution_mode="agent",
             side_effect_scope="partition",
-            tags=["partition", "facet", "refresh", "governance"],
+            input_schema={
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["partition", "case_ids"],
+                "properties": {
+                    "partition": {"type": "string", "description": "Partition that owns the selected cases."},
+                    "case_ids": {
+                        "type": "array",
+                        "description": "Case ids to refresh inside the target partition.",
+                        "items": {"type": "string"},
+                    },
+                },
+            },
+            examples=[
+                {"inputs": {"partition": "CI", "case_ids": ["case-123", "case-456"]}},
+            ],
+            usage_notes=[
+                "Use this skill only for a bounded selected case set, not for whole-partition full rebuilds.",
+            ],
+            argument_binding_hints={
+                "partition": "request.partition",
+                "case_ids": "input_context.case_ids",
+            },
         )
 
     @property

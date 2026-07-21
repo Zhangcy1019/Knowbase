@@ -26,6 +26,7 @@ class RuntimeRunState:
     observations: list[dict[str, Any]] = field(default_factory=list)
     facts: dict[str, Any] = field(default_factory=dict)
     should_stop: bool = False
+    run: Any | None = None
 
     def record_decision(self, decision: RuntimeDecision) -> None:
         self.turn_count += 1

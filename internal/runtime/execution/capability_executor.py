@@ -17,7 +17,7 @@ from internal.runtime.tools.runtime import ToolRuntime
 from internal.utils.logger import get_logger
 
 
-logger = get_logger("knowbase.runtime.actions.capability_executor")
+logger = get_logger("knowbase.runtime.execution.capability_executor")
 
 
 class RuntimeCapabilityExecutor:
@@ -41,10 +41,7 @@ class RuntimeCapabilityExecutor:
         for tool_id in run.tool_whitelist:
             logger.debug(
                 "Collecting initial tool observation.",
-                extra={
-                    "run_id": run.run_id,
-                    "tool_id": tool_id,
-                },
+                extra={"run_id": run.run_id, "tool_id": tool_id},
             )
             tool_results.extend(
                 self.execute_tool_calls(
@@ -76,10 +73,7 @@ class RuntimeCapabilityExecutor:
             self.ensure_tool_budget(run=run, next_calls=1)
             self.ensure_step_budget(run=run, next_steps=2)
             normalized_call = call.model_copy(
-                update={
-                    "run_id": run.run_id,
-                    "partition": call.partition or run.partition,
-                }
+                update={"run_id": run.run_id, "partition": call.partition or run.partition}
             )
             logger.info(
                 "Executing runtime tool call.",
@@ -97,25 +91,6 @@ class RuntimeCapabilityExecutor:
             )
             result = self._tool_runtime.execute(normalized_call)
             results.append(result)
-            if result.ok:
-                logger.debug(
-                    "Runtime tool call succeeded.",
-                    extra={
-                        "run_id": run.run_id,
-                        "tool_id": normalized_call.tool_id,
-                        "call_id": normalized_call.call_id,
-                    },
-                )
-            else:
-                logger.warning(
-                    "Runtime tool call failed.",
-                    extra={
-                        "run_id": run.run_id,
-                        "tool_id": normalized_call.tool_id,
-                        "call_id": normalized_call.call_id,
-                        "error": result.error_message,
-                    },
-                )
             self._trace_recorder.record_tool_result(
                 run=run,
                 tool_id=normalized_call.tool_id,
@@ -161,25 +136,6 @@ class RuntimeCapabilityExecutor:
                 ),
             )
             results.append(result)
-            if result.ok:
-                logger.debug(
-                    "Runtime skill invocation succeeded.",
-                    extra={
-                        "run_id": run.run_id,
-                        "skill_id": invocation.skill_id,
-                        "invocation_id": invocation.invocation_id,
-                    },
-                )
-            else:
-                logger.warning(
-                    "Runtime skill invocation failed.",
-                    extra={
-                        "run_id": run.run_id,
-                        "skill_id": invocation.skill_id,
-                        "invocation_id": invocation.invocation_id,
-                        "error": result.error_message,
-                    },
-                )
             self._trace_recorder.record_skill_result(
                 run=run,
                 skill_id=invocation.skill_id,
@@ -196,37 +152,23 @@ class RuntimeCapabilityExecutor:
     def resolve_skill_spec(self, skill_id: str) -> SkillSpec | None:
         return self._skill_runtime.resolve_spec(skill_id)
 
+    def resolve_tool_spec(self, tool_id: str):
+        return self._tool_runtime.resolve_spec(tool_id)
+
+    def current_run(self, run: AgentRun) -> AgentRun:
+        return self._run_repository.get(run.run_id) or run
+
     def tool_exists(self, tool_id: str) -> bool:
         return self._tool_runtime.registry.resolve(tool_id) is not None
 
     def ensure_step_budget(self, *, run: AgentRun, next_steps: int) -> None:
         persisted = self._run_repository.get(run.run_id) or run
         if persisted.step_count + next_steps > persisted.max_steps:
-            logger.warning(
-                "Runtime step budget exceeded.",
-                extra={
-                    "run_id": run.run_id,
-                    "current_step_count": persisted.step_count,
-                    "next_steps": next_steps,
-                    "max_steps": persisted.max_steps,
-                },
-            )
-            raise RuntimeError(
-                f"run step budget exceeded: {persisted.step_count + next_steps}>{persisted.max_steps}"
-            )
+            raise RuntimeError(f"run step budget exceeded: {persisted.step_count + next_steps}>{persisted.max_steps}")
 
     def ensure_tool_budget(self, *, run: AgentRun, next_calls: int) -> None:
         persisted = self._run_repository.get(run.run_id) or run
         if persisted.tool_call_count + next_calls > persisted.max_tool_calls:
-            logger.warning(
-                "Runtime tool budget exceeded.",
-                extra={
-                    "run_id": run.run_id,
-                    "current_tool_call_count": persisted.tool_call_count,
-                    "next_calls": next_calls,
-                    "max_tool_calls": persisted.max_tool_calls,
-                },
-            )
             raise RuntimeError(
                 f"run tool budget exceeded: {persisted.tool_call_count + next_calls}>{persisted.max_tool_calls}"
             )
@@ -234,15 +176,6 @@ class RuntimeCapabilityExecutor:
     def ensure_skill_budget(self, *, run: AgentRun, next_calls: int) -> None:
         persisted = self._run_repository.get(run.run_id) or run
         if persisted.skill_call_count + next_calls > persisted.max_skill_calls:
-            logger.warning(
-                "Runtime skill budget exceeded.",
-                extra={
-                    "run_id": run.run_id,
-                    "current_skill_call_count": persisted.skill_call_count,
-                    "next_calls": next_calls,
-                    "max_skill_calls": persisted.max_skill_calls,
-                },
-            )
             raise RuntimeError(
                 f"run skill budget exceeded: {persisted.skill_call_count + next_calls}>{persisted.max_skill_calls}"
             )

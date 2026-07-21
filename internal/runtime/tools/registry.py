@@ -19,5 +19,11 @@ class ToolRegistry:
     def resolve(self, tool_id: str) -> ToolHandler | None:
         return self._handlers.get(tool_id)
 
+    def resolve_spec(self, tool_id: str):
+        handler = self.resolve(tool_id)
+        if handler is None:
+            return None
+        return handler.spec
+
     def snapshot(self) -> dict[str, ToolHandler]:
         return dict(self._handlers)

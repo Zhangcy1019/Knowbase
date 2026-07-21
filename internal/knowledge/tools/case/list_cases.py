@@ -15,6 +15,23 @@ class ListCasesTool:
             tool_id="case.list",
             title="List Cases",
             description="List cases for one partition.",
+            input_schema={
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["partition"],
+                "properties": {
+                    "partition": {"type": "string", "description": "Partition name whose cases should be listed."},
+                },
+            },
+            examples=[
+                {"inputs": {"partition": "CI"}},
+            ],
+            usage_notes=[
+                "Use this tool to inspect the current working case set before deciding on write actions.",
+            ],
+            argument_binding_hints={
+                "partition": "request.partition",
+            },
         )
 
     @property

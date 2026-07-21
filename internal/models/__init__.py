@@ -48,7 +48,6 @@ from internal.models.governance import (
     PartitionRebuildRecommendation,
 )
 from internal.models.ingest import IngestRequest, IngestResult
-from internal.models.knowledge_task import KnowledgeTask, KnowledgeTaskActionHint
 from internal.models.runtime_config import RuntimeRunConfig
 from internal.models.runtime_trace import RuntimeTraceReplay, RuntimeTraceTurn
 from internal.models.skill_action import SkillAction
@@ -118,8 +117,6 @@ __all__ = [
     "ChangeTargetType",
     "IngestRequest",
     "IngestResult",
-    "KnowledgeTask",
-    "KnowledgeTaskActionHint",
     "PartitionFacetCoverageAssessment",
     "PartitionFacetSchemaProposal",
     "PartitionRebuildRecommendation",

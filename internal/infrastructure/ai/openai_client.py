@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field
 from typing import Any, Literal, Protocol
-from urllib.parse import urlparse
 
 from openai import OpenAI
 
@@ -61,7 +61,6 @@ class DefaultOpenAIClient:
         if not normalized_key:
             raise ValueError("OpenAI client requires a non-empty api_key")
         normalized_base_url = self._normalize_base_url(base_url)
-        self._supports_native_response_format = self._detect_native_response_format_support(normalized_base_url)
         self._timeout_seconds = max(1, int(timeout_seconds))
         self._client = OpenAI(
             api_key=normalized_key,
@@ -72,7 +71,10 @@ class DefaultOpenAIClient:
     def create_chat(self, *, request: OpenAIChatRequest) -> OpenAIChatResponse:
         completion = self._create_completion(request=request, include_response_format=True)
         content_text = self._extract_content_text(completion=completion)
-        content_json = self._extract_content_json(content_text=content_text)
+        try:
+            content_json = self._extract_content_json(content_text=content_text)
+        except ValueError:
+            content_json = self._repair_content_json(request=request, content_text=content_text)
         return self._build_response(
             completion=completion,
             request=request,
@@ -101,7 +103,7 @@ class DefaultOpenAIClient:
             "max_completion_tokens": max(1, int(request.max_output_tokens)),
             "metadata": self._build_api_metadata(request=request) or None,
         }
-        if include_response_format and self._supports_native_response_format:
+        if include_response_format:
             request_kwargs["response_format"] = self._build_response_format(request=request)
         return self._client.chat.completions.create(**request_kwargs)
 
@@ -138,7 +140,7 @@ class DefaultOpenAIClient:
                 "model": response.model,
                 "finish_reason": response.finish_reason,
                 "usage": response.usage,
-                "native_response_format": self._supports_native_response_format,
+                "native_response_format": "json_object",
             },
         )
         return response
@@ -160,23 +162,8 @@ class DefaultOpenAIClient:
                 return trimmed or None
         return normalized
 
-    @staticmethod
-    def _detect_native_response_format_support(base_url: str | None) -> bool:
-        if not base_url:
-            return True
-        host = urlparse(base_url).netloc.lower()
-        return host.endswith("openai.com")
-
     def _build_response_format(self, *, request: OpenAIChatRequest) -> dict[str, Any]:
-        if request.response_format == "json_schema" and request.response_schema:
-            return {
-                "type": "json_schema",
-                "json_schema": {
-                    "name": str(request.metadata.get("schema_name") or "runtime_schema"),
-                    "strict": True,
-                    "schema": dict(request.response_schema),
-                },
-            }
+        del request
         return {"type": "json_object"}
 
     @staticmethod
@@ -217,7 +204,7 @@ class DefaultOpenAIClient:
     def _extract_content_json(*, content_text: str) -> dict[str, Any]:
         if not content_text:
             return {}
-        normalized_text = DefaultOpenAIClient._strip_markdown_code_fence(content_text)
+        normalized_text = DefaultOpenAIClient._normalize_structured_response_text(content_text)
         try:
             payload = json.loads(normalized_text)
         except json.JSONDecodeError as exc:
@@ -233,14 +220,32 @@ class DefaultOpenAIClient:
         return payload
 
     @staticmethod
+    def _normalize_structured_response_text(content_text: str) -> str:
+        normalized = DefaultOpenAIClient._strip_think_tags(content_text.strip())
+        normalized = DefaultOpenAIClient._strip_markdown_code_fence(normalized)
+        return normalized.strip()
+
+    @staticmethod
     def _strip_markdown_code_fence(content_text: str) -> str:
         normalized = content_text.strip()
+        fence_match = re.search(r"```(?:json)?\s*(.*?)```", normalized, flags=re.DOTALL | re.IGNORECASE)
+        if fence_match is not None:
+            fenced_body = fence_match.group(1).strip()
+            if fenced_body:
+                return fenced_body
         if not normalized.startswith("```"):
             return normalized
         lines = normalized.splitlines()
         if len(lines) >= 3 and lines[0].startswith("```") and lines[-1].strip() == "```":
             return "\n".join(lines[1:-1]).strip()
         return normalized
+
+    @staticmethod
+    def _strip_think_tags(content_text: str) -> str:
+        normalized = re.sub(r"<think>.*?</think>", "", content_text, flags=re.DOTALL | re.IGNORECASE).strip()
+        if normalized:
+            return normalized
+        return content_text.strip()
 
     @staticmethod
     def _extract_first_json_object(content_text: str) -> str | None:
@@ -271,6 +276,52 @@ class DefaultOpenAIClient:
                 if depth == 0:
                     return content_text[start : index + 1]
         return None
+
+    def _repair_content_json(self, *, request: OpenAIChatRequest, content_text: str) -> dict[str, Any]:
+        logger.warning(
+            "Structured response was not valid JSON. Attempting one repair pass.",
+            extra={
+                "model": request.model,
+                "response_format": request.response_format,
+            },
+        )
+        repair_prompt = self._build_json_repair_prompt(
+            broken_text=content_text,
+            response_schema=request.response_schema,
+        )
+        repair_response = self.create_text_chat(
+            request=OpenAIChatRequest(
+                model=request.model,
+                system_prompt=(
+                    "You repair malformed model outputs into valid JSON. "
+                    "Return only one valid JSON object. "
+                    "Do not include explanations, markdown, or think tags."
+                ),
+                user_prompt=repair_prompt,
+                response_format="json_object",
+                temperature=0.0,
+                max_output_tokens=max(256, min(int(request.max_output_tokens), 1200)),
+                metadata={
+                    **dict(request.metadata),
+                    "repair_pass": "true",
+                },
+            )
+        )
+        return self._extract_content_json(content_text=repair_response.content_text)
+
+    @staticmethod
+    def _build_json_repair_prompt(*, broken_text: str, response_schema: dict[str, Any]) -> str:
+        schema_text = json.dumps(response_schema, ensure_ascii=True, indent=2) if response_schema else "{}"
+        return (
+            "Repair the following malformed output into one valid JSON object.\n"
+            "Requirements:\n"
+            "- Return JSON only.\n"
+            "- Preserve the intended fields and values when possible.\n"
+            "- If the text is truncated, complete the smallest valid JSON object that matches the schema.\n"
+            "- Keep strings concise.\n\n"
+            f"Schema:\n{schema_text}\n\n"
+            f"Malformed output:\n{broken_text}"
+        )
 
 
 __all__ = [

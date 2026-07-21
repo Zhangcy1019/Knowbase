@@ -25,7 +25,6 @@ from internal.domain.case.facet_resolver import KnowbaseCaseFacetResolver
 from internal.domain.case.ingestor import KnowbaseCaseIngestor
 from internal.knowledge.dispatch import (
     KnowbaseKnowledgeDispatchService,
-    KnowledgeTaskBuilder,
     RuntimeRequestBuilder,
 )
 from internal.knowledge.planning import BacklogPreparationPlanner, BatchWorkingSetBuilder
@@ -102,14 +101,13 @@ class LocalMinimalFlowIntegrationTest(unittest.TestCase):
         runtime_service = self._build_runtime_service(core=core)
         backlog_service = KnowbaseEventBacklogService(repository=core.event_record_repository)
         dispatch_service = KnowbaseKnowledgeDispatchService(
-            task_builder=KnowledgeTaskBuilder(
+            request_builder=RuntimeRequestBuilder(
                 working_set_builder=BatchWorkingSetBuilder(),
                 preparation_planner=BacklogPreparationPlanner(
                     partition_service=core.partition_service,
                     case_repository=core.case_repository,
                 ),
             ),
-            runtime_request_builder=RuntimeRequestBuilder(),
         )
         worker = KnowbaseEventWorker(
             backlog_service=backlog_service,

@@ -6,7 +6,7 @@ from typing import Protocol
 
 from internal.models import AgentRun
 from internal.runtime.contracts import RuntimeDecision, RuntimeRunRequest, RuntimeTurnInput
-from internal.runtime.core.state import RuntimeRunState
+from internal.runtime.memory.state import RuntimeRunState
 from internal.runtime.llm.decisioning import (
     DefaultRuntimeDecisionGenerator,
     RuntimeDecisionGeneratorPort,

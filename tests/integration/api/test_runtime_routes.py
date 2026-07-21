@@ -28,7 +28,6 @@ from internal.domain.case.facet_resolver import KnowbaseCaseFacetResolver
 from internal.domain.case.ingestor import KnowbaseCaseIngestor
 from internal.knowledge.dispatch import (
     KnowbaseKnowledgeDispatchService,
-    KnowledgeTaskBuilder,
     RuntimeRequestBuilder,
 )
 from internal.knowledge.planning import BacklogPreparationPlanner, BatchWorkingSetBuilder
@@ -69,14 +68,13 @@ class RuntimeRoutesIntegrationTest(unittest.TestCase):
         self._runtime_service = self._build_runtime_service(core=self._core)
         self._backlog_service = KnowbaseEventBacklogService(repository=self._core.event_record_repository)
         self._dispatch_service = KnowbaseKnowledgeDispatchService(
-            task_builder=KnowledgeTaskBuilder(
+            request_builder=RuntimeRequestBuilder(
                 working_set_builder=BatchWorkingSetBuilder(),
                 preparation_planner=BacklogPreparationPlanner(
                     partition_service=self._core.partition_service,
                     case_repository=self._core.case_repository,
                 ),
             ),
-            runtime_request_builder=RuntimeRequestBuilder(),
         )
         self._event_worker = KnowbaseEventWorker(
             backlog_service=self._backlog_service,

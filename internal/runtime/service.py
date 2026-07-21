@@ -8,21 +8,40 @@ from internal.models import AgentRun, RunArtifact, RunStep, RuntimeTraceReplay
 from internal.models.skill import SkillResult
 from internal.models.tool import ToolResult
 from internal.ports import PartitionReadPort, SkillExecutionPort
-from internal.runtime.actions.action_runner import RuntimeActionRunner
-from internal.runtime.actions.capability_executor import RuntimeCapabilityExecutor
+from internal.runtime.execution.action_runner import RuntimeActionRunner
+from internal.runtime.execution.capability_executor import RuntimeCapabilityExecutor
+from internal.runtime.execution.policy import RuntimePolicy
 from internal.runtime.contracts import RuntimeRunRequest, RuntimeRunResult
-from internal.runtime.core.memory import RuntimeMemoryManager
-from internal.runtime.core.policy import RuntimePolicy
-from internal.runtime.core.state import RuntimeRunState
-from internal.runtime.core.termination import RuntimeTerminationPolicy
+from internal.runtime.harness.child_runner import RuntimeChildRunAdapter
+from internal.runtime.memory.manager import RuntimeMemoryManager
+from internal.runtime.memory.state import RuntimeRunState
+from internal.runtime.harness.runner import RuntimeHarnessRunner
+from internal.runtime.harness.subrun import RuntimeSubRunLauncher
 from internal.runtime.loop.engine import RuntimeLoopEngine
+from internal.runtime.loop.termination import RuntimeTerminationPolicy
 from internal.runtime.loop.turn_planner import RuntimeTurnPlannerPort
 from internal.runtime.trace.recorder import RuntimeTraceRecorder
 from internal.runtime.tools.runtime import ToolRuntime
+from internal.runtime.verification.acceptance import RuntimeAcceptanceVerifier
+from internal.runtime.verification.stop_hook import VerificationStopHook
+from internal.runtime.verification.verifier import RuntimeVerifier
 from internal.utils.logger import get_logger
 
 
 logger = get_logger("knowbase.runtime.service")
+
+
+class _RuntimeServiceChildExecutor:
+    """Execute child requests through the same runtime service instance."""
+
+    def __init__(self, *, service: "KnowbaseRuntimeService"):
+        self._service = service
+
+    def execute_child_request(self, *, child_run, child_request) -> RuntimeRunResult:
+        return self._service._execute_request(
+            request=child_request,
+            existing_run=child_run,
+        )
 
 
 class KnowbaseRuntimeService:
@@ -40,6 +59,8 @@ class KnowbaseRuntimeService:
         skill_runtime: SkillExecutionPort,
         planner: RuntimeTurnPlannerPort,
         trace_recorder: RuntimeTraceRecorder,
+        verifier=None,
+        subrun_launcher: RuntimeSubRunLauncher | None = None,
     ):
         self._partition_service = partition_service
         self._case_repository = case_repository
@@ -55,9 +76,12 @@ class KnowbaseRuntimeService:
             skill_runtime=self._skill_runtime,
             trace_recorder=self._trace_recorder,
         )
-        self._memory_manager = RuntimeMemoryManager()
+        self._memory_manager = RuntimeMemoryManager(capability_executor=self._capability_executor)
         self._policy = RuntimePolicy(capability_executor=self._capability_executor)
-        self._termination_policy = RuntimeTerminationPolicy()
+        self._acceptance_verifier = RuntimeAcceptanceVerifier()
+        self._termination_policy = RuntimeTerminationPolicy(
+            acceptance_verifier=self._acceptance_verifier,
+        )
         self._planner = planner
         self._action_runner = RuntimeActionRunner(
             capability_executor=self._capability_executor,
@@ -73,17 +97,42 @@ class KnowbaseRuntimeService:
             termination_policy=self._termination_policy,
             trace_recorder=self._trace_recorder,
         )
+        child_adapter = RuntimeChildRunAdapter()
+        child_adapter.set_executor(executor=_RuntimeServiceChildExecutor(service=self))
+        self._subrun_launcher = subrun_launcher or RuntimeSubRunLauncher(executor=child_adapter)
+        self._verifier = verifier or RuntimeVerifier(
+            acceptance_verifier=self._acceptance_verifier,
+        )
+        self._before_complete_hook = VerificationStopHook(
+            verifier=self._verifier,
+        )
+        self._harness_runner = RuntimeHarnessRunner(
+            loop_engine=self._engine,
+            before_complete_hook=self._before_complete_hook,
+            subrun_launcher=self._subrun_launcher,
+            trace_recorder=self._trace_recorder,
+        )
 
     async def run_request(self, *, request: RuntimeRunRequest) -> RuntimeRunResult:
+        return self._execute_request(request=request)
+
+    def _execute_request(
+        self,
+        *,
+        request: RuntimeRunRequest,
+        existing_run: AgentRun | None = None,
+    ) -> RuntimeRunResult:
+        work_profile = request.work
         logger.info(
             "Executing runtime request.",
             extra={
                 "request_id": request.request_id,
                 "partition": request.partition,
-                "objective": request.objective,
+                "objective": work_profile.objective,
             },
         )
-        run = self._create_request_run(request=request)
+        request = self._normalize_request_metadata(request=request)
+        run = self._prepare_request_run(request=request, existing_run=existing_run)
         logger.debug(
             "Runtime run created.",
             extra={
@@ -98,17 +147,20 @@ class KnowbaseRuntimeService:
             run=run,
             request_payload=request.model_dump(mode="json"),
         )
-        state = RuntimeRunState(artifacts=[request_artifact])
+        state = RuntimeRunState(artifacts=[request_artifact], run=run)
 
         def load_current_run() -> AgentRun:
             return self._run_repository.get(run.run_id) or run
 
         try:
-            state, final_status, requires_review = self._engine.run(
+            orchestration_result = self._harness_runner.run(
                 run=run,
                 request=request,
                 state=state,
             )
+            state = orchestration_result.state
+            final_status = orchestration_result.final_status
+            requires_review = orchestration_result.requires_review
             final_summary = self._memory_manager.build_final_summary(request=request, state=state)
             current_run = load_current_run()
             finished_run = self._run_repository.save(
@@ -172,6 +224,16 @@ class KnowbaseRuntimeService:
             applied_actions=state.applied_actions,
         )
 
+    def _normalize_request_metadata(self, *, request: RuntimeRunRequest) -> RuntimeRunRequest:
+        metadata = dict(request.metadata)
+        subrun_depth = int(metadata.get("subrun_depth", 0) or 0)
+        verification_subrun_count = int(metadata.get("verification_subrun_count", 0) or 0)
+        if "allow_subrun" not in metadata:
+            metadata["allow_subrun"] = subrun_depth == 0
+        metadata["subrun_depth"] = subrun_depth
+        metadata["verification_subrun_count"] = verification_subrun_count
+        return request.model_copy(update={"metadata": metadata})
+
     def list_runs(self, *, partition: str = "", status: str = "") -> list[AgentRun]:
         return self._run_repository.list(partition=partition.strip(), status=status.strip())
 
@@ -193,7 +255,13 @@ class KnowbaseRuntimeService:
     def get_trace_replay(self, run_id: str) -> RuntimeTraceReplay | None:
         return self._trace_recorder.load_replay(run_id=run_id.strip())
 
-    def _create_request_run(self, *, request: RuntimeRunRequest) -> AgentRun:
+    def _prepare_request_run(
+        self,
+        *,
+        request: RuntimeRunRequest,
+        existing_run: AgentRun | None,
+    ) -> AgentRun:
+        work_profile = request.work
         partition = request.partition.strip()
         if not partition:
             logger.error(
@@ -226,6 +294,31 @@ class KnowbaseRuntimeService:
                 },
             )
             raise ValueError(f"partition is not active: {partition}")
+        if existing_run is not None:
+            return self._run_repository.save(
+                existing_run.model_copy(
+                    update={
+                        "partition": partition,
+                        "status": "running",
+                        "source_type": request.source_type,
+                        "source_event_type": "runtime.request",
+                        "source_event_id": request.request_id,
+                        "source_ref": request.source_ref,
+                        "objective": work_profile.objective,
+                        "planning_context": {"request": request.model_dump(mode="json")},
+                        "tool_whitelist": work_profile.allowed_tools,
+                        "skill_whitelist": work_profile.allowed_skills,
+                        "max_steps": work_profile.max_steps,
+                        "max_tool_calls": work_profile.max_tool_calls,
+                        "max_skill_calls": work_profile.max_skill_calls,
+                        "risk_level": request.risk_level,
+                        "requires_review": request.requires_review,
+                        "final_summary": "",
+                        "reasoning_summary": "",
+                        "finished_at": None,
+                    }
+                )
+            )
         return self._run_repository.save(
             AgentRun(
                 partition=partition,
@@ -236,13 +329,13 @@ class KnowbaseRuntimeService:
                 source_event_type="runtime.request",
                 source_event_id=request.request_id,
                 source_ref=request.source_ref,
-                objective=request.objective,
+                objective=work_profile.objective,
                 planning_context={"request": request.model_dump(mode="json")},
-                tool_whitelist=request.allowed_tools,
-                skill_whitelist=request.allowed_skills,
-                max_steps=request.max_steps,
-                max_tool_calls=request.max_tool_calls,
-                max_skill_calls=request.max_skill_calls,
+                tool_whitelist=work_profile.allowed_tools,
+                skill_whitelist=work_profile.allowed_skills,
+                max_steps=work_profile.max_steps,
+                max_tool_calls=work_profile.max_tool_calls,
+                max_skill_calls=work_profile.max_skill_calls,
                 risk_level=request.risk_level,
                 requires_review=request.requires_review,
             )

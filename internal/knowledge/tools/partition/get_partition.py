@@ -15,6 +15,23 @@ class GetPartitionTool:
             tool_id="partition.get",
             title="Get Partition",
             description="Load one partition document by partition name.",
+            input_schema={
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["partition"],
+                "properties": {
+                    "partition": {"type": "string", "description": "Partition name to load."},
+                },
+            },
+            examples=[
+                {"inputs": {"partition": "CI"}},
+            ],
+            usage_notes=[
+                "Use this tool to inspect partition status and metadata before partition-scoped actions.",
+            ],
+            argument_binding_hints={
+                "partition": "request.partition",
+            },
         )
 
     @property

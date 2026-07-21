@@ -18,6 +18,9 @@ class ToolRuntime:
     def registry(self) -> ToolRegistry:
         return self._registry
 
+    def resolve_spec(self, tool_id: str):
+        return self._registry.resolve_spec(tool_id)
+
     def execute(self, call: ToolCall) -> ToolResult:
         handler = self._registry.resolve(call.tool_id)
         if handler is None:

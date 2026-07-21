@@ -51,7 +51,26 @@ class RebuildCaseSkill:
             description="Recompute one case and its derived fields.",
             execution_mode="deterministic",
             side_effect_scope="single_resource",
-            tags=["case", "rebuild", "governance"],
+            input_schema={
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["case_id"],
+                "properties": {
+                    "case_id": {"type": "string", "description": "Target case id to rebuild."},
+                    "partition": {"type": "string", "description": "Owning partition when available."},
+                    "force": {"type": "boolean", "description": "Force rebuild even when no changes are detected."},
+                },
+            },
+            examples=[
+                {"inputs": {"case_id": "case-123", "partition": "CI", "force": False}},
+            ],
+            usage_notes=[
+                "Use this skill when summary, semantic profile, facets, or embeddings need a full refresh.",
+            ],
+            argument_binding_hints={
+                "case_id": "input_context.case_id",
+                "partition": "request.partition",
+            },
         )
 
     @property

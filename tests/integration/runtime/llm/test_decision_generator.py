@@ -19,10 +19,12 @@ from internal.runtime.contracts import (
     RuntimeRunRequest,
     RuntimeTaskContext,
     RuntimeTurnInput,
+    RuntimeWorkProfile,
 )
-from internal.runtime.core.state import RuntimeRunState
+from internal.runtime.memory.state import RuntimeRunState
 from internal.runtime.llm.decisioning import DefaultRuntimeDecisionGenerator
 from internal.runtime.loop.planner_components import RuntimePlannerContext, RuntimePlannerStopAssessment
+from internal.runtime.verification.profile import RuntimeVerificationProfile
 from tests.integration.support import bootstrap_test_runtime
 
 
@@ -60,27 +62,42 @@ def _build_request() -> RuntimeRunRequest:
         source_type="manual",
         source_ref="integration-test",
         partition="CI",
-        objective="Inspect the current runtime context and decide the next safe action.",
-        prompt=(
-            "You are testing the runtime decision generator. "
-            "Return a safe minimal decision. Prefer stopping when no real action is needed. "
-            "Do not invent tool or skill ids."
+        work=RuntimeWorkProfile(
+            objective="Inspect the current runtime context and decide the next safe action.",
+            mission_summary="Inspect the current runtime context and decide the next safe action.",
+            instructions=[
+                "Return a safe minimal decision.",
+                "Prefer stopping when no real action is needed.",
+                "Do not invent tool or skill ids.",
+            ],
+            input_context={
+                "document_type": "integration_test",
+                "expected_behavior": "safe_structured_decision",
+            },
+            capability_hints=[
+                {
+                    "kind": "guidance",
+                    "summary": "Prefer stopping because no tools or skills are allowed.",
+                }
+            ],
+            allowed_tools=[],
+            allowed_skills=[],
+            max_steps=8,
+            max_tool_calls=4,
+            max_skill_calls=4,
         ),
-        task_payload={
-            "document_type": "integration_test",
-            "expected_behavior": "safe_structured_decision",
+        acceptance={
+            "completion_checks": [
+                "return a structured decision",
+                "avoid non-allowed actions",
+            ]
         },
-        task_hints=[
-            {
-                "kind": "guidance",
-                "summary": "Prefer stopping because no tools or skills are allowed.",
-            }
-        ],
-        allowed_tools=[],
-        allowed_skills=[],
-        max_steps=8,
-        max_tool_calls=4,
-        max_skill_calls=4,
+        verification=RuntimeVerificationProfile(
+            enabled=False,
+            mode="deterministic",
+        ),
+        stop_policy={"stop_when_no_executable_action": True},
+        risk_policy={"risk_level": "medium"},
         risk_level="medium",
         requires_review=False,
     )
@@ -92,20 +109,26 @@ def _build_turn_input(request: RuntimeRunRequest) -> RuntimeTurnInput:
         request_id=request.request_id,
         turn_index=1,
         task=RuntimeTaskContext(
-            objective=request.objective,
-            prompt=request.prompt,
+            objective=request.work.objective,
+            mission_summary=request.work.mission_summary,
+            instructions=list(request.work.instructions),
             partition=request.partition,
             source_type=request.source_type,
             source_ref=request.source_ref,
-            payload=dict(request.task_payload),
+            work=request.work.model_copy(),
+            input_context=dict(request.work.input_context),
+            acceptance=request.acceptance.model_copy(),
+            verification=request.verification.model_copy(),
+            stop_policy=request.stop_policy.model_copy(),
+            risk_policy=request.risk_policy.model_copy(),
         ),
         memory=RuntimeMemorySnapshot(
             facts={"current_phase": "integration_test"},
             observations=[],
         ),
         bounds=RuntimeExecutionBounds(
-            allowed_tools=list(request.allowed_tools),
-            allowed_skills=list(request.allowed_skills),
+            allowed_tools=list(request.work.allowed_tools),
+            allowed_skills=list(request.work.allowed_skills),
             risk_level=request.risk_level,
             requires_review=request.requires_review,
             remaining_step_budget=6,
@@ -119,7 +142,7 @@ def _build_turn_input(request: RuntimeRunRequest) -> RuntimeTurnInput:
             latest_response="",
         ),
         hints=RuntimeAgentHints(
-            actions=list(request.task_hints),
+            actions=list(request.work.capability_hints),
             metadata={"test_case": "runtime_decision_generator"},
         ),
     )
@@ -131,25 +154,29 @@ def _build_planner_context(request: RuntimeRunRequest, turn_input: RuntimeTurnIn
         request_id=turn_input.request_id,
         turn_index=turn_input.turn_index,
         objective=turn_input.task.objective,
-        prompt=turn_input.task.prompt,
+        mission_summary=turn_input.task.mission_summary,
+        instructions=list(turn_input.task.instructions),
         partition=turn_input.task.partition,
         source_type=turn_input.task.source_type,
         source_ref=turn_input.task.source_ref,
-        task_payload=dict(turn_input.task.payload),
+        input_context=dict(turn_input.task.input_context),
+        acceptance=turn_input.task.acceptance.model_dump(mode="json"),
+        stop_policy=turn_input.task.stop_policy.model_dump(mode="json"),
+        risk_policy=turn_input.task.risk_policy.model_dump(mode="json"),
         facts=dict(turn_input.memory.facts),
         observations=[],
         completed_actions=[],
         recent_decisions=[],
         recent_failures=[],
         latest_response="",
-        allowed_tools=list(request.allowed_tools),
-        allowed_skills=list(request.allowed_skills),
+        allowed_tools=list(request.work.allowed_tools),
+        allowed_skills=list(request.work.allowed_skills),
         risk_level=request.risk_level,
         requires_review=request.requires_review,
         remaining_step_budget=turn_input.bounds.remaining_step_budget,
         remaining_tool_budget=turn_input.bounds.remaining_tool_budget,
         remaining_skill_budget=turn_input.bounds.remaining_skill_budget,
-        hinted_actions=list(request.task_hints),
+        hinted_actions=list(request.work.capability_hints),
         hint_metadata={"test_case": "runtime_decision_generator"},
     )
 
@@ -199,7 +226,7 @@ class RuntimeDecisionGeneratorIntegrationTest(unittest.TestCase):
         )
 
         self.assertTrue(decision.decision_id)
-        self.assertEqual(decision.objective, request.objective)
+        self.assertEqual(decision.objective, request.work.objective)
         self.assertTrue(decision.reasoning_summary)
         self.assertIsInstance(decision.actions, list)
         self.assertIsInstance(decision.metadata, dict)
@@ -207,11 +234,8 @@ class RuntimeDecisionGeneratorIntegrationTest(unittest.TestCase):
         if decision.actions:
             for action in decision.actions:
                 self.assertTrue(action.summary)
-                self.assertIn(action.kind, {"tool_call", "skill_call"})
-                if action.kind == "tool_call":
-                    self.assertFalse(action.tool_id, "no tools are allowed in this integration test")
-                if action.kind == "skill_call":
-                    self.assertFalse(action.skill_id, "no skills are allowed in this integration test")
+                self.assertIsInstance(action.capability_id, str)
+                self.assertFalse(action.capability_id, "no capabilities are allowed in this integration test")
         else:
             self.assertTrue(
                 decision.should_stop,

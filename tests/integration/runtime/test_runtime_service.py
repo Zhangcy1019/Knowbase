@@ -122,11 +122,11 @@ class RuntimeServiceIntegrationTest(unittest.TestCase):
         service = self._build_service()
         request = _build_request().model_copy(
             update={
-                "prompt": (
-                    "This is a runtime service integration test. "
-                    "Return should_stop=true with no actions. "
-                    "Use a short reasoning summary and stop immediately."
-                ),
+                "instructions": [
+                    "This is a runtime service integration test.",
+                    "Return should_stop=true with no actions.",
+                    "Use a short reasoning summary and stop immediately.",
+                ],
             }
         )
 
@@ -154,11 +154,11 @@ class RuntimeServiceIntegrationTest(unittest.TestCase):
         service = self._build_service()
         request = _build_request().model_copy(
             update={
-                "prompt": (
-                    "This is a runtime service integration test. "
-                    "Return should_stop=true with no actions. "
-                    "Provide a short action_plan_summary and do not propose tool or skill actions."
-                ),
+                "instructions": [
+                    "This is a runtime service integration test.",
+                    "Return should_stop=true with no actions.",
+                    "Provide a short action_plan_summary and do not propose tool or skill actions.",
+                ],
             }
         )
 

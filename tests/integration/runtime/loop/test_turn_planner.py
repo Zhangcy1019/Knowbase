@@ -10,7 +10,7 @@ from __future__ import annotations
 import os
 import unittest
 
-from internal.runtime.core.state import RuntimeRunState
+from internal.runtime.memory.state import RuntimeRunState
 from internal.runtime.loop.turn_planner import RuntimeTurnPlanner
 from tests.integration.runtime.llm.test_decision_generator import (
     _TEST_RUNTIME_CONFIG,
@@ -58,7 +58,7 @@ class RuntimeTurnPlannerIntegrationTest(unittest.TestCase):
         )
 
         self.assertTrue(decision.decision_id)
-        self.assertEqual(decision.objective, request.objective)
+        self.assertEqual(decision.objective, request.work.objective)
         self.assertTrue(decision.reasoning_summary)
         self.assertIsInstance(decision.actions, list)
         self.assertIsInstance(decision.metadata, dict)
@@ -67,7 +67,7 @@ class RuntimeTurnPlannerIntegrationTest(unittest.TestCase):
         if decision.actions:
             for action in decision.actions:
                 self.assertTrue(action.summary)
-                self.assertIn(action.kind, {"tool_call", "skill_call"})
+                self.assertIsInstance(action.capability_id, str)
         else:
             self.assertTrue(
                 decision.should_stop,

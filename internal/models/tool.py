@@ -19,6 +19,9 @@ class ToolSpec(BaseModel):
     side_effect_scope: ToolSideEffectScope = "read_only"
     input_schema: dict[str, Any] = Field(default_factory=dict)
     output_schema: dict[str, Any] = Field(default_factory=dict)
+    examples: list[dict[str, Any]] = Field(default_factory=list)
+    usage_notes: list[str] = Field(default_factory=list)
+    argument_binding_hints: dict[str, str] = Field(default_factory=dict)
 
 
 class ToolCall(BaseModel):

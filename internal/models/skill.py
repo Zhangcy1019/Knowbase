@@ -20,9 +20,11 @@ class SkillSpec(BaseModel):
     description: str = ""
     execution_mode: SkillExecutionMode = "deterministic"
     side_effect_scope: SkillSideEffectScope = "single_resource"
-    tags: list[str] = Field(default_factory=list)
     input_schema: dict[str, Any] = Field(default_factory=dict)
     output_schema: dict[str, Any] = Field(default_factory=dict)
+    examples: list[dict[str, Any]] = Field(default_factory=list)
+    usage_notes: list[str] = Field(default_factory=list)
+    argument_binding_hints: dict[str, str] = Field(default_factory=dict)
 
 
 class SkillInvocation(BaseModel):

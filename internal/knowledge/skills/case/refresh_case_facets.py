@@ -34,7 +34,24 @@ class RefreshCaseFacetsSkill:
             description="Recompute resolved stable facets for one case under the current partition schema.",
             execution_mode="deterministic",
             side_effect_scope="single_resource",
-            tags=["case", "facet", "refresh"],
+            input_schema={
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["case_id"],
+                "properties": {
+                    "case_id": {"type": "string", "description": "Target case id to refresh."},
+                    "force": {"type": "boolean", "description": "Force write even when facets are unchanged."},
+                },
+            },
+            examples=[
+                {"inputs": {"case_id": "case-123", "force": False}},
+            ],
+            usage_notes=[
+                "Use this skill only when a specific case needs facet recomputation.",
+            ],
+            argument_binding_hints={
+                "case_id": "input_context.case_id",
+            },
         )
 
     @property
