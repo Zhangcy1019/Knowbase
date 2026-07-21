@@ -17,7 +17,7 @@ class KnowbaseCaseMetadata(BaseModel):
     """Stable metadata for filtering and display."""
 
     author: str = ""
-    source: KnowbaseSource = "agent"
+    source: KnowbaseSource = "user"
     status: KnowbaseStatus = "draft"
 
 

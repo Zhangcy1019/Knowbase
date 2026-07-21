@@ -25,13 +25,12 @@ from internal.domain.case.facet_resolver import KnowbaseCaseFacetResolver
 from internal.domain.case.ingestor import KnowbaseCaseIngestor
 from internal.knowledge.dispatch import (
     KnowbaseKnowledgeDispatchService,
-    KnowledgeTaskBuilder,
     RuntimeRequestBuilder,
 )
 from internal.knowledge.planning import BacklogPreparationPlanner, BatchWorkingSetBuilder
 from internal.models import IngestRequest, PartitionDocument, PartitionFacetSchema
 from internal.models.semantic_profile import CaseSemanticProfile
-from internal.runtime.contracts import RuntimeAction, RuntimeDecision
+from internal.runtime.contracts import RuntimeDecision
 from internal.runtime.loop.turn_planner import RuntimeTurnPlannerPort
 from internal.runtime.service import KnowbaseRuntimeService
 from internal.runtime.skills import SkillRuntime
@@ -76,18 +75,11 @@ class _StaticTurnPlanner(RuntimeTurnPlannerPort):
             decision_id=f"turn:{turn_input.turn_index}",
             objective=turn_input.task.objective,
             reasoning_summary="Backlog batch inspected and summarized.",
-            actions=[
-                RuntimeAction(
-                    action_id=f"respond:{turn_input.turn_index}",
-                    kind="respond",
-                    title="Respond",
-                    summary="Emit a compact batch summary.",
-                    prompt="Batch summarized for operator review.",
-                    metadata={"turn_index": turn_input.turn_index},
-                )
-            ],
             should_stop=True,
-            metadata={"turn_index": turn_input.turn_index},
+            metadata={
+                "turn_index": turn_input.turn_index,
+                "action_plan_summary": "Batch summarized for operator review.",
+            },
         )
 
 
@@ -109,14 +101,13 @@ class LocalMinimalFlowIntegrationTest(unittest.TestCase):
         runtime_service = self._build_runtime_service(core=core)
         backlog_service = KnowbaseEventBacklogService(repository=core.event_record_repository)
         dispatch_service = KnowbaseKnowledgeDispatchService(
-            task_builder=KnowledgeTaskBuilder(
+            request_builder=RuntimeRequestBuilder(
                 working_set_builder=BatchWorkingSetBuilder(),
                 preparation_planner=BacklogPreparationPlanner(
                     partition_service=core.partition_service,
                     case_repository=core.case_repository,
                 ),
             ),
-            runtime_request_builder=RuntimeRequestBuilder(),
         )
         worker = KnowbaseEventWorker(
             backlog_service=backlog_service,
@@ -144,7 +135,7 @@ class LocalMinimalFlowIntegrationTest(unittest.TestCase):
 
         events_before = backlog_service.list_events(partition="CI")
         self.assertEqual(len(events_before), 1)
-        self.assertEqual(events_before[0].status, "recorded")
+        self.assertEqual(events_before[0].status, "pending")
 
         worker_result = asyncio.run(worker.run_once(partition="CI", trigger_source="integration_test"))
         self.assertEqual(worker_result.attempted_count, 1)
@@ -156,9 +147,9 @@ class LocalMinimalFlowIntegrationTest(unittest.TestCase):
         assert runtime_result is not None
         self.assertEqual(runtime_result.status, "completed")
         self.assertTrue(runtime_result.run_id)
-        self.assertIn("respond:0", runtime_result.applied_actions)
-        self.assertGreaterEqual(len(runtime_result.steps), 2)
-        self.assertGreaterEqual(len(runtime_result.artifacts), 2)
+        self.assertEqual(runtime_result.applied_actions, [])
+        self.assertGreaterEqual(len(runtime_result.steps), 1)
+        self.assertGreaterEqual(len(runtime_result.artifacts), 1)
 
         events_after = backlog_service.list_events(partition="CI")
         self.assertEqual(len(events_after), 1)

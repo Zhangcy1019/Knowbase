@@ -12,13 +12,13 @@ import unittest
 from datetime import datetime, timezone
 
 from internal.models import AgentRun, RunArtifact, RunStep
-from internal.runtime.actions.action_runner import RuntimeActionRunner
-from internal.runtime.actions.capability_executor import RuntimeCapabilityExecutor
-from internal.runtime.core.memory import RuntimeMemoryManager
-from internal.runtime.core.policy import RuntimePolicy
-from internal.runtime.core.state import RuntimeRunState
-from internal.runtime.core.termination import RuntimeTerminationPolicy
+from internal.runtime.execution.action_runner import RuntimeActionRunner
+from internal.runtime.execution.capability_executor import RuntimeCapabilityExecutor
+from internal.runtime.execution.policy import RuntimePolicy
+from internal.runtime.memory.manager import RuntimeMemoryManager
+from internal.runtime.memory.state import RuntimeRunState
 from internal.runtime.loop.engine import RuntimeLoopEngine
+from internal.runtime.loop.termination import RuntimeTerminationPolicy
 from internal.runtime.loop.turn_planner import RuntimeTurnPlanner
 from internal.runtime.trace.recorder import RuntimeTraceRecorder
 from tests.integration.runtime.llm.test_decision_generator import (
@@ -166,16 +166,16 @@ class RuntimeLoopEngineIntegrationTest(unittest.TestCase):
         run = run_repository.save(_build_run())
         request = _build_request().model_copy(
             update={
-                "prompt": (
-                    "This is a runtime loop engine integration test. "
-                    "Return should_stop=true with no actions. "
-                    "Use a short reasoning summary and do not propose tool or skill calls."
-                ),
+                "instructions": [
+                    "This is a runtime loop engine integration test.",
+                    "Return should_stop=true with no actions.",
+                    "Use a short reasoning summary and do not propose tool or skill calls.",
+                ],
             }
         )
         state = RuntimeRunState()
 
-        state, final_status = engine.run(
+        state, final_status, requires_review = engine.run(
             run=run,
             request=request,
             state=state,
@@ -190,33 +190,34 @@ class RuntimeLoopEngineIntegrationTest(unittest.TestCase):
         )
 
         self.assertEqual(final_status, "completed")
+        self.assertFalse(requires_review)
         self.assertEqual(state.turn_count, 1)
         self.assertEqual(len(state.decision_history), 1)
         self.assertTrue(state.decision_history[0].should_stop)
         self.assertEqual(state.applied_actions, [])
         self.assertGreaterEqual(len(step_repository.list_for_run(run.run_id)), 1)
 
-    def test_runtime_loop_engine_executes_respond_action_then_stops(self) -> None:
+    def test_runtime_loop_engine_records_summary_then_stops(self) -> None:
         engine, run_repository, step_repository, artifact_repository = _build_loop_test_runtime()
         run = run_repository.save(_build_run())
         request = _build_request().model_copy(
             update={
-                "prompt": (
-                    "This is a runtime loop engine integration test. "
-                    "Return exactly one respond action with a short prompt, and also set should_stop=true. "
-                    "Do not propose any tool_call or skill_call actions."
-                ),
+                "instructions": [
+                    "This is a runtime loop engine integration test.",
+                    "Return should_stop=true with no actions.",
+                    "Provide a short action_plan_summary and do not propose tool_call or skill_call actions.",
+                ],
             }
         )
         state = RuntimeRunState()
 
-        state, final_status = engine.run(
+        state, final_status, requires_review = engine.run(
             run=run,
             request=request,
             state=state,
         )
         print(
-            "[runtime.loop] loop_engine respond response "
+            "[runtime.loop] loop_engine summary response "
             f"final_status={final_status} turn_count={state.turn_count} "
             f"responses={state.response_messages} applied_actions={state.applied_actions} "
             f"decisions={[item.model_dump(mode='json') for item in state.decision_history]} "
@@ -226,13 +227,14 @@ class RuntimeLoopEngineIntegrationTest(unittest.TestCase):
         )
 
         self.assertEqual(final_status, "completed")
+        self.assertFalse(requires_review)
         self.assertEqual(state.turn_count, 1)
         self.assertEqual(len(state.decision_history), 1)
         self.assertTrue(state.decision_history[0].should_stop)
         self.assertTrue(state.response_messages)
-        self.assertTrue(state.applied_actions)
+        self.assertEqual(state.applied_actions, [])
         self.assertIn("response", [item.get("kind") for item in state.observations])
-        self.assertGreaterEqual(len(step_repository.list_for_run(run.run_id)), 2)
+        self.assertGreaterEqual(len(step_repository.list_for_run(run.run_id)), 1)
 
 
 if __name__ == "__main__":

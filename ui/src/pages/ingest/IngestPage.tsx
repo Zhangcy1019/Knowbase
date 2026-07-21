@@ -2,15 +2,15 @@ import type { ChangeEvent, ReactNode } from "react";
 import { useMemo, useState } from "react";
 
 import "./ingest.css";
-import { DocumentContentEditor, type IngestContentFormat } from "./DocumentContentEditor";
 import { IconIngest, IconSend, IconTraceDetail } from "../../shared/icons";
 import { createKnowbaseCase, type IngestResponse } from "../../shared/api";
+import { SourceContentEditor, type SourceContentFormat } from "../../shared/component/source_content";
 
 type IngestFormState = {
   title: string;
   sourceRefs: string;
   sourceContent: string;
-  contentFormat: IngestContentFormat;
+  contentFormat: SourceContentFormat;
 };
 
 const defaultFormState: IngestFormState = {
@@ -155,7 +155,7 @@ export function IngestPage({ activePartition }: { activePartition: string | null
               />
             </label>
 
-            <DocumentContentEditor
+            <SourceContentEditor
               value={form.sourceContent}
               format={form.contentFormat}
               disabled={submitting}

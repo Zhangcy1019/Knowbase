@@ -41,7 +41,13 @@ class KnowbaseEventWorker:
         self._dispatch_service = dispatch_service
         self._runtime_service = runtime_service
 
-    async def run_once(self, *, partition: str = "", limit: int = 200, trigger_source: str = "manual") -> EventWorkerRunResult:
+    async def run_once(
+        self,
+        *,
+        partition: str = "",
+        limit: int = 200,
+        trigger_source: str = "manual",
+    ) -> EventWorkerRunResult:
         logger.info(
             "Starting backlog drain cycle.",
             extra={"partition": partition, "limit": limit, "trigger_source": trigger_source},

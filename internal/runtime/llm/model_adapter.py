@@ -61,7 +61,7 @@ class OpenAIRuntimeModelAdapter:
                 model=request.model or "gpt-5",
                 system_prompt=request.system,
                 user_prompt=request.instruction,
-                response_format="json_schema" if request.response_schema else "json_object",
+                response_format="json_object",
                 response_schema=dict(request.response_schema),
                 temperature=request.temperature,
                 max_output_tokens=request.max_output_tokens,
@@ -84,12 +84,23 @@ class OpenAIRuntimeModelAdapter:
     def _build_instruction(*, prompt: RuntimeDecisionPrompt) -> str:
         instruction = prompt.instruction
         if prompt.response_schema:
+            compact_schema = {
+                "type": "object",
+                "required": ["should_stop", "actions"],
+                "action_required_fields": ["capability_id", "inputs"],
+            }
             instruction = (
                 f"{instruction}\n\n"
                 "Response requirements:\n"
                 "- Return a JSON object only.\n"
                 "- Do not wrap the JSON in markdown fences.\n"
-                f"- Follow this JSON schema:\n{json.dumps(prompt.response_schema, ensure_ascii=True, indent=2)}"
+                "- Prefer omitting optional fields unless they add necessary signal.\n"
+                "- Keep reasoning_summary under 80 characters when present.\n"
+                "- Keep action_plan_summary under 60 characters when present.\n"
+                "- Keep notes empty or omit them.\n"
+                "- Do not restate the whole planner digest.\n"
+                "- If one write action is required and allowed, prefer that action over stopping.\n"
+                f"- Follow this compact output schema:\n{json.dumps(compact_schema, ensure_ascii=True, indent=2)}"
             )
         return instruction
 

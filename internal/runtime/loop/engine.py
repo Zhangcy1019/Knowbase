@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from internal.runtime.actions.action_runner import RuntimeActionRunner
-from internal.runtime.actions.capability_executor import RuntimeCapabilityExecutor
+from internal.runtime.execution.action_runner import RuntimeActionRunner
+from internal.runtime.execution.capability_executor import RuntimeCapabilityExecutor
 from internal.runtime.contracts import RuntimeExecutionStatus
-from internal.runtime.core.memory import RuntimeMemoryManager
-from internal.runtime.core.state import RuntimeRunState
-from internal.runtime.core.termination import RuntimeTerminationPolicy
+from internal.runtime.memory.manager import RuntimeMemoryManager
+from internal.runtime.memory.state import RuntimeRunState
+from internal.runtime.loop.termination import RuntimeTerminationPolicy
 from internal.runtime.loop.turn_planner import RuntimeTurnPlannerPort
 from internal.runtime.trace.recorder import RuntimeTraceRecorder
 from internal.utils.logger import get_logger
@@ -97,6 +97,10 @@ class RuntimeLoopEngine:
                 decision_payload=decision.model_dump(mode="json"),
                 summary=decision.reasoning_summary or "Planner produced a decision.",
             )
+            summary_message = decision.metadata.get("action_plan_summary") or decision.reasoning_summary
+            if isinstance(summary_message, str) and summary_message.strip():
+                state.response_messages.append(summary_message.strip())
+                self._memory_manager.record_response(state=state, content=summary_message.strip())
             termination = self._termination_policy.should_stop(run=run, request=request, state=state, decision=decision)
             if termination.should_stop and not decision.actions:
                 final_status = termination.status

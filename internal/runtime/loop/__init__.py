@@ -6,6 +6,8 @@ from importlib import import_module
 
 _EXPORTS = {
     "RuntimeLoopEngine": "internal.runtime.loop.engine",
+    "RuntimeTerminationDecision": "internal.runtime.loop.termination",
+    "RuntimeTerminationPolicy": "internal.runtime.loop.termination",
     "RuntimePlannerContext": "internal.runtime.loop.planner_components",
     "RuntimePlannerObservation": "internal.runtime.loop.planner_components",
     "RuntimePlannerStopAssessment": "internal.runtime.loop.planner_components",

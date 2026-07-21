@@ -19,14 +19,12 @@ class KnowbaseEventBacklogService:
         *,
         partition: str = "",
         status: str = "",
-        disposition: str = "",
         event_type: str = "",
         size: int = 500,
     ) -> list[EventRecord]:
         return self._repository.list(
             partition=partition,
             status=status,
-            disposition=disposition,
             event_type=event_type,
             size=size,
         )
@@ -42,7 +40,7 @@ class KnowbaseEventBacklogService:
         return self._repository.save(
             record.model_copy(
                 update={
-                    "status": "ready",
+                    "status": "pending",
                     "error_message": "",
                     "ready_at": datetime.now(timezone.utc),
                     "next_retry_at": None,
@@ -55,18 +53,18 @@ class KnowbaseEventBacklogService:
         return self._repository.save(
             record.model_copy(
                 update={
-                    "status": "ignored",
+                    "status": "completed",
                     "error_message": "",
                 }
             )
         )
 
-    def retry_event(self, *, event_id: str) -> EventRecord:
+    def requeue_event(self, *, event_id: str) -> EventRecord:
         record = self._require_event(event_id)
         return self._repository.save(
             record.model_copy(
                 update={
-                    "status": "ready" if record.disposition == "immediate" else "recorded",
+                    "status": "pending",
                     "run_id": "",
                     "error_message": "",
                     "next_retry_at": None,
@@ -84,7 +82,7 @@ class KnowbaseEventBacklogService:
                 self._repository.save(
                     record.model_copy(
                         update={
-                            "status": "materialized",
+                            "status": "pending",
                             "updated_at": now,
                         }
                     )
@@ -146,7 +144,7 @@ class KnowbaseEventBacklogService:
         return [
             item
             for item in candidates
-            if item.status in {"ready", "recorded", "failed"} and item.disposition in {"immediate", "deferred"}
+            if item.status in {"pending", "failed"}
             and (item.next_retry_at is None or item.next_retry_at <= datetime.now(timezone.utc))
         ][:limit]
 

@@ -8,7 +8,6 @@ from pydantic import BaseModel, Field
 from internal.models import (
     CaseFacetProfile,
     CaseSemanticProfile,
-    EventDisposition,
     EventRecordStatus,
     KnowbaseCaseMetadata,
     KnowbaseEventType,
@@ -192,7 +191,6 @@ class EventRecordResponse(BaseModel):
     resource_type: str = ""
     resource_id: str = ""
     status: EventRecordStatus
-    disposition: EventDisposition
     priority: int = 100
     policy_id: str = ""
     ready_at: datetime | None = None

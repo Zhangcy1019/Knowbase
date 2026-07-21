@@ -40,7 +40,7 @@ from internal.models.events import (
     KnowbaseEventPayload,
     TextFieldChange,
 )
-from internal.models.event_record import EventDisposition, EventRecord, EventRecordStatus
+from internal.models.event_record import EventRecord, EventRecordStatus
 from internal.models.governance import (
     ExecutionDelta,
     PartitionFacetCoverageAssessment,
@@ -48,7 +48,6 @@ from internal.models.governance import (
     PartitionRebuildRecommendation,
 )
 from internal.models.ingest import IngestRequest, IngestResult
-from internal.models.knowledge_task import KnowledgeTask, KnowledgeTaskActionHint
 from internal.models.runtime_config import RuntimeRunConfig
 from internal.models.runtime_trace import RuntimeTraceReplay, RuntimeTraceTurn
 from internal.models.skill_action import SkillAction
@@ -103,7 +102,6 @@ __all__ = [
     "EventRelatedTarget",
     "EventRecord",
     "EventRecordStatus",
-    "EventDisposition",
     "RuntimeRunConfig",
     "RuntimeTraceReplay",
     "RuntimeTraceTurn",
@@ -119,8 +117,6 @@ __all__ = [
     "ChangeTargetType",
     "IngestRequest",
     "IngestResult",
-    "KnowledgeTask",
-    "KnowledgeTaskActionHint",
     "PartitionFacetCoverageAssessment",
     "PartitionFacetSchemaProposal",
     "PartitionRebuildRecommendation",

@@ -9,7 +9,6 @@ from internal.backlog.queue import KnowbaseEventBacklogService
 from internal.backlog.worker import KnowbaseEventWorker
 from internal.knowledge.dispatch import (
     KnowbaseKnowledgeDispatchService,
-    KnowledgeTaskBuilder,
     RuntimeRequestBuilder,
 )
 from internal.knowledge.planning import BacklogPreparationPlanner, BatchWorkingSetBuilder
@@ -84,14 +83,13 @@ def build_runtime_module(
     )
     event_backlog_service = KnowbaseEventBacklogService(repository=core.event_record_repository)
     dispatch_service = KnowbaseKnowledgeDispatchService(
-        task_builder=KnowledgeTaskBuilder(
+        request_builder=RuntimeRequestBuilder(
             working_set_builder=BatchWorkingSetBuilder(),
             preparation_planner=BacklogPreparationPlanner(
                 partition_service=core.partition_service,
                 case_repository=core.case_repository,
             ),
         ),
-        runtime_request_builder=RuntimeRequestBuilder(),
     )
     event_worker = KnowbaseEventWorker(
         backlog_service=event_backlog_service,

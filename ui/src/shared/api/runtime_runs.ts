@@ -1,5 +1,12 @@
 import { requestJson } from "./base";
 
+export type MaintenanceActionResponse = {
+  action: string;
+  ok: boolean;
+  summary: string;
+  details: Record<string, unknown>;
+};
+
 export type RuntimeRunSummary = {
   run_id: string;
   partition: string;
@@ -96,4 +103,22 @@ export function listRuntimeRuns(partition: string) {
 
 export function getRuntimeRunTrace(runId: string) {
   return requestJson<RuntimeTraceReplayResponse>(`/api/knowbase/runtime/runs/${encodeURIComponent(runId)}/trace`);
+}
+
+export function deleteRuntimeRun(runId: string) {
+  return requestJson<{ deleted_type: string; deleted_id: string }>(
+    `/api/knowbase/runtime/runs/${encodeURIComponent(runId)}`,
+    { method: "DELETE" },
+  );
+}
+
+export function rebuildCase(caseId: string, partition: string) {
+  return requestJson<MaintenanceActionResponse>(`/api/knowbase/runtime/maintenance/rebuild-case/${encodeURIComponent(caseId)}`, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ partition }),
+  });
 }

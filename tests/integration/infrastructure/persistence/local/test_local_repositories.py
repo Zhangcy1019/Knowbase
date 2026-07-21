@@ -221,8 +221,7 @@ class LocalRepositoriesIntegrationTest(unittest.TestCase):
                     change_kind="update",
                     changed_fields=["summary_text"],
                 ),
-                status="recorded",
-                disposition="batched",
+                status="pending",
                 created_at=now,
             )
         )
@@ -261,7 +260,7 @@ class LocalRepositoriesIntegrationTest(unittest.TestCase):
         self.assertTrue(artifact.artifact_id)
 
         self.assertEqual(
-            [item.event_id for item in self._bundle.event_record_repository.list(partition="CI", disposition="batched")],
+            [item.event_id for item in self._bundle.event_record_repository.list(partition="CI", status="pending")],
             [event.event_id],
         )
         self.assertEqual(self._bundle.run_repository.get(run.run_id).status, "completed")

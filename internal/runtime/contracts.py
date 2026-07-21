@@ -6,13 +6,64 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from internal.models import RunArtifact, RunStep, SkillResult, ToolResult
+from internal.models import RunArtifact, RunStep, SkillResult, SkillSpec, ToolResult, ToolSpec
+from internal.runtime.verification.profile import RuntimeVerificationProfile
 
 
 RuntimeRequestSource = Literal["backlog", "manual", "api", "scheduled", "system"]
 RuntimeExecutionStatus = Literal["completed", "failed", "cancelled", "requires_review"]
-RuntimeActionKind = Literal["tool_call", "skill_call", "respond", "stop"]
 RuntimeStopReason = Literal["completed", "requires_review", "failed", "budget_exhausted", "no_action"]
+
+
+class RuntimeRepairPolicy(BaseModel):
+    """Bounded retry policy for verification-driven repair rounds."""
+
+    max_repair_rounds: int = 0
+
+
+class RuntimeAcceptanceSpec(BaseModel):
+    """Acceptance requirements attached to one runtime request."""
+
+    completion_checks: list[str] = Field(default_factory=list)
+    max_retries: int = 0
+    repair_policy: RuntimeRepairPolicy = Field(default_factory=RuntimeRepairPolicy)
+
+    def as_dict(self) -> dict[str, Any]:
+        return self.model_dump(mode="json")
+
+
+class RuntimeStopPolicy(BaseModel):
+    """Explicit stop conditions that shape runtime termination behavior."""
+
+    stop_when_acceptance_satisfied: bool = False
+    stop_when_no_executable_action: bool = False
+
+    def as_dict(self) -> dict[str, Any]:
+        return self.model_dump(mode="json")
+
+
+class RuntimeRiskPolicy(BaseModel):
+    """Risk-policy hints surfaced to planning and verification layers."""
+
+    risk_level: str = "medium"
+
+    def as_dict(self) -> dict[str, Any]:
+        return self.model_dump(mode="json")
+
+
+class RuntimeWorkProfile(BaseModel):
+    """Primary work-phase contract attached to one runtime request."""
+
+    objective: str = ""
+    mission_summary: str = ""
+    instructions: list[str] = Field(default_factory=list)
+    input_context: dict[str, Any] = Field(default_factory=dict)
+    capability_hints: list[dict[str, Any]] = Field(default_factory=list)
+    allowed_skills: list[str] = Field(default_factory=list)
+    allowed_tools: list[str] = Field(default_factory=list)
+    max_steps: int = 16
+    max_tool_calls: int = 24
+    max_skill_calls: int = 8
 
 
 class RuntimeRunRequest(BaseModel):
@@ -23,33 +74,35 @@ class RuntimeRunRequest(BaseModel):
     source_ref: str = ""
     partition: str = ""
 
-    objective: str = ""
-    prompt: str = ""
-    task_payload: dict[str, Any] = Field(default_factory=dict)
-    task_hints: list[dict[str, Any]] = Field(default_factory=list)
-
-    allowed_skills: list[str] = Field(default_factory=list)
-    allowed_tools: list[str] = Field(default_factory=list)
-
-    max_steps: int = 16
-    max_tool_calls: int = 24
-    max_skill_calls: int = 8
+    work: RuntimeWorkProfile = Field(default_factory=RuntimeWorkProfile)
+    acceptance: RuntimeAcceptanceSpec = Field(default_factory=RuntimeAcceptanceSpec)
+    verification: RuntimeVerificationProfile = Field(default_factory=RuntimeVerificationProfile)
+    stop_policy: RuntimeStopPolicy = Field(default_factory=RuntimeStopPolicy)
+    risk_policy: RuntimeRiskPolicy = Field(default_factory=RuntimeRiskPolicy)
 
     risk_level: str = "medium"
     requires_review: bool = False
 
     metadata: dict[str, Any] = Field(default_factory=dict)
 
+    def resolved_verification_profile(self) -> RuntimeVerificationProfile:
+        profile = self.verification.model_copy()
+        if profile.max_retries == 0 and self.acceptance.max_retries:
+            profile.max_retries = self.acceptance.max_retries
+        if not profile.require_acceptance and self.stop_policy.stop_when_acceptance_satisfied:
+            profile.require_acceptance = True
+        profile.allowed_skills = [item for item in profile.allowed_skills if str(item).strip()]
+        profile.allowed_tools = [item for item in profile.allowed_tools if str(item).strip()]
+        return profile
+
 
 class RuntimeAction(BaseModel):
     """One atomic action emitted by the planner and executed by the runtime."""
 
     action_id: str = ""
-    kind: RuntimeActionKind = "respond"
     title: str = ""
     summary: str = ""
-    tool_id: str = ""
-    skill_id: str = ""
+    capability_id: str = ""
     prompt: str = ""
     inputs: dict[str, Any] = Field(default_factory=dict)
     metadata: dict[str, Any] = Field(default_factory=dict)
@@ -87,11 +140,19 @@ class RuntimeTaskContext(BaseModel):
     """Static task context exposed to the current agent turn."""
 
     objective: str = ""
-    prompt: str = ""
+    mission_summary: str = ""
+    instructions: list[str] = Field(default_factory=list)
     partition: str = ""
     source_type: RuntimeRequestSource = "manual"
     source_ref: str = ""
-    payload: dict[str, Any] = Field(default_factory=dict)
+    work: RuntimeWorkProfile = Field(default_factory=RuntimeWorkProfile)
+    input_context: dict[str, Any] = Field(default_factory=dict)
+    acceptance: RuntimeAcceptanceSpec = Field(default_factory=RuntimeAcceptanceSpec)
+    verification: RuntimeVerificationProfile = Field(default_factory=RuntimeVerificationProfile)
+    stop_policy: RuntimeStopPolicy = Field(default_factory=RuntimeStopPolicy)
+    risk_policy: RuntimeRiskPolicy = Field(default_factory=RuntimeRiskPolicy)
+    verification_skills: list[str] = Field(default_factory=list)
+    verification_tools: list[str] = Field(default_factory=list)
 
 
 class RuntimeExecutionBounds(BaseModel):
@@ -99,6 +160,12 @@ class RuntimeExecutionBounds(BaseModel):
 
     allowed_tools: list[str] = Field(default_factory=list)
     allowed_skills: list[str] = Field(default_factory=list)
+    allowed_verification_tools: list[str] = Field(default_factory=list)
+    allowed_verification_skills: list[str] = Field(default_factory=list)
+    available_tool_specs: list[ToolSpec] = Field(default_factory=list)
+    available_skill_specs: list[SkillSpec] = Field(default_factory=list)
+    available_verification_tool_specs: list[ToolSpec] = Field(default_factory=list)
+    available_verification_skill_specs: list[SkillSpec] = Field(default_factory=list)
     risk_level: str = "medium"
     requires_review: bool = False
     remaining_step_budget: int = 0

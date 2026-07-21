@@ -7,6 +7,13 @@ from pydantic import BaseModel, Field
 from internal.models.run import AgentRun, RunArtifact, RunStep
 
 
+class RuntimeTraceObservation(BaseModel):
+    """One replayable observation attached to a reconstructed runtime turn."""
+
+    kind: str = ""
+    payload: dict[str, object] = Field(default_factory=dict)
+
+
 class RuntimeTraceTurn(BaseModel):
     """One reconstructed runtime turn with attached artifacts."""
 
@@ -22,6 +29,7 @@ class RuntimeTraceTurn(BaseModel):
     skill_calls: list[RunStep] = Field(default_factory=list)
     skill_results: list[RunStep] = Field(default_factory=list)
     errors: list[RunStep] = Field(default_factory=list)
+    observations: list[RuntimeTraceObservation] = Field(default_factory=list)
 
 
 class RuntimeTraceReplay(BaseModel):
@@ -35,6 +43,7 @@ class RuntimeTraceReplay(BaseModel):
 
 
 __all__ = [
+    "RuntimeTraceObservation",
     "RuntimeTraceReplay",
     "RuntimeTraceTurn",
 ]

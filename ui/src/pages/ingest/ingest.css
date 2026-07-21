@@ -144,6 +144,10 @@
   gap: 10px;
 }
 
+.ingest-content-head.is-compact {
+  justify-content: flex-end;
+}
+
 .ingest-field span,
 .ingest-result-row span {
   font-size: 12px;
@@ -196,12 +200,17 @@
   gap: 10px;
 }
 
+.ingest-content-frame-markdown {
+  grid-template-columns: minmax(0, 1.08fr) minmax(220px, 0.92fr);
+}
+
 .ingest-content-frame.is-single {
   grid-template-columns: 1fr;
 }
 
 .ingest-monaco-shell,
 .ingest-markdown-editor-shell,
+.ingest-markdown-plain-shell,
 .ingest-content-preview {
   min-height: 0;
   height: 100%;
@@ -243,9 +252,34 @@
 }
 
 .ingest-markdown-editor-shell .w-md-editor-area,
-.ingest-markdown-editor-shell .w-md-editor-text {
+.ingest-markdown-editor-shell .w-md-editor-text,
+.ingest-markdown-editor-shell .w-md-editor-preview {
   height: 100% !important;
   min-height: 100% !important;
+}
+
+.ingest-markdown-editor-shell .w-md-editor-preview {
+  overflow: visible !important;
+}
+
+.ingest-markdown-editor-shell .w-md-editor-preview > * {
+  overflow: visible !important;
+  max-height: none !important;
+}
+
+.ingest-markdown-editor-shell .wmde-markdown,
+.ingest-markdown-editor-shell .wmde-markdown-color {
+  overflow: visible !important;
+  max-height: none !important;
+}
+
+.ingest-markdown-editor-shell .wmde-markdown pre,
+.ingest-markdown-editor-shell .wmde-markdown-color pre,
+.ingest-markdown-editor-shell .wmde-markdown pre code,
+.ingest-markdown-editor-shell .wmde-markdown-color pre code {
+  overflow: visible !important;
+  white-space: pre-wrap !important;
+  word-break: break-word !important;
 }
 
 .ingest-markdown-editor-shell .w-md-editor-text-pre,
@@ -271,6 +305,30 @@
   -webkit-text-fill-color: #7d8fa3 !important;
 }
 
+.ingest-markdown-plain-shell {
+  padding: 0;
+  overflow: hidden;
+}
+
+.ingest-markdown-plain-input {
+  width: 100%;
+  height: 100%;
+  min-height: 320px;
+  border: 0;
+  outline: 0;
+  resize: none;
+  background: transparent;
+  color: #243a50;
+  padding: 12px 14px;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.ingest-markdown-plain-input::placeholder {
+  color: #7d8fa3;
+}
+
 .ingest-content-preview {
   overflow: hidden;
   display: grid;
@@ -287,6 +345,50 @@
   color: #31485f;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.ingest-content-preview-markdown {
+  overflow: visible;
+}
+
+.ingest-markdown-preview-body {
+  margin: 0;
+  min-height: 320px;
+  padding: 12px 14px;
+  color: #31485f;
+  line-height: 1.65;
+  overflow: visible;
+}
+
+.ingest-markdown-preview-body :where(h1, h2, h3, h4, h5, h6) {
+  margin: 0 0 10px;
+  font-family: var(--font-display);
+  color: #17314a;
+  letter-spacing: -0.02em;
+}
+
+.ingest-markdown-preview-body :where(p, ul, ol, pre, blockquote) {
+  margin-top: 0;
+  margin-bottom: 12px;
+}
+
+.ingest-markdown-preview-body :where(ul, ol) {
+  padding-left: 20px;
+}
+
+.ingest-markdown-preview-body :where(code) {
+  font-family: var(--font-mono);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.ingest-markdown-preview-body :where(pre) {
+  overflow: visible;
+  white-space: pre-wrap;
+  word-break: break-word;
+  border-radius: 6px;
+  background: rgba(40, 71, 104, 0.06);
+  padding: 10px 12px;
 }
 
 .ingest-content-state {

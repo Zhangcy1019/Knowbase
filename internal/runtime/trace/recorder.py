@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from internal.models import AgentRun, RunArtifact, RunStep, RuntimeTraceReplay, RuntimeTraceTurn
+from internal.models import AgentRun, RunArtifact, RunStep
+from internal.models.runtime_trace import RuntimeTraceObservation, RuntimeTraceReplay, RuntimeTraceTurn
 
 
 class RuntimeTraceRecorder:
@@ -174,6 +175,20 @@ class RuntimeTraceRecorder:
             summary=summary,
         )
 
+    def record_observation(self, *, run: AgentRun, kind: str, payload: dict[str, Any], turn_index: int) -> RunStep:
+        return self.append_step(
+            run=run,
+            step_type="observation",
+            name=kind,
+            input={},
+            output={
+                "kind": kind,
+                "payload": payload,
+                "metadata": {"turn_index": turn_index},
+            },
+            summary=f"Recorded observation {kind}",
+        )
+
     def load_replay(self, *, run_id: str) -> RuntimeTraceReplay | None:
         run = self._run_repository.get(run_id)
         if run is None:
@@ -222,6 +237,12 @@ class RuntimeTraceRecorder:
                 turn.skill_calls.append(step)
             elif step.step_type == "skill_result":
                 turn.skill_results.append(step)
+            elif step.step_type == "observation":
+                output = step.output if isinstance(step.output, dict) else {}
+                kind = str(output.get("kind", "")).strip()
+                payload = output.get("payload", {})
+                if isinstance(payload, dict):
+                    turn.observations.append(RuntimeTraceObservation(kind=kind, payload=payload))
             elif step.step_type == "decision_error":
                 turn.errors.append(step)
 

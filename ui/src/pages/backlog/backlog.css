@@ -133,6 +133,22 @@
   background: rgba(255, 255, 255, 0.46);
 }
 
+.backlog-chip-button {
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease,
+    transform 120ms ease;
+}
+
+.backlog-chip-button:hover {
+  border-color: rgba(59, 130, 166, 0.16);
+  background: rgba(238, 246, 250, 0.72);
+  color: #255875;
+}
+
+.backlog-chip-button:active {
+  transform: translateY(1px);
+}
+
 .backlog-chip.is-active {
   background: rgba(59, 130, 166, 0.12);
   border-color: rgba(59, 130, 166, 0.18);
@@ -157,27 +173,72 @@
 
 .backlog-control-actions {
   display: grid;
-  align-content: center;
+  align-self: stretch;
+  height: 100%;
+  width: 100%;
+  aspect-ratio: 1 / 1;
   gap: 8px;
 }
 
 .backlog-control-actions button {
-  min-width: 180px;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  min-height: 0;
   border: 1px solid var(--line-strong);
   background: rgba(255, 255, 255, 0.82);
   color: var(--text-strong);
-  border-radius: 6px;
-  padding: 8px 11px;
-  font-size: 12px;
-  font-weight: 600;
+  border-radius: 7px;
+  padding: 14px 12px;
+  font-size: 13px;
+  font-weight: 700;
   cursor: pointer;
-  text-align: left;
+  text-align: center;
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease,
+    transform 120ms ease, opacity 160ms ease;
+}
+
+.backlog-control-actions button svg {
+  width: 32px;
+  height: 32px;
+  stroke-width: 2;
+}
+
+.backlog-control-actions button:hover:not(:disabled) {
+  border-color: rgba(59, 130, 166, 0.18);
+  background: rgba(238, 246, 250, 0.8);
+  color: #255875;
+}
+
+.backlog-control-actions button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.backlog-control-actions button:disabled {
+  opacity: 0.56;
+  cursor: not-allowed;
 }
 
 .backlog-control-actions button.is-primary {
-  background: rgba(59, 130, 166, 0.12);
-  border-color: rgba(59, 130, 166, 0.18);
-  color: #255875;
+  border-color: rgba(224, 122, 48, 0.32);
+  background: #e88b3c;
+  color: #fffaf3;
+  box-shadow: none;
+}
+
+.backlog-control-actions button.is-primary:hover:not(:disabled) {
+  border-color: rgba(207, 106, 33, 0.36);
+  background: #dc7a2a;
+  color: #ffffff;
+}
+
+.backlog-control-actions button.is-primary svg {
+  color: currentColor;
 }
 
 .backlog-console-note,
@@ -194,6 +255,20 @@
   border-style: solid;
   background: rgba(238, 246, 250, 0.72);
   color: #255875;
+}
+
+.backlog-drain-confirm-shell {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(245, 240, 232, 0.34);
+  z-index: 30;
+}
+
+.backlog-drain-confirm {
+  width: min(360px, calc(100vw - 32px));
 }
 
 .backlog-list-scroll,
@@ -216,6 +291,54 @@
   border-color: rgba(59, 130, 166, 0.18);
   background: rgba(238, 246, 250, 0.96);
   box-shadow: inset 0 0 0 1px rgba(59, 130, 166, 0.05);
+}
+
+.backlog-row-top-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.backlog-list-delete-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.backlog-list-delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(187, 61, 61, 0.16);
+  background: rgba(255, 248, 248, 0.94);
+  color: #a64040;
+  border-radius: 6px;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease,
+    transform 120ms ease, opacity 160ms ease;
+}
+
+.backlog-list-delete svg {
+  width: 15px;
+  height: 15px;
+  stroke-width: 1.9;
+}
+
+.backlog-list-delete:hover:not(:disabled) {
+  border-color: rgba(187, 61, 61, 0.24);
+  background: rgba(255, 241, 241, 0.98);
+  color: #8f2f2f;
+}
+
+.backlog-list-delete:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.backlog-list-delete:disabled {
+  opacity: 0.56;
+  cursor: not-allowed;
 }
 
 .backlog-row-top,
@@ -242,9 +365,9 @@
 }
 
 .backlog-row-meta {
-  flex-wrap: wrap;
   justify-content: flex-start;
-  gap: 6px 12px;
+  flex-wrap: wrap;
+  gap: 6px 10px;
   color: var(--text-muted);
   font-size: 12px;
 }
@@ -253,6 +376,11 @@
   font-family: var(--font-mono);
   font-size: 11px;
   color: #547088;
+}
+
+.backlog-row-meta > span,
+.backlog-row-meta > code {
+  white-space: nowrap;
 }
 
 .backlog-inline-status {
@@ -290,6 +418,18 @@
 
 .backlog-summary-grid {
   align-content: start;
+}
+
+.backlog-detail-card-single {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.backlog-detail-hero {
+  margin-bottom: 0;
+}
+
+.backlog-detail-stats {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .backlog-summary-hero {
@@ -407,7 +547,14 @@
 .backlog-detail-actions {
   display: flex;
   flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 8px;
+  margin-top: 10px;
+}
+
+.backlog-delete-popover {
+  position: fixed;
+  z-index: 20;
 }
 
 .backlog-detail-actions.is-vertical {
@@ -420,9 +567,56 @@
   color: var(--text-strong);
   border-radius: 6px;
   padding: 8px 12px;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease,
+    transform 120ms ease, opacity 160ms ease;
+}
+
+.backlog-detail-actions button:hover:not(:disabled) {
+  border-color: rgba(59, 130, 166, 0.18);
+  background: rgba(238, 246, 250, 0.8);
+  color: #255875;
+}
+
+.backlog-detail-actions button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.backlog-detail-actions button:disabled {
+  opacity: 0.56;
+  cursor: not-allowed;
+}
+
+.backlog-detail-button {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--line-strong);
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--text-strong);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 160ms ease, border-color 160ms ease, color 160ms ease,
+    transform 120ms ease, opacity 160ms ease;
+}
+
+.backlog-detail-button:hover:not(.is-disabled) {
+  border-color: rgba(59, 130, 166, 0.18);
+  background: rgba(238, 246, 250, 0.8);
+  color: #255875;
+}
+
+.backlog-detail-button:active:not(.is-disabled) {
+  transform: translateY(1px);
+}
+
+.backlog-detail-button.is-disabled {
+  opacity: 0.56;
+  cursor: not-allowed;
 }
 
 .backlog-detail-actions button.is-primary {

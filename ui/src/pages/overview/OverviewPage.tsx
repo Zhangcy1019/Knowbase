@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 
 import "./overview.css";
+import { ConfirmDeletePopover } from "../../shared/component/confirm";
 import { IconBacklog, IconOverview, IconPartition, IconRuns, IconTraceList } from "../../shared/icons";
 import {
   createPartition,
@@ -470,32 +471,18 @@ export function OverviewPage({
                   Delete
                 </button>
                 {deleteConfirmOpen ? (
-                  <div className="overview-delete-popover">
-                    <strong>Delete {selectedPartition.partition_name}?</strong>
-                    <p>This will remove the partition and cascade its cases and runs.</p>
-                    {managerError ? <div className="overview-manager-error">{managerError}</div> : null}
-                    <div className="overview-manager-actions">
-                      <button
-                        type="button"
-                        className="overview-inline-button"
-                        onClick={() => {
-                          setDeleteConfirmOpen(false);
-                          setManagerError("");
-                        }}
-                        disabled={submitting}
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="button"
-                        className="overview-primary-button is-danger"
-                        onClick={handleDeleteSelected}
-                        disabled={submitting}
-                      >
-                        {submitting ? "Deleting..." : "Delete"}
-                      </button>
-                    </div>
-                  </div>
+                  <ConfirmDeletePopover
+                    className="overview-delete-popover"
+                    title={`Delete ${selectedPartition.partition_name}?`}
+                    description="This will remove the partition and cascade its cases and runs."
+                    errorMessage={managerError}
+                    pending={submitting}
+                    onCancel={() => {
+                      setDeleteConfirmOpen(false);
+                      setManagerError("");
+                    }}
+                    onConfirm={handleDeleteSelected}
+                  />
                 ) : null}
               </div>
             ) : null}

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from textwrap import dedent
 
 from internal.infrastructure.ai.generation import build_openai_client, generate_text
@@ -100,6 +101,8 @@ class KnowbaseCaseSummaryExtractor:
             - 保持与输入相同语言。
             - 优先概括主题、核心问题或核心做法。
             - 不要输出标题，不要输出项目符号，不要输出解释性前缀。
+            - 不要输出思考过程、推理过程、<think> 标签、分析说明或中间草稿。
+            - 直接输出最终 summary 正文，不要输出任何 XML/HTML/Markdown 包裹。
             """
         ).strip()
         return (
@@ -113,4 +116,13 @@ class KnowbaseCaseSummaryExtractor:
         text = str(value or "").strip()
         if not text:
             return ""
-        return " ".join(text.split())[:500].strip()
+        text = re.sub(r"<think\b[^>]*>[\s\S]*?</think>", " ", text, flags=re.IGNORECASE)
+        text = re.sub(r"<thinking\b[^>]*>[\s\S]*?</thinking>", " ", text, flags=re.IGNORECASE)
+        text = re.sub(r"```[\s\S]*?```", " ", text)
+        text = re.sub(r"^\s*(analysis|reasoning|thoughts?)\s*:\s*", "", text, flags=re.IGNORECASE)
+        text = re.sub(r"\s+", " ", text).strip()
+        if not text:
+            return ""
+        if text.startswith("<") and ">" in text:
+            text = re.sub(r"^<[^>]+>\s*", "", text).strip()
+        return text[:500].strip()

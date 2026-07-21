@@ -229,15 +229,13 @@ class EventRecordRepository:
             return None
         return self._store.load_model(normalized, EventRecord)
 
-    def list(self, *, partition: str = "", status: str = "", disposition: str = "", event_type: str = "", size: int = 500) -> list[EventRecord]:
+    def list(self, *, partition: str = "", status: str = "", event_type: str = "", size: int = 500) -> list[EventRecord]:
         records = self._store.list_models(EventRecord)
         filtered = []
         for record in records:
             if partition and record.partition != partition:
                 continue
             if status and record.status != status:
-                continue
-            if disposition and record.disposition != disposition:
                 continue
             if event_type and record.event_type != event_type:
                 continue
