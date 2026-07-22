@@ -10,17 +10,6 @@ from pydantic import BaseModel, Field
 VerificationStatus = Literal["completed", "retry", "run_subrun", "requires_review", "failed"]
 
 
-class VerificationReviewResult(BaseModel):
-    """Structured review result produced by a verification reviewer."""
-
-    passed: bool = False
-    retryable: bool = False
-    score: int = 0
-    summary: str = ""
-    repair_prompt: str = ""
-    issues: list[str] = Field(default_factory=list)
-
-
 class VerificationResult(BaseModel):
     """Normalized verification outcome returned to the runtime orchestrator."""
 

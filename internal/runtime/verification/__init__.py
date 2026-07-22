@@ -5,12 +5,12 @@ from __future__ import annotations
 from importlib import import_module
 
 _EXPORTS = {
-    "RuntimeAcceptanceVerifier": "internal.runtime.verification.acceptance",
+    "RuntimeDeterministicVerifier": "internal.runtime.verification.deterministic",
     "RuntimeVerificationProfile": "internal.runtime.verification.profile",
-    "RuntimeVerificationContext": "internal.runtime.verification.verifier",
-    "RuntimeVerifier": "internal.runtime.verification.verifier",
-    "RuntimeVerifierPort": "internal.runtime.verification.verifier",
-    "VerificationStopHook": "internal.runtime.verification.stop_hook",
+    "VerificationResult": "internal.runtime.verification.contracts",
+    "RuntimeVerificationContext": "internal.runtime.verification.executor",
+    "RuntimeVerificationExecutor": "internal.runtime.verification.executor",
+    "RuntimeVerificationExecutorPort": "internal.runtime.verification.executor",
 }
 
 
@@ -25,10 +25,10 @@ def __getattr__(name: str):
 
 
 __all__ = [
-    "RuntimeAcceptanceVerifier",
+    "RuntimeDeterministicVerifier",
     "RuntimeVerificationProfile",
+    "VerificationResult",
     "RuntimeVerificationContext",
-    "RuntimeVerifier",
-    "RuntimeVerifierPort",
-    "VerificationStopHook",
+    "RuntimeVerificationExecutor",
+    "RuntimeVerificationExecutorPort",
 ]

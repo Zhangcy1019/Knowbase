@@ -8,23 +8,22 @@ from internal.models import AgentRun, RunArtifact, RunStep, RuntimeTraceReplay
 from internal.models.skill import SkillResult
 from internal.models.tool import ToolResult
 from internal.ports import PartitionReadPort, SkillExecutionPort
+from internal.runtime.completion.gate import RuntimeCompletionGate
 from internal.runtime.execution.action_runner import RuntimeActionRunner
 from internal.runtime.execution.capability_executor import RuntimeCapabilityExecutor
 from internal.runtime.execution.policy import RuntimePolicy
 from internal.runtime.contracts import RuntimeRunRequest, RuntimeRunResult
-from internal.runtime.harness.child_runner import RuntimeChildRunAdapter
 from internal.runtime.memory.manager import RuntimeMemoryManager
 from internal.runtime.memory.state import RuntimeRunState
-from internal.runtime.harness.runner import RuntimeHarnessRunner
-from internal.runtime.harness.subrun import RuntimeSubRunLauncher
+from internal.runtime.orchestration.runner import RuntimeOrchestrator
+from internal.runtime.subrun import RuntimeChildRunAdapter, RuntimeSubRunLauncher
 from internal.runtime.loop.engine import RuntimeLoopEngine
 from internal.runtime.loop.termination import RuntimeTerminationPolicy
 from internal.runtime.loop.turn_planner import RuntimeTurnPlannerPort
 from internal.runtime.trace.recorder import RuntimeTraceRecorder
 from internal.runtime.tools.runtime import ToolRuntime
-from internal.runtime.verification.acceptance import RuntimeAcceptanceVerifier
-from internal.runtime.verification.stop_hook import VerificationStopHook
-from internal.runtime.verification.verifier import RuntimeVerifier
+from internal.runtime.verification.deterministic import RuntimeDeterministicVerifier
+from internal.runtime.verification.executor import RuntimeVerificationExecutor
 from internal.utils.logger import get_logger
 
 
@@ -59,7 +58,7 @@ class KnowbaseRuntimeService:
         skill_runtime: SkillExecutionPort,
         planner: RuntimeTurnPlannerPort,
         trace_recorder: RuntimeTraceRecorder,
-        verifier=None,
+        verification_executor=None,
         subrun_launcher: RuntimeSubRunLauncher | None = None,
     ):
         self._partition_service = partition_service
@@ -78,9 +77,9 @@ class KnowbaseRuntimeService:
         )
         self._memory_manager = RuntimeMemoryManager(capability_executor=self._capability_executor)
         self._policy = RuntimePolicy(capability_executor=self._capability_executor)
-        self._acceptance_verifier = RuntimeAcceptanceVerifier()
+        self._deterministic_verifier = RuntimeDeterministicVerifier()
         self._termination_policy = RuntimeTerminationPolicy(
-            acceptance_verifier=self._acceptance_verifier,
+            acceptance_verifier=self._deterministic_verifier,
         )
         self._planner = planner
         self._action_runner = RuntimeActionRunner(
@@ -100,15 +99,15 @@ class KnowbaseRuntimeService:
         child_adapter = RuntimeChildRunAdapter()
         child_adapter.set_executor(executor=_RuntimeServiceChildExecutor(service=self))
         self._subrun_launcher = subrun_launcher or RuntimeSubRunLauncher(executor=child_adapter)
-        self._verifier = verifier or RuntimeVerifier(
-            acceptance_verifier=self._acceptance_verifier,
+        self._verification_executor = verification_executor or RuntimeVerificationExecutor(
+            deterministic_verifier=self._deterministic_verifier,
         )
-        self._before_complete_hook = VerificationStopHook(
-            verifier=self._verifier,
+        self._completion_gate = RuntimeCompletionGate(
+            verifier=self._verification_executor,
         )
-        self._harness_runner = RuntimeHarnessRunner(
+        self._orchestrator = RuntimeOrchestrator(
             loop_engine=self._engine,
-            before_complete_hook=self._before_complete_hook,
+            completion_gate=self._completion_gate,
             subrun_launcher=self._subrun_launcher,
             trace_recorder=self._trace_recorder,
         )
@@ -153,7 +152,7 @@ class KnowbaseRuntimeService:
             return self._run_repository.get(run.run_id) or run
 
         try:
-            orchestration_result = self._harness_runner.run(
+            orchestration_result = self._orchestrator.run(
                 run=run,
                 request=request,
                 state=state,
@@ -322,7 +321,7 @@ class KnowbaseRuntimeService:
         return self._run_repository.save(
             AgentRun(
                 partition=partition,
-                agent_id="runtime.harness",
+                agent_id="runtime",
                 mode="agent",
                 status="running",
                 source_type=request.source_type,

@@ -133,7 +133,6 @@ export function RunsListPanel({
               </div>
               <div className="runs-row-meta">
                 <div className="runs-row-meta-copy">
-                  <span>{run.step_count} step</span>
                   <span>{formatTime(run.created_at)}</span>
                 </div>
                 <div className="runs-list-delete-wrap">

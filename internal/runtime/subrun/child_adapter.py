@@ -1,11 +1,11 @@
-"""Adapters for executing constrained child runtime runs."""
+"""Adapters for executing prepared child runtime runs."""
 
 from __future__ import annotations
 
 from typing import Protocol
 
 from internal.runtime.contracts import RuntimeRunResult
-from internal.runtime.harness.subrun import RuntimeSubRunResult
+from internal.runtime.subrun.contracts import RuntimeSubRunResult
 
 
 class RuntimeChildRunExecutorPort(Protocol):
@@ -24,7 +24,7 @@ class StubRuntimeChildRunExecutor:
 
 
 class RuntimeChildRunAdapter:
-    """Bridge child runtime execution results into harness-friendly sub-run results."""
+    """Bridge child runtime execution results into subrun-friendly results."""
 
     def __init__(self, *, executor: RuntimeChildRunExecutorPort | None = None):
         self._executor = executor or StubRuntimeChildRunExecutor()
