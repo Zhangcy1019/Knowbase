@@ -1,34 +1,35 @@
-"""Runtime verification entrypoint for deterministic checks and sub-run review."""
+"""Verification execution entrypoint for deterministic and subrun-based review."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Protocol
 
-from internal.runtime.harness.subrun import RuntimeSubRunRequest
 from internal.runtime.memory.state import RuntimeRunState
-from internal.runtime.verification.models import VerificationResult
+from internal.runtime.subrun import RuntimeSubRunRequest
+from internal.runtime.verification.contracts import VerificationResult
 
 
 @dataclass(slots=True)
 class RuntimeVerificationContext:
     """Verification input bound to one runtime candidate state."""
 
+    run: object
     request: object
     state: RuntimeRunState
 
 
-class RuntimeVerifierPort(Protocol):
-    """Evaluate whether a runtime run produced an acceptable candidate."""
+class RuntimeVerificationExecutorPort(Protocol):
+    """Execute verification for a runtime run and return normalized facts."""
 
     def verify(self, *, context: RuntimeVerificationContext) -> VerificationResult: ...
 
 
-class RuntimeVerifier:
-    """Run hard checks first, then optional sub-run verification."""
+class RuntimeVerificationExecutor:
+    """Run hard checks first, then optional subrun-based verification."""
 
-    def __init__(self, *, acceptance_verifier):
-        self._acceptance_verifier = acceptance_verifier
+    def __init__(self, *, deterministic_verifier):
+        self._deterministic_verifier = deterministic_verifier
 
     def verify(self, *, context: RuntimeVerificationContext) -> VerificationResult:
         request = context.request
@@ -39,7 +40,7 @@ class RuntimeVerifier:
             or request.stop_policy.stop_when_acceptance_satisfied is True
         )
         if acceptance_required:
-            passed = self._acceptance_verifier.is_satisfied(request=request, state=state)
+            passed = self._deterministic_verifier.is_satisfied(request=request, state=state)
             if not passed:
                 return VerificationResult(
                     passed=False,

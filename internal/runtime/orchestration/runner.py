@@ -1,83 +1,84 @@
-"""Unified runtime harness runner."""
+"""Top-level runtime orchestrator coordinating loop, completion, and subruns."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
+from internal.runtime.completion.decision import CompletionDecision
+from internal.runtime.completion.feedback import build_verification_feedback_payload
 from internal.runtime.contracts import RuntimeRunResult
-from internal.runtime.harness.context import RuntimeHarnessContext
-from internal.runtime.harness.subrun import RuntimeSubRunLauncher, RuntimeSubRunRequest
 from internal.runtime.memory.state import RuntimeRunState
-from internal.runtime.verification.adjudicator import RuntimeVerificationAdjudicator
+from internal.runtime.subrun import RuntimeSubRunLauncher, RuntimeSubRunRequest, VerificationSubRunResultMapper
 
 
 @dataclass(slots=True)
-class RuntimeHarnessResult:
-    """Final harness result returned to the runtime service."""
+class RuntimeOrchestrationResult:
+    """Final orchestration result returned to the runtime service."""
 
     state: RuntimeRunState
     final_status: str
     requires_review: bool
 
 
-class RuntimeHarnessRunner:
-    """Own the main loop lifecycle and invoke hooks around completion."""
+class RuntimeOrchestrator:
+    """Coordinate the main loop with completion checks and verification subruns."""
 
     def __init__(
         self,
         *,
         loop_engine,
-        before_complete_hook=None,
+        completion_gate=None,
         subrun_launcher: RuntimeSubRunLauncher | None = None,
         trace_recorder=None,
-        verification_adjudicator: RuntimeVerificationAdjudicator | None = None,
+        verification_subrun_mapper: VerificationSubRunResultMapper | None = None,
     ):
         self._loop_engine = loop_engine
-        self._before_complete_hook = before_complete_hook
+        self._completion_gate = completion_gate
         self._subrun_launcher = subrun_launcher or RuntimeSubRunLauncher()
         self._trace_recorder = trace_recorder
-        self._verification_adjudicator = verification_adjudicator or RuntimeVerificationAdjudicator()
+        self._verification_subrun_mapper = verification_subrun_mapper or VerificationSubRunResultMapper()
 
-    def run(self, *, run, request, state: RuntimeRunState) -> RuntimeHarnessResult:
+    def run(self, *, run, request, state: RuntimeRunState) -> RuntimeOrchestrationResult:
         next_state, final_status, requires_review = self._loop_engine.run(
             run=run,
             request=request,
             state=state,
         )
-        if final_status != "completed" or self._before_complete_hook is None:
-            return RuntimeHarnessResult(
+        if final_status != "completed" or self._completion_gate is None:
+            return RuntimeOrchestrationResult(
                 state=next_state,
                 final_status=final_status,
                 requires_review=requires_review,
             )
-        
-        #  for verification and review, we invoke the before_complete_hook to determine if the run is truly complete
-        hook_result = self._before_complete_hook.before_complete(
-            context=RuntimeHarnessContext(run=run, request=request, state=next_state)
+
+        completion = self._completion_gate.evaluate(
+            run=run,
+            request=request,
+            state=next_state,
         )
-        if hook_result.status == "pass":
-            return RuntimeHarnessResult(state=next_state, final_status="completed", requires_review=False)
-        if hook_result.status == "retry_main":
-            payload = {
-                "summary": hook_result.summary,
-                "repair_prompt": hook_result.repair_prompt,
-                "issues": list(hook_result.issues),
-            }
+        if completion.status == "pass":
+            return RuntimeOrchestrationResult(state=next_state, final_status="completed", requires_review=False)
+        if completion.status == "retry_main":
+            payload = build_verification_feedback_payload(
+                summary=completion.summary,
+                repair_prompt=completion.repair_prompt,
+                issues=list(completion.issues),
+            )
             next_state.add_observation(kind="verification_feedback", payload=payload)
             self._record_observation(run=run, state=next_state, kind="verification_feedback", payload=payload)
             return self.run(run=run, request=request, state=next_state)
-        if hook_result.status == "run_subrun":
-            subrun_result = self._launch_subrun(run=run, hook_result=hook_result)
-            subrun_request_payload = hook_result.metadata.get("subrun_request", {})
+        if completion.status == "run_subrun":
+            subrun_result = self._launch_subrun(run=run, completion=completion)
+            subrun_request_payload = completion.metadata.get("subrun_request", {})
             subrun_purpose = ""
             if isinstance(subrun_request_payload, dict):
                 subrun_purpose = str(subrun_request_payload.get("purpose") or "").strip()
             if subrun_purpose == "verification":
                 child_result = self._extract_child_result(subrun_result=subrun_result)
                 if child_result is not None:
-                    adjudicated = self._verification_adjudicator.adjudicate(result=child_result)
-                    if adjudicated is not None:
-                        subrun_result = adjudicated
+                    mapped = self._verification_subrun_mapper.map_result(result=child_result)
+                    if mapped is not None:
+                        subrun_result = mapped
             payload = {
                 "status": subrun_result.status,
                 "summary": subrun_result.summary,
@@ -88,27 +89,27 @@ class RuntimeHarnessRunner:
             next_state.add_observation(kind="verification_subrun", payload=payload)
             self._record_observation(run=run, state=next_state, kind="verification_subrun", payload=payload)
             if subrun_result.status == "completed":
-                return RuntimeHarnessResult(state=next_state, final_status="completed", requires_review=False)
+                return RuntimeOrchestrationResult(state=next_state, final_status="completed", requires_review=False)
             if subrun_result.retryable:
-                payload = {
-                    "summary": subrun_result.summary,
-                    "repair_prompt": subrun_result.repair_prompt,
-                    "issues": list(subrun_result.issues),
-                }
+                payload = build_verification_feedback_payload(
+                    summary=subrun_result.summary,
+                    repair_prompt=subrun_result.repair_prompt,
+                    issues=list(subrun_result.issues),
+                )
                 next_state.add_observation(kind="verification_feedback", payload=payload)
                 self._record_observation(run=run, state=next_state, kind="verification_feedback", payload=payload)
                 return self.run(run=run, request=request, state=next_state)
             if subrun_result.status == "failed":
                 next_state.failure_messages.append(subrun_result.summary or "verification sub-run failed")
-                return RuntimeHarnessResult(state=next_state, final_status="failed", requires_review=True)
-            return RuntimeHarnessResult(state=next_state, final_status="requires_review", requires_review=True)
-        if hook_result.status == "fail":
-            next_state.failure_messages.append(hook_result.summary or "runtime hook failed")
-            return RuntimeHarnessResult(state=next_state, final_status="failed", requires_review=True)
-        return RuntimeHarnessResult(state=next_state, final_status="requires_review", requires_review=True)
+                return RuntimeOrchestrationResult(state=next_state, final_status="failed", requires_review=True)
+            return RuntimeOrchestrationResult(state=next_state, final_status="requires_review", requires_review=True)
+        if completion.status == "fail":
+            next_state.failure_messages.append(completion.summary or "runtime completion failed")
+            return RuntimeOrchestrationResult(state=next_state, final_status="failed", requires_review=True)
+        return RuntimeOrchestrationResult(state=next_state, final_status="requires_review", requires_review=True)
 
-    def _launch_subrun(self, *, run, hook_result):
-        request = RuntimeSubRunRequest.model_validate(hook_result.metadata.get("subrun_request", {}))
+    def _launch_subrun(self, *, run, completion: CompletionDecision):
+        request = RuntimeSubRunRequest.model_validate(completion.metadata.get("subrun_request", {}))
         return self._subrun_launcher.launch(parent_run=run, request=request)
 
     @staticmethod

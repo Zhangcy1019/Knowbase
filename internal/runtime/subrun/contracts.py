@@ -1,4 +1,4 @@
-"""Restricted sub-run contracts for verification and other bounded follow-up work."""
+"""Restricted child-run contracts shared by subrun infrastructure."""
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 from internal.models import AgentRun
 from internal.runtime.contracts import RuntimeRunRequest, RuntimeWorkProfile
+
 
 class RuntimeSubRunRequest(BaseModel):
     """Describe a bounded child run derived from a parent runtime run."""

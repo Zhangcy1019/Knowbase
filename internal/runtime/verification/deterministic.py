@@ -7,7 +7,7 @@ from pathlib import Path
 from internal.runtime.memory.state import RuntimeRunState
 
 
-class RuntimeAcceptanceVerifier:
+class RuntimeDeterministicVerifier:
     """Evaluate whether a runtime request has actually satisfied its acceptance checks."""
 
     def is_satisfied(self, *, request, state: RuntimeRunState) -> bool:

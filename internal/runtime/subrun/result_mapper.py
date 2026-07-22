@@ -1,15 +1,15 @@
-"""Map verification child-run outputs into harness-level verification decisions."""
+"""Map specialized child-run outputs into parent-visible subrun results."""
 
 from __future__ import annotations
 
 from internal.runtime.contracts import RuntimeRunResult
-from internal.runtime.harness.subrun import RuntimeSubRunResult
+from internal.runtime.subrun.contracts import RuntimeSubRunResult
 
 
-class RuntimeVerificationAdjudicator:
-    """Interpret verification child-run results without polluting generic child-run adapters."""
+class VerificationSubRunResultMapper:
+    """Interpret verification child-run results without polluting generic subrun code."""
 
-    def adjudicate(self, *, result: RuntimeRunResult) -> RuntimeSubRunResult | None:
+    def map_result(self, *, result: RuntimeRunResult) -> RuntimeSubRunResult | None:
         latest_skill_result = self._latest_skill_result(result)
         if latest_skill_result is None:
             return None
