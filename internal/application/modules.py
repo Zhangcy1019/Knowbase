@@ -122,6 +122,7 @@ def build_ingest_service(
         summary_extractor=ingest.summary_extractor,
         semantic_profile_extractor=ingest.semantic_profile_extractor,
         facet_resolver=ingest.facet_resolver,
+        statistics=core.statistics_service,
     )
 
 
@@ -140,4 +141,5 @@ def build_query_flow(*, core: CoreProviders) -> QueryUseCase:
         ),
         partition_service=core.partition_service,
         answer_agent=AnswerSynthesisAgent(),
+        statistics=core.statistics_service,
     )

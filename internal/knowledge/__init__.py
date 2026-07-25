@@ -20,10 +20,12 @@ from internal.knowledge.statistics import (
     QueryObservation,
     SemanticObservation,
     StatisticsReader,
+    StatisticsAggregator,
     StatisticsSnapshot,
     StatisticsStore,
     StatisticsWriter,
     StatisticsSupportFilter,
+    StatisticsObservationNormalizer,
 )
 from internal.knowledge.patch import GitKnowledgePatchApplier, GitPatchEnvelope, KnowledgePatchBuilder
 from internal.knowledge.batch import BatchContextBuilder, BatchWorkingSetBuilder
@@ -58,10 +60,12 @@ __all__ = [
     "RuntimeRequestFactory",
     "SemanticObservation",
     "StatisticsReader",
+    "StatisticsAggregator",
     "StatisticsSnapshot",
     "StatisticsStore",
     "StatisticsWriter",
     "StatisticsSupportFilter",
+    "StatisticsObservationNormalizer",
     "KnowledgeDrainWorkflow",
     "FacetGovernanceService",
     "KnowledgeStatisticsService",

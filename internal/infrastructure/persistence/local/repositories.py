@@ -4,6 +4,10 @@ from __future__ import annotations
 
 import json
 import math
+import fcntl
+import hashlib
+import tempfile
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -13,7 +17,7 @@ from internal.models import EventRecord, KnowbaseCaseDocument, KnowbaseCaseSearc
 from internal.models.facet import PartitionFacetIndex, PartitionFacetIndexDocument, PartitionFacetSchemaDocument
 from internal.models.partition_semantic_index import PartitionSemanticIndex, PartitionSemanticIndexDocument
 from internal.models.run import AgentRun, RunArtifact, RunStep
-from internal.knowledge.statistics.models import SemanticObservation, StatisticsSnapshot
+from internal.knowledge.statistics.models import StatisticsSnapshot
 from internal.utils.config import RuntimeConfig
 
 
@@ -145,37 +149,29 @@ class PartitionSemanticIndexRepository:
         return {"acknowledged": True}
 
 
-class StatisticsObservationRepository:
-    """Append and read Knowledge statistics observations as JSONL."""
-
-    def __init__(self, root: Path):
-        self._root = root / "knowledge_statistics"
-
-    def append(self, observation: SemanticObservation) -> SemanticObservation:
-        partition_root = self._root / observation.partition
-        partition_root.mkdir(parents=True, exist_ok=True)
-        path = partition_root / "observations.jsonl"
-        with path.open("a", encoding="utf-8") as stream:
-            stream.write(json.dumps(observation.model_dump(mode="json"), ensure_ascii=False))
-            stream.write("\n")
-        return observation
-
-    def list_by_partition(self, partition: str) -> list[SemanticObservation]:
-        path = self._root / partition / "observations.jsonl"
-        if not path.exists():
-            return []
-        observations: list[SemanticObservation] = []
-        for line in path.read_text(encoding="utf-8").splitlines():
-            if line.strip():
-                observations.append(SemanticObservation.model_validate(json.loads(line)))
-        return observations
-
-
 class StatisticsSnapshotRepository:
     """Persist the current statistics snapshot for a partition."""
 
     def __init__(self, root: Path):
         self._root = root / "knowledge_statistics"
+
+    @contextmanager
+    def lock(self, partition: str):
+        """Serialize read-modify-write operations for one partition."""
+        partition_root = self._root / partition
+        partition_root.mkdir(parents=True, exist_ok=True)
+        lock_root = Path(tempfile.gettempdir()) / "knowbase-statistics-locks"
+        lock_root.mkdir(parents=True, exist_ok=True)
+        lock_key = hashlib.sha256(
+            f"{self._root.resolve()}:{partition}".encode("utf-8")
+        ).hexdigest()
+        lock_path = lock_root / f"{lock_key}.lock"
+        with lock_path.open("a+", encoding="utf-8") as lock_file:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
 
     def get(self, partition: str) -> StatisticsSnapshot | None:
         path = self._root / partition / "snapshot.json"
@@ -402,4 +398,5 @@ def build_local_persistence_bundle(*, runtime_cfg: RuntimeConfig) -> Persistence
         run_repository=AgentRunRepository(root=root),
         step_repository=RunStepRepository(root=root),
         artifact_repository=RunArtifactRepository(root=root),
+        statistics_snapshot_repository=StatisticsSnapshotRepository(root=root),
     )

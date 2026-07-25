@@ -6,6 +6,7 @@ from internal.knowledge.statistics.models import (
     CaseObservation,
     CaseSupportQuery,
     QueryObservation,
+    SemanticObservation,
     StatisticsSnapshot,
     StatisticsSource,
 )
@@ -22,11 +23,11 @@ class KnowledgeStatisticsService:
         self._writer = writer
         self._store = store
 
-    def append_case_observation(self, *, observation: CaseObservation) -> None:
-        self._writer.append_case_observation(observation=observation)
+    def append_case_observation(self, *, observation: CaseObservation) -> StatisticsSnapshot:
+        return self._writer.append_case_observation(observation=observation)
 
-    def append_query_observation(self, *, observation: QueryObservation) -> None:
-        self._writer.append_query_observation(observation=observation)
+    def append_query_observation(self, *, observation: QueryObservation) -> StatisticsSnapshot:
+        return self._writer.append_query_observation(observation=observation)
 
     def load_partition_statistics(self, *, partition: str) -> StatisticsSnapshot | None:
         return self._reader.load_partition_statistics(partition=partition)
@@ -42,10 +43,16 @@ class KnowledgeStatisticsService:
     def find_supporting_cases(self, *, partition: str, query: CaseSupportQuery) -> list[str]:
         return self._reader.find_supporting_cases(partition=partition, query=query)
 
-    def rebuild_partition_statistics(self, *, partition: str) -> StatisticsSnapshot:
-        statistics = self._writer.rebuild_partition_statistics(partition=partition)
-        self._store.save(statistics=statistics)
-        return statistics
+    def rebuild_partition_statistics(
+        self,
+        *,
+        partition: str,
+        observations: list[SemanticObservation],
+    ) -> StatisticsSnapshot:
+        return self._writer.rebuild_partition_statistics(
+            partition=partition,
+            observations=observations,
+        )
 
 
 __all__ = ["KnowledgeStatisticsService"]

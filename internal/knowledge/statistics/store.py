@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
+
 from internal.knowledge.statistics.models import StatisticsSnapshot
 
 
@@ -12,11 +14,20 @@ class StatisticsStore:
     Knowledge patch workflow rather than by this store.
     """
 
+    def __init__(self, *, repository) -> None:
+        self._repository = repository
+
     def load(self, *, partition: str) -> StatisticsSnapshot | None:
-        raise NotImplementedError
+        return self._repository.get(partition)
 
     def save(self, *, statistics: StatisticsSnapshot) -> None:
-        raise NotImplementedError
+        self._repository.upsert(statistics)
+
+    @contextmanager
+    def lock(self, *, partition: str):
+        """Lock one partition for a complete statistics update."""
+        with self._repository.lock(partition):
+            yield
 
 
 __all__ = ["StatisticsStore"]

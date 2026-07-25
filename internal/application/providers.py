@@ -17,6 +17,14 @@ from internal.domain.event.publisher import KnowbaseEventPublisher
 from internal.domain.partition.schema_suggester import PartitionSchemaSuggester
 from internal.domain.partition.service import PartitionService
 from internal.infrastructure.persistence import build_persistence_bundle
+from internal.knowledge.statistics import (
+    KnowledgeStatisticsService,
+    StatisticsAggregator,
+    StatisticsObservationNormalizer,
+    StatisticsReader,
+    StatisticsStore,
+    StatisticsWriter,
+)
 from internal.ports import (
     CaseReadPort,
     CaseSearchPort,
@@ -45,6 +53,7 @@ class CoreProviders:
     step_repository: object
     artifact_repository: object
     embedding_provider: object
+    statistics_service: KnowledgeStatisticsService
 
 
 @dataclass(slots=True)
@@ -77,6 +86,16 @@ def build_core_providers(*, runtime_cfg: RuntimeConfig) -> CoreProviders:
     event_record_repository = persistence.event_record_repository
     event_inbox_service = KnowbaseEventInboxService(repository=event_record_repository)
     event_publisher = KnowbaseEventPublisher(inbox_service=event_inbox_service)
+    statistics_store = StatisticsStore(repository=persistence.statistics_snapshot_repository)
+    statistics_service = KnowledgeStatisticsService(
+        reader=StatisticsReader(store=statistics_store),
+        writer=StatisticsWriter(
+            snapshot_store=statistics_store,
+            normalizer=StatisticsObservationNormalizer(),
+            aggregator=StatisticsAggregator(),
+        ),
+        store=statistics_store,
+    )
     return CoreProviders(
         runtime_cfg=runtime_cfg,
         partition_service=partition_service,
@@ -92,6 +111,7 @@ def build_core_providers(*, runtime_cfg: RuntimeConfig) -> CoreProviders:
         step_repository=persistence.step_repository,
         artifact_repository=persistence.artifact_repository,
         embedding_provider=embedding_provider,
+        statistics_service=statistics_service,
     )
 
 

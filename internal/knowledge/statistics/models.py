@@ -64,6 +64,7 @@ class StatisticsSnapshot(BaseModel):
     partition: str
     generated_at: datetime | None = None
     source_revision: str | None = None
+    applied_observation_ids: list[str] = Field(default_factory=list)
     case_count: int = 0
     query_count: int = 0
     case_key_stats: dict[str, int] = Field(default_factory=dict)

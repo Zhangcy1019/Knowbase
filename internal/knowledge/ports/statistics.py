@@ -8,6 +8,7 @@ from internal.knowledge.statistics.models import (
     CaseObservation,
     CaseSupportQuery,
     QueryObservation,
+    SemanticObservation,
     StatisticsSnapshot,
     StatisticsSource,
 )
@@ -34,13 +35,18 @@ class KnowledgeStatisticsReaderPort(Protocol):
 class KnowledgeStatisticsWriterPort(Protocol):
     """Accept structured case/query observations for aggregation."""
 
-    def append_case_observation(self, *, observation: CaseObservation) -> None:
+    def append_case_observation(self, *, observation: CaseObservation) -> StatisticsSnapshot:
         ...
 
-    def append_query_observation(self, *, observation: QueryObservation) -> None:
+    def append_query_observation(self, *, observation: QueryObservation) -> StatisticsSnapshot:
         ...
 
-    def rebuild_partition_statistics(self, *, partition: str) -> StatisticsSnapshot:
+    def rebuild_partition_statistics(
+        self,
+        *,
+        partition: str,
+        observations: list[SemanticObservation],
+    ) -> StatisticsSnapshot:
         ...
 
 

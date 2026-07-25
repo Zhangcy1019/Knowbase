@@ -9,6 +9,8 @@ from internal.knowledge.statistics.models import (
     StatisticsSource,
     StatisticsSupportFilter,
 )
+from internal.knowledge.statistics.aggregator import StatisticsAggregator
+from internal.knowledge.statistics.normalizer import StatisticsObservationNormalizer
 from internal.knowledge.statistics.reader import StatisticsReader
 from internal.knowledge.statistics.service import KnowledgeStatisticsService
 from internal.knowledge.statistics.store import StatisticsStore
@@ -21,9 +23,11 @@ __all__ = [
     "QueryObservation",
     "SemanticObservation",
     "StatisticsReader",
+    "StatisticsAggregator",
     "StatisticsSnapshot",
     "StatisticsSource",
     "StatisticsStore",
+    "StatisticsObservationNormalizer",
     "StatisticsSupportFilter",
     "StatisticsWriter",
 ]

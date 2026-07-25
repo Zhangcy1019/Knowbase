@@ -14,6 +14,7 @@ from internal.models import (
     KnowbaseEvent,
     KnowbaseEventType,
 )
+from internal.knowledge.statistics import CaseObservation
 from internal.ports import (
     CaseWritePort,
     EventPublisherPort,
@@ -37,6 +38,7 @@ class KnowbaseIngestService:
         semantic_profile_extractor: KnowbaseSemanticProfileExtractor | None = None,
         summary_extractor: KnowbaseCaseSummaryExtractor | None = None,
         facet_resolver: KnowbaseCaseFacetResolver | None = None,
+        statistics=None,
     ):
         self._validator = validator
         self._draft_builder = draft_builder
@@ -46,6 +48,7 @@ class KnowbaseIngestService:
         self._semantic_profile_extractor = semantic_profile_extractor or KnowbaseSemanticProfileExtractor()
         self._summary_extractor = summary_extractor or KnowbaseCaseSummaryExtractor()
         self._facet_resolver = facet_resolver or KnowbaseCaseFacetResolver()
+        self._statistics = statistics
 
     async def ingest(self, request: IngestRequest) -> IngestResult:
         request = self._validator.validate(request)
@@ -81,6 +84,17 @@ class KnowbaseIngestService:
             metadata=draft.metadata,
             facets=draft.facets,
         )
+        if self._statistics is not None:
+            self._statistics.append_case_observation(
+                observation=CaseObservation(
+                    observation_id=f"case:{case_document.case_id}",
+                    partition=case_document.partition,
+                    source_id=case_document.case_id,
+                    facets=case_document.facets.model_dump(),
+                    semantic_profile=case_document.semantic_profile.model_dump(),
+                    metadata={"event": "case_created"},
+                )
+            )
         resolved_facets = case_document.facets.model_dump()
         publish_result = await self._event_publisher.publish(
             KnowbaseEvent(
