@@ -1,11 +1,11 @@
 """Knowledge change planning and persistence capability."""
 
-from internal.knowledge.patch.git_patch_applier import GitKnowledgePatchApplier
-from internal.knowledge.patch.git_patch_envelope import GitPatchEnvelope
+from internal.knowledge.patch.applier import KnowledgePatchApplier
+from internal.knowledge.patch.patch_envelope import PatchEnvelope
 from internal.knowledge.patch.knowledge_patch_builder import KnowledgePatchBuilder
 
 __all__ = [
-    "GitKnowledgePatchApplier",
-    "GitPatchEnvelope",
+    "KnowledgePatchApplier",
+    "PatchEnvelope",
     "KnowledgePatchBuilder",
 ]

@@ -1,0 +1,1 @@
+"""Version-control infrastructure adapters."""

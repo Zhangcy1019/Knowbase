@@ -27,7 +27,7 @@ from internal.knowledge.statistics import (
     StatisticsSupportFilter,
     StatisticsObservationNormalizer,
 )
-from internal.knowledge.patch import GitKnowledgePatchApplier, GitPatchEnvelope, KnowledgePatchBuilder
+from internal.knowledge.patch import KnowledgePatchApplier, KnowledgePatchBuilder, PatchEnvelope
 from internal.knowledge.batch import BatchContextBuilder, BatchWorkingSetBuilder
 from internal.knowledge.service import KnowbaseKnowledgeService
 from internal.knowledge.projection import CaseFacetProjector
@@ -46,8 +46,8 @@ __all__ = [
     "CaseSupportQuery",
     "FacetFreezePolicy",
     "FacetKeyConvergencePlanner",
-    "GitKnowledgePatchApplier",
-    "GitPatchEnvelope",
+    "KnowledgePatchApplier",
+    "PatchEnvelope",
     "KnowledgeCircuitBreaker",
     "KnowledgePatch",
     "KnowledgePatchBuilder",

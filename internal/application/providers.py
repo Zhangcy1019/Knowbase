@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 
 from internal.infrastructure.ai.embedding_service import create_embedding_provider
 from internal.domain.case.draft_builder import KnowbaseCaseDraftBuilder
@@ -17,6 +18,8 @@ from internal.domain.event.publisher import KnowbaseEventPublisher
 from internal.domain.partition.schema_suggester import PartitionSchemaSuggester
 from internal.domain.partition.service import PartitionService
 from internal.infrastructure.persistence import build_persistence_bundle
+from internal.infrastructure.version_control.git import GitRepository
+from internal.application.versioning import VersionCommitCoordinator
 from internal.knowledge.statistics import (
     KnowledgeStatisticsService,
     StatisticsAggregator,
@@ -35,6 +38,10 @@ from internal.ports import (
     PartitionSchemaSuggestPort,
 )
 from internal.utils.config import RuntimeConfig
+from internal.utils.logger import get_logger
+
+
+logger = get_logger("knowbase.application.providers")
 
 
 @dataclass(slots=True)
@@ -53,6 +60,7 @@ class CoreProviders:
     step_repository: object
     artifact_repository: object
     embedding_provider: object
+    versioning: VersionCommitCoordinator
     statistics_service: KnowledgeStatisticsService
 
 
@@ -67,6 +75,22 @@ class IngestProviders:
 
 def build_core_providers(*, runtime_cfg: RuntimeConfig) -> CoreProviders:
     persistence = build_persistence_bundle(runtime_cfg=runtime_cfg)
+    if runtime_cfg.storage.version_control_backend != "git":
+        raise ValueError(
+            "unsupported storage.version_control_backend: "
+            f"{runtime_cfg.storage.version_control_backend}"
+        )
+    version_control = GitRepository(root=Path(runtime_cfg.storage.local_root).expanduser())
+    if runtime_cfg.storage.version_control_auto_init:
+        try:
+            version_control.initialize()
+        except RuntimeError:
+            logger.exception(
+                "Versioned workspace is not clean; manual intervention is required before startup.",
+                extra={"workspace": runtime_cfg.storage.local_root},
+            )
+            raise
+    versioning = VersionCommitCoordinator(version_control=version_control)
     embedding_provider = create_embedding_provider(runtime_cfg.embedding)
     partition_service = PartitionService(
         repository=persistence.partition_repository,
@@ -112,6 +136,7 @@ def build_core_providers(*, runtime_cfg: RuntimeConfig) -> CoreProviders:
         artifact_repository=persistence.artifact_repository,
         embedding_provider=embedding_provider,
         statistics_service=statistics_service,
+        versioning=versioning,
     )
 
 

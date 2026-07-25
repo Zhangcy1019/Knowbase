@@ -50,6 +50,7 @@ from internal.models.semantic_profile import (
     ensure_partition_profile_keys,
     resolve_partition_profile_fields,
 )
+from internal.models.version_control import VersionCommit, VersionControlStatus
 from internal.models.semantic_fields import SemanticFieldSet
 from internal.models.skill_context import SkillExecutionContext
 from internal.models.skill import SkillInvocation, SkillResult, SkillSpec
@@ -125,6 +126,8 @@ __all__ = [
     "QueryResult",
     "QuerySemanticExtractionEnvelope",
     "QuerySemanticProfile",
+    "VersionCommit",
+    "VersionControlStatus",
     "ensure_partition_profile_keys",
     "resolve_partition_profile_fields",
     "SkillInvocation",

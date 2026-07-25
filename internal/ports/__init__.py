@@ -25,6 +25,7 @@ from internal.ports.knowledge import (
     KnowledgeBatchNotificationPort,
 )
 from internal.ports.runtime import RuntimeHarnessPort, RuntimeRunPort, SkillExecutionPort
+from internal.ports.version_control import VersionControlPort
 
 __all__ = [
     "CaseFacetResolutionPort",
@@ -52,4 +53,5 @@ __all__ = [
     "RuntimeHarnessPort",
     "RuntimeRunPort",
     "SkillExecutionPort",
+    "VersionControlPort",
 ]

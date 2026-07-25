@@ -92,6 +92,7 @@ def build_runtime_module(
     knowledge_workflow = KnowledgeDrainWorkflow(
         request_factory=request_factory,
         runtime_service=runtime_service,
+        versioning=core.versioning,
     )
     knowledge_service = KnowbaseKnowledgeService(
         backlog_service=event_backlog_service,
@@ -123,6 +124,7 @@ def build_ingest_service(
         semantic_profile_extractor=ingest.semantic_profile_extractor,
         facet_resolver=ingest.facet_resolver,
         statistics=core.statistics_service,
+        versioning=core.versioning,
     )
 
 

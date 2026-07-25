@@ -39,6 +39,7 @@ class KnowbaseIngestService:
         summary_extractor: KnowbaseCaseSummaryExtractor | None = None,
         facet_resolver: KnowbaseCaseFacetResolver | None = None,
         statistics=None,
+        versioning=None,
     ):
         self._validator = validator
         self._draft_builder = draft_builder
@@ -49,6 +50,7 @@ class KnowbaseIngestService:
         self._summary_extractor = summary_extractor or KnowbaseCaseSummaryExtractor()
         self._facet_resolver = facet_resolver or KnowbaseCaseFacetResolver()
         self._statistics = statistics
+        self._versioning = versioning
 
     async def ingest(self, request: IngestRequest) -> IngestResult:
         request = self._validator.validate(request)
@@ -94,6 +96,14 @@ class KnowbaseIngestService:
                     semantic_profile=case_document.semantic_profile.model_dump(),
                     metadata={"event": "case_created"},
                 )
+            )
+        if self._versioning is not None:
+            self._versioning.commit_case_ingest(
+                case_id=case_document.case_id,
+                paths=[
+                    f"cases/{case_document.case_id}.json",
+                    f"knowledge_statistics/{case_document.partition}/snapshot.json",
+                ],
             )
         resolved_facets = case_document.facets.model_dump()
         publish_result = await self._event_publisher.publish(

@@ -23,6 +23,7 @@ class KnowledgeDrainWorkflow:
         facet_governance: KnowledgeFacetGovernancePort | None = None,
         projection: KnowledgeProjectionPort | None = None,
         patch: KnowledgePatchBuilderPort | None = None,
+        versioning=None,
     ):
         self._request_factory = request_factory
         self._runtime_service = runtime_service
@@ -30,9 +31,12 @@ class KnowledgeDrainWorkflow:
         self._facet_governance = facet_governance
         self._projection = projection
         self._patch = patch
+        self._versioning = versioning
 
     async def run_batch(self, *, batch):
         """Run the current batch workflow and return a Knowledge result."""
+        if self._versioning:
+            self._versioning.begin_governance()
         statistics = (
             self._statistics.load_partition_statistics(partition=batch.partition)
             if self._statistics
@@ -66,6 +70,14 @@ class KnowledgeDrainWorkflow:
         )
         request = self._request_factory.build_for_batch(batch=batch, patch=patch)
         runtime_result = await self._runtime_service.run_request(request=request)
+        if self._versioning and runtime_result.status == "completed":
+            self._versioning.commit_knowledge_governance(
+                partition=batch.partition,
+                paths=[
+                    f"partition_facet_schemas/{batch.partition}.json",
+                    f"knowledge_statistics/{batch.partition}/snapshot.json",
+                ],
+            )
         return KnowledgeWorkflowResult(
             batch_id=batch.batch_id,
             status=runtime_result.status,

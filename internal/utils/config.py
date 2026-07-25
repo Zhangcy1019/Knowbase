@@ -59,6 +59,8 @@ class KnowbaseEmbeddingConfig:
 class StorageRuntimeConfig:
     backend: str = "es"
     local_root: str = ".data/knowbase"
+    version_control_backend: str = "git"
+    version_control_auto_init: bool = True
 
 
 @dataclass(frozen=True)
@@ -129,6 +131,12 @@ def load_runtime_config(config_path: str | None) -> RuntimeConfig:
         backend=str(_get_nested(file_cfg, "storage", "backend", default="es")).strip().lower() or "es",
         local_root=str(_get_nested(file_cfg, "storage", "local_root", default=".data/knowbase")).strip()
         or ".data/knowbase",
+        version_control_backend=str(
+            _get_nested(file_cfg, "storage", "version_control_backend", default="git")
+        ).strip().lower() or "git",
+        version_control_auto_init=bool(
+            _get_nested(file_cfg, "storage", "version_control_auto_init", default=True)
+        ),
     )
 
     web = WebRuntimeConfig(
