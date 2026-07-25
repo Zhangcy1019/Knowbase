@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from internal.knowledge.statistics.models import SemanticObservation, StatisticsSnapshot
+from internal.knowledge.statistics.models import CaseStatisticsSnapshot, QueryStatisticsSnapshot, SemanticObservation
 
 
 class StatisticsAggregator:
@@ -13,11 +13,11 @@ class StatisticsAggregator:
     def apply(
         self,
         *,
-        snapshot: StatisticsSnapshot | None,
+        snapshot: CaseStatisticsSnapshot | QueryStatisticsSnapshot | None,
         observation: SemanticObservation,
-    ) -> StatisticsSnapshot:
+    ) -> CaseStatisticsSnapshot | QueryStatisticsSnapshot:
         """Apply one observation to the current snapshot in place-like form."""
-        current = snapshot or StatisticsSnapshot(partition=observation.partition)
+        current = snapshot or (CaseStatisticsSnapshot(partition=observation.partition) if observation.source == "case" else QueryStatisticsSnapshot(partition=observation.partition))
         if current.partition != observation.partition:
             raise ValueError("observation partition does not match statistics snapshot")
         data = current.model_copy(deep=True)
@@ -44,7 +44,7 @@ class StatisticsAggregator:
         data.generated_at = datetime.now(timezone.utc)
         return data
 
-    def remove(self, *, snapshot: StatisticsSnapshot, observation: SemanticObservation) -> StatisticsSnapshot:
+    def remove(self, *, snapshot: CaseStatisticsSnapshot | QueryStatisticsSnapshot, observation: SemanticObservation) -> CaseStatisticsSnapshot | QueryStatisticsSnapshot:
         """Remove one observation's contribution from the current snapshot."""
         data = snapshot.model_copy(deep=True)
         is_case = observation.source == "case"
@@ -78,10 +78,10 @@ class StatisticsAggregator:
     def replace(
         self,
         *,
-        snapshot: StatisticsSnapshot,
+        snapshot: CaseStatisticsSnapshot | QueryStatisticsSnapshot,
         old_observation: SemanticObservation,
         new_observation: SemanticObservation,
-    ) -> StatisticsSnapshot:
+    ) -> CaseStatisticsSnapshot | QueryStatisticsSnapshot:
         return self.apply(
             snapshot=self.remove(snapshot=snapshot, observation=old_observation),
             observation=new_observation,
@@ -95,8 +95,8 @@ class StatisticsAggregator:
         else:
             values.pop(key, None)
 
-    def build(self, *, partition: str, observations: list[SemanticObservation]) -> StatisticsSnapshot:
-        snapshot: StatisticsSnapshot | None = StatisticsSnapshot(partition=partition)
+    def build(self, *, partition: str, observations: list[SemanticObservation]) -> CaseStatisticsSnapshot | QueryStatisticsSnapshot:
+        snapshot: CaseStatisticsSnapshot | QueryStatisticsSnapshot | None = None
         for observation in observations:
             if observation.partition == partition:
                 snapshot = self.apply(snapshot=snapshot, observation=observation)

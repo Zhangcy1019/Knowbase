@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 
-from internal.knowledge.statistics.models import StatisticsSnapshot
+from internal.knowledge.statistics.models import CaseStatisticsSnapshot, QueryStatisticsSnapshot
 
 
 class StatisticsStore:
@@ -17,10 +17,10 @@ class StatisticsStore:
     def __init__(self, *, repository) -> None:
         self._repository = repository
 
-    def load(self, *, partition: str) -> StatisticsSnapshot | None:
+    def load(self, *, partition: str) -> CaseStatisticsSnapshot | QueryStatisticsSnapshot | None:
         return self._repository.get(partition)
 
-    def save(self, *, statistics: StatisticsSnapshot) -> None:
+    def save(self, *, statistics: CaseStatisticsSnapshot | QueryStatisticsSnapshot) -> None:
         self._repository.upsert(statistics)
 
     @contextmanager

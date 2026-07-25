@@ -54,23 +54,26 @@ class QueryObservation(SemanticObservation):
     source: Literal["query"] = "query"
 
 
-class StatisticsSnapshot(BaseModel):
-    """Current derived statistics for one partition.
-
-    History is owned by the surrounding Git patch workflow. This model
-    represents only the current ``snapshot.json`` working file.
-    """
+class CaseStatisticsSnapshot(BaseModel):
+    """Current Knowledge statistics derived from case observations."""
 
     partition: str
     generated_at: datetime | None = None
-    source_revision: str | None = None
+    source_revision: str | None = None  # the git commit revision of base commit
     case_count: int = 0
-    query_count: int = 0
     case_key_stats: dict[str, int] = Field(default_factory=dict)
-    query_key_stats: dict[str, int] = Field(default_factory=dict)
     case_value_stats: dict[str, dict[str, int]] = Field(default_factory=dict)
-    query_value_stats: dict[str, dict[str, int]] = Field(default_factory=dict)
     case_support_index: dict[str, list[str]] = Field(default_factory=dict)
+
+
+class QueryStatisticsSnapshot(BaseModel):
+    """Runtime query signals, deliberately separate from Knowledge state."""
+
+    partition: str
+    generated_at: datetime | None = None
+    query_count: int = 0
+    query_key_stats: dict[str, int] = Field(default_factory=dict)
+    query_value_stats: dict[str, dict[str, int]] = Field(default_factory=dict)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -79,7 +82,8 @@ __all__ = [
     "CaseSupportQuery",
     "QueryObservation",
     "SemanticObservation",
-    "StatisticsSnapshot",
+    "CaseStatisticsSnapshot",
+    "QueryStatisticsSnapshot",
     "StatisticsSupportFilter",
     "StatisticsSource",
 ]

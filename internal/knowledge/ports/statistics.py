@@ -9,7 +9,8 @@ from internal.knowledge.statistics.models import (
     CaseSupportQuery,
     QueryObservation,
     SemanticObservation,
-    StatisticsSnapshot,
+    CaseStatisticsSnapshot,
+    QueryStatisticsSnapshot,
     StatisticsSource,
 )
 
@@ -17,7 +18,7 @@ from internal.knowledge.statistics.models import (
 class KnowledgeStatisticsReaderPort(Protocol):
     """Read partition statistics and support indexes."""
 
-    def load_partition_statistics(self, *, partition: str) -> StatisticsSnapshot | None:
+    def load_partition_statistics(self, *, partition: str) -> CaseStatisticsSnapshot | None:
         ...
 
     def query_key_stats(
@@ -35,7 +36,7 @@ class KnowledgeStatisticsReaderPort(Protocol):
 class KnowledgeStatisticsWriterPort(Protocol):
     """Accept structured case/query observations for aggregation."""
 
-    def append_case_observation(self, *, observation: CaseObservation) -> StatisticsSnapshot:
+    def append_case_observation(self, *, observation: CaseObservation) -> CaseStatisticsSnapshot:
         ...
 
     def rebuild_partition_statistics(
@@ -43,24 +44,24 @@ class KnowledgeStatisticsWriterPort(Protocol):
         *,
         partition: str,
         observations: list[SemanticObservation],
-    ) -> StatisticsSnapshot:
+    ) -> CaseStatisticsSnapshot:
         ...
 
 
 class QueryStatisticsPort(Protocol):
     """Record runtime query signals outside knowledge statistics."""
 
-    def record(self, *, observation: QueryObservation) -> StatisticsSnapshot:
+    def record(self, *, observation: QueryObservation) -> QueryStatisticsSnapshot:
         ...
 
 
 class KnowledgeStatisticsStorePort(Protocol):
     """Persist and load complete statistics snapshots."""
 
-    def load(self, *, partition: str) -> StatisticsSnapshot | None:
+    def load(self, *, partition: str) -> CaseStatisticsSnapshot | QueryStatisticsSnapshot | None:
         ...
 
-    def save(self, *, statistics: StatisticsSnapshot) -> None:
+    def save(self, *, statistics: CaseStatisticsSnapshot | QueryStatisticsSnapshot) -> None:
         ...
 
 

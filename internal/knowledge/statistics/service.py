@@ -7,7 +7,8 @@ from internal.knowledge.statistics.models import (
     CaseSupportQuery,
     QueryObservation,
     SemanticObservation,
-    StatisticsSnapshot,
+    CaseStatisticsSnapshot,
+    QueryStatisticsSnapshot,
     StatisticsSource,
 )
 from internal.knowledge.statistics.reader import StatisticsReader
@@ -23,7 +24,7 @@ class KnowledgeStatisticsService:
         self._writer = writer
         self._store = store
 
-    def append_case_observation(self, *, observation: CaseObservation) -> StatisticsSnapshot:
+    def append_case_observation(self, *, observation: CaseObservation) -> CaseStatisticsSnapshot:
         return self._writer.append_case_observation(observation=observation)
 
     def replace_case_observation(
@@ -31,19 +32,19 @@ class KnowledgeStatisticsService:
         *,
         old_observation: CaseObservation,
         new_observation: CaseObservation,
-    ) -> StatisticsSnapshot:
+    ) -> CaseStatisticsSnapshot:
         return self._writer.replace_case_observation(
             old_observation=old_observation,
             new_observation=new_observation,
         )
 
-    def remove_observation(self, *, observation: SemanticObservation) -> StatisticsSnapshot | None:
+    def remove_observation(self, *, observation: SemanticObservation) -> CaseStatisticsSnapshot | None:
         return self._writer.remove_observation(observation=observation)
 
-    def load_partition_statistics(self, *, partition: str) -> StatisticsSnapshot | None:
+    def load_partition_statistics(self, *, partition: str) -> CaseStatisticsSnapshot | None:
         return self._reader.load_partition_statistics(partition=partition)
 
-    def stamp_source_revision(self, *, partition: str, source_revision: str) -> StatisticsSnapshot | None:
+    def stamp_source_revision(self, *, partition: str, source_revision: str) -> CaseStatisticsSnapshot | None:
         with self._store.lock(partition=partition):
             snapshot = self._store.load(partition=partition)
             if snapshot is None:
@@ -70,7 +71,7 @@ class KnowledgeStatisticsService:
         *,
         partition: str,
         observations: list[SemanticObservation],
-    ) -> StatisticsSnapshot:
+    ) -> CaseStatisticsSnapshot:
         return self._writer.rebuild_partition_statistics(
             partition=partition,
             observations=observations,
@@ -84,10 +85,10 @@ class QueryStatisticsService:
         self._writer = writer
         self._reader = reader
 
-    def record(self, *, observation: QueryObservation) -> StatisticsSnapshot:
+    def record(self, *, observation: QueryObservation) -> QueryStatisticsSnapshot:
         return self._writer.append_query_observation(observation=observation)
 
-    def load_partition_statistics(self, *, partition: str) -> StatisticsSnapshot | None:
+    def load_partition_statistics(self, *, partition: str) -> QueryStatisticsSnapshot | None:
         return self._reader.load_partition_statistics(partition=partition)
 
 

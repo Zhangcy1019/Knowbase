@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from internal.knowledge.statistics.models import (
     CaseObservation,
+    QueryStatisticsSnapshot,
     QueryObservation,
     SemanticObservation,
-    StatisticsSnapshot,
+    CaseStatisticsSnapshot,
 )
 
 
@@ -18,10 +19,10 @@ class StatisticsWriter:
         self._normalizer = normalizer
         self._aggregator = aggregator
 
-    def append_case_observation(self, *, observation: CaseObservation) -> StatisticsSnapshot:
+    def append_case_observation(self, *, observation: CaseObservation) -> CaseStatisticsSnapshot:
         return self._append(self._normalizer.normalize_case(observation))
 
-    def append_query_observation(self, *, observation: QueryObservation) -> StatisticsSnapshot:
+    def append_query_observation(self, *, observation: QueryObservation) -> QueryStatisticsSnapshot:
         return self._append(self._normalizer.normalize_query(observation))
 
     def replace_case_observation(
@@ -29,20 +30,20 @@ class StatisticsWriter:
         *,
         old_observation: CaseObservation,
         new_observation: CaseObservation,
-    ) -> StatisticsSnapshot:
+    ) -> CaseStatisticsSnapshot:
         if old_observation.partition != new_observation.partition:
             raise ValueError("replacement observations must belong to the same partition")
         with self._snapshot_store.lock(partition=new_observation.partition):
             current = self._snapshot_store.load(partition=new_observation.partition)
             updated = self._aggregator.replace(
-                snapshot=current or StatisticsSnapshot(partition=new_observation.partition),
+                snapshot=current or CaseStatisticsSnapshot(partition=new_observation.partition),
                 old_observation=self._normalizer.normalize_case(old_observation),
                 new_observation=self._normalizer.normalize_case(new_observation),
             )
             self._snapshot_store.save(statistics=updated)
             return updated
 
-    def remove_observation(self, *, observation: SemanticObservation) -> StatisticsSnapshot | None:
+    def remove_observation(self, *, observation: SemanticObservation) -> CaseStatisticsSnapshot | None:
         with self._snapshot_store.lock(partition=observation.partition):
             current = self._snapshot_store.load(partition=observation.partition)
             if current is None:
@@ -59,14 +60,14 @@ class StatisticsWriter:
         *,
         partition: str,
         observations: list[SemanticObservation],
-    ) -> StatisticsSnapshot:
+    ) -> CaseStatisticsSnapshot:
         with self._snapshot_store.lock(partition=partition):
             normalized = [self._normalizer.normalize(observation) for observation in observations]
             snapshot = self._aggregator.build(partition=partition, observations=normalized)
             self._snapshot_store.save(statistics=snapshot)
             return snapshot
 
-    def _append(self, observation: CaseObservation | QueryObservation) -> StatisticsSnapshot:
+    def _append(self, observation: CaseObservation | QueryObservation) -> CaseStatisticsSnapshot | QueryStatisticsSnapshot:
         with self._snapshot_store.lock(partition=observation.partition):
             current = self._snapshot_store.load(partition=observation.partition)
             updated = self._aggregator.apply(

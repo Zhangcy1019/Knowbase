@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from internal.knowledge.statistics.models import CaseSupportQuery, StatisticsSnapshot, StatisticsSource
+from internal.knowledge.statistics.models import CaseStatisticsSnapshot, CaseSupportQuery, StatisticsSource
 
 
 class StatisticsReader:
@@ -11,7 +11,7 @@ class StatisticsReader:
     def __init__(self, *, store) -> None:
         self._store = store
 
-    def load_partition_statistics(self, *, partition: str) -> StatisticsSnapshot | None:
+    def load_partition_statistics(self, *, partition: str) -> CaseStatisticsSnapshot | None:
         return self._store.load(partition=partition)
 
     def query_key_stats(self, *, partition: str, source: StatisticsSource = "case") -> dict[str, int]:

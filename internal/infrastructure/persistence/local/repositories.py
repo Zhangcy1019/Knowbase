@@ -17,7 +17,7 @@ from internal.models import EventRecord, KnowbaseCaseDocument, KnowbaseCaseSearc
 from internal.models.facet import PartitionFacetIndex, PartitionFacetIndexDocument, PartitionFacetSchemaDocument
 from internal.models.partition_semantic_index import PartitionSemanticIndex, PartitionSemanticIndexDocument
 from internal.models.run import AgentRun, RunArtifact, RunStep
-from internal.knowledge.statistics.models import StatisticsSnapshot
+from internal.knowledge.statistics.models import CaseStatisticsSnapshot, QueryStatisticsSnapshot
 from internal.utils.config import RuntimeConfig
 
 
@@ -152,8 +152,9 @@ class PartitionSemanticIndexRepository:
 class StatisticsSnapshotRepository:
     """Persist the current statistics snapshot for a partition."""
 
-    def __init__(self, root: Path, *, directory: str = "knowledge_statistics"):
+    def __init__(self, root: Path, *, directory: str = "knowledge_statistics", snapshot_model=CaseStatisticsSnapshot):
         self._root = root / directory
+        self._snapshot_model = snapshot_model
 
     @contextmanager
     def lock(self, partition: str):
@@ -173,13 +174,13 @@ class StatisticsSnapshotRepository:
             finally:
                 fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
 
-    def get(self, partition: str) -> StatisticsSnapshot | None:
+    def get(self, partition: str) -> CaseStatisticsSnapshot | QueryStatisticsSnapshot | None:
         path = self._root / partition / "snapshot.json"
         if not path.exists():
             return None
-        return StatisticsSnapshot.model_validate(json.loads(path.read_text(encoding="utf-8")))
+        return self._snapshot_model.model_validate(json.loads(path.read_text(encoding="utf-8")))
 
-    def upsert(self, snapshot: StatisticsSnapshot) -> StatisticsSnapshot:
+    def upsert(self, snapshot: CaseStatisticsSnapshot | QueryStatisticsSnapshot) -> CaseStatisticsSnapshot | QueryStatisticsSnapshot:
         partition_root = self._root / snapshot.partition
         partition_root.mkdir(parents=True, exist_ok=True)
         path = partition_root / "snapshot.json"
@@ -400,6 +401,8 @@ def build_local_persistence_bundle(*, runtime_cfg: RuntimeConfig) -> Persistence
         artifact_repository=RunArtifactRepository(root=root),
         statistics_snapshot_repository=StatisticsSnapshotRepository(root=root),
         query_statistics_snapshot_repository=StatisticsSnapshotRepository(
-            root=root, directory="runtime_statistics/query"
+            root=root,
+            directory="runtime_statistics/query",
+            snapshot_model=QueryStatisticsSnapshot,
         ),
     )

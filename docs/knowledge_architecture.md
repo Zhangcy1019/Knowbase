@@ -115,6 +115,9 @@ v1 不进入以下能力：
 
 - query 当前只进入统计层
 - query 当前不参与 facet/schema 自动决策
+- case 使用 `CaseStatisticsSnapshot` 并纳入 Git
+- query 使用独立的 `QueryStatisticsSnapshot`，写入 `runtime_statistics/query`，不纳入 Git
+- snapshot 不保存 observation 历史 ID；case mutation 的幂等由生命周期层负责
 
 ### 5.3 Schema
 
