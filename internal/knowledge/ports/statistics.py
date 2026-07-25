@@ -1,0 +1,61 @@
+"""Statistics read/write/store ports owned by Knowledge."""
+
+from __future__ import annotations
+
+from typing import Protocol
+
+from internal.knowledge.statistics.models import (
+    CaseObservation,
+    CaseSupportQuery,
+    QueryObservation,
+    StatisticsSnapshot,
+    StatisticsSource,
+)
+
+
+class KnowledgeStatisticsReaderPort(Protocol):
+    """Read partition statistics and support indexes."""
+
+    def load_partition_statistics(self, *, partition: str) -> StatisticsSnapshot | None:
+        ...
+
+    def query_key_stats(
+        self,
+        *,
+        partition: str,
+        source: StatisticsSource = "case",
+    ) -> dict[str, int]:
+        ...
+
+    def find_supporting_cases(self, *, partition: str, query: CaseSupportQuery) -> list[str]:
+        ...
+
+
+class KnowledgeStatisticsWriterPort(Protocol):
+    """Accept structured case/query observations for aggregation."""
+
+    def append_case_observation(self, *, observation: CaseObservation) -> None:
+        ...
+
+    def append_query_observation(self, *, observation: QueryObservation) -> None:
+        ...
+
+    def rebuild_partition_statistics(self, *, partition: str) -> StatisticsSnapshot:
+        ...
+
+
+class KnowledgeStatisticsStorePort(Protocol):
+    """Persist and load complete statistics snapshots."""
+
+    def load(self, *, partition: str) -> StatisticsSnapshot | None:
+        ...
+
+    def save(self, *, statistics: StatisticsSnapshot) -> None:
+        ...
+
+
+__all__ = [
+    "KnowledgeStatisticsReaderPort",
+    "KnowledgeStatisticsStorePort",
+    "KnowledgeStatisticsWriterPort",
+]

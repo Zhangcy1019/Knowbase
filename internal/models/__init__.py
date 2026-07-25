@@ -21,16 +21,6 @@ from internal.models.facet import (
     PartitionFacetValueStat,
     PartitionFacetValueListChangeRecord,
 )
-from internal.models.backlog_batch import BacklogBatch
-from internal.models.batch_runtime import (
-    BatchActionCandidate,
-    BatchPreparation,
-    BatchExecutionPlan,
-    BatchWorkItem,
-    BatchWorkingSet,
-    NormalizedEvent,
-    ResourceEventGroup,
-)
 from internal.models.events import (
     BacklogRequestPayload,
     CaseEventPayload,
@@ -41,16 +31,9 @@ from internal.models.events import (
     TextFieldChange,
 )
 from internal.models.event_record import EventRecord, EventRecordStatus
-from internal.models.governance import (
-    ExecutionDelta,
-    PartitionFacetCoverageAssessment,
-    PartitionFacetSchemaProposal,
-    PartitionRebuildRecommendation,
-)
 from internal.models.ingest import IngestRequest, IngestResult
 from internal.models.runtime_config import RuntimeRunConfig
 from internal.models.runtime_trace import RuntimeTraceReplay, RuntimeTraceTurn
-from internal.models.skill_action import SkillAction
 from internal.models.partition import PartitionDocument
 from internal.models.partition_semantic_index import (
     PartitionSemanticIndex,
@@ -87,12 +70,6 @@ from internal.models.types import (
 __all__ = [
     "CaseEventPayload",
     "CaseEventSnapshot",
-    "BacklogBatch",
-    "BatchActionCandidate",
-    "BatchPreparation",
-    "BatchExecutionPlan",
-    "BatchWorkItem",
-    "BatchWorkingSet",
     "CaseSemanticExtractionEnvelope",
     "CaseFacetValuesChangeRecord",
     "CaseFacetProfile",
@@ -108,7 +85,6 @@ __all__ = [
     "AgentRun",
     "RunStep",
     "RunArtifact",
-    "SkillAction",
     "ChangeActionType",
     "AgentRunMode",
     "AgentRuntimeStage",
@@ -117,10 +93,6 @@ __all__ = [
     "ChangeTargetType",
     "IngestRequest",
     "IngestResult",
-    "PartitionFacetCoverageAssessment",
-    "PartitionFacetSchemaProposal",
-    "PartitionRebuildRecommendation",
-    "ExecutionDelta",
     "KnowbaseEvent",
     "KnowbaseEventPayload",
     "KnowbaseEventType",
@@ -132,7 +104,6 @@ __all__ = [
     "KnowbaseCaseSearchQuery",
     "KnowbaseSource",
     "KnowbaseStatus",
-    "NormalizedEvent",
     "RuntimeRunMode",
     "TextFieldChange",
     "PartitionDocument",
@@ -154,7 +125,6 @@ __all__ = [
     "QueryResult",
     "QuerySemanticExtractionEnvelope",
     "QuerySemanticProfile",
-    "ResourceEventGroup",
     "ensure_partition_profile_keys",
     "resolve_partition_profile_fields",
     "SkillInvocation",

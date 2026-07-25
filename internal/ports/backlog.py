@@ -2,15 +2,19 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Protocol
+from datetime import datetime
+from typing import TYPE_CHECKING, Any, Protocol
 
 from internal.models import EventRecord
 if TYPE_CHECKING:
-    from backlog.worker import EventWorkerRunResult
+    from internal.backlog.worker import EventWorkerRunResult
 
 
 class EventBacklogPort(Protocol):
-    """Stable backlog event admin surface used by runtime API routes."""
+    """Stable backlog storage and batch-lifecycle surface."""
+
+    def assemble_batch(self, *, partition: str = "", trigger_source: str = "manual", limit: int = 200) -> Any:
+        ...
 
     def list_events(
         self,
@@ -30,9 +34,31 @@ class EventBacklogPort(Protocol):
     def delete_event(self, event_id: str) -> None:
         ...
 
+    def mark_batch_running(self, *, event_ids: list[str]) -> list[EventRecord]:
+        ...
+
+    def complete_batch(
+        self,
+        *,
+        event_ids: list[str],
+        run_id: str = "",
+        last_run_at: datetime | None = None,
+    ) -> list[EventRecord]:
+        ...
+
+    def fail_batch(
+        self,
+        *,
+        event_ids: list[str],
+        error_message: str,
+        next_retry_at: datetime | None,
+        last_run_at: datetime | None = None,
+    ) -> list[EventRecord]:
+        ...
+
 
 class EventWorkerPort(Protocol):
-    """Stable backlog drain surface used by runtime API routes."""
+    """Drain surface that submits batches to Knowledge asynchronously."""
 
     async def run_once(
         self,

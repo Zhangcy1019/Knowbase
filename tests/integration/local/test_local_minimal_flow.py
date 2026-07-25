@@ -23,11 +23,10 @@ from internal.backlog.worker import KnowbaseEventWorker
 from internal.domain.case.draft_builder import KnowbaseCaseDraftBuilder
 from internal.domain.case.facet_resolver import KnowbaseCaseFacetResolver
 from internal.domain.case.ingestor import KnowbaseCaseIngestor
-from internal.knowledge.dispatch import (
-    KnowbaseKnowledgeDispatchService,
-    RuntimeRequestBuilder,
-)
-from internal.knowledge.planning import BacklogPreparationPlanner, BatchWorkingSetBuilder
+from internal.knowledge.integrations import RuntimeRequestFactory
+from internal.knowledge.service import KnowbaseKnowledgeService
+from internal.knowledge.workflow import KnowledgeDrainWorkflow
+from internal.knowledge.batch import BatchContextBuilder, BatchWorkingSetBuilder
 from internal.models import IngestRequest, PartitionDocument, PartitionFacetSchema
 from internal.models.semantic_profile import CaseSemanticProfile
 from internal.runtime.contracts import RuntimeDecision
@@ -100,19 +99,22 @@ class LocalMinimalFlowIntegrationTest(unittest.TestCase):
         ingest_service = self._build_ingest_service(core=core)
         runtime_service = self._build_runtime_service(core=core)
         backlog_service = KnowbaseEventBacklogService(repository=core.event_record_repository)
-        dispatch_service = KnowbaseKnowledgeDispatchService(
-            request_builder=RuntimeRequestBuilder(
+        knowledge_service = KnowbaseKnowledgeService(
+            backlog_service=backlog_service,
+            workflow=KnowledgeDrainWorkflow(
+                request_factory=RuntimeRequestFactory(
                 working_set_builder=BatchWorkingSetBuilder(),
-                preparation_planner=BacklogPreparationPlanner(
+                context_builder=BatchContextBuilder(
                     partition_service=core.partition_service,
                     case_repository=core.case_repository,
                 ),
+                ),
+                runtime_service=runtime_service,
             ),
         )
         worker = KnowbaseEventWorker(
             backlog_service=backlog_service,
-            dispatch_service=dispatch_service,
-            runtime_service=runtime_service,
+            knowledge_service=knowledge_service,
         )
 
         with patch("internal.domain.case.write_service.create_embedding_provider", return_value=_NoopEmbeddingProvider()):
@@ -141,9 +143,10 @@ class LocalMinimalFlowIntegrationTest(unittest.TestCase):
         self.assertEqual(worker_result.attempted_count, 1)
         self.assertEqual(worker_result.completed_count, 1)
         self.assertEqual(worker_result.failed_count, 0)
-        self.assertIsNotNone(worker_result.runtime_result)
-
-        runtime_result = worker_result.runtime_result
+        self.assertTrue(worker_result.accepted)
+        event_after = backlog_service.get_event(ingest_result.backlog_event_id)
+        assert event_after is not None
+        runtime_result = runtime_service.get_run(event_after.run_id)
         assert runtime_result is not None
         self.assertEqual(runtime_result.status, "completed")
         self.assertTrue(runtime_result.run_id)

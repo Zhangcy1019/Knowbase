@@ -5,7 +5,8 @@ from __future__ import annotations
 from collections import Counter
 from datetime import datetime, timezone
 
-from internal.models import BacklogBatch, EventRecord
+from internal.backlog.models import BacklogBatch
+from internal.models import EventRecord
 
 
 class KnowbaseEventBacklogService:

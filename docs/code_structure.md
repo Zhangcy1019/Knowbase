@@ -224,8 +224,8 @@ backlog -> ports / models
 knowledge -> backlog / ports / models
 runtime -> ports / models / domain.run
 domain -> models / connectors
-knowledge.skills -> ports / models
-knowledge.tools -> ports / models
+knowledge.capability.skills -> capability registration
+knowledge.capability.tools -> capability registration
 ```
 
 ## 一句话总结

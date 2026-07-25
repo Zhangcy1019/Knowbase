@@ -21,7 +21,9 @@ from internal.ports.domain import (
 )
 from internal.ports.backlog import EventBacklogPort, EventWorkerPort
 from internal.ports.product import IngestUseCase, QueryUseCase
-from internal.ports.knowledge import KnowledgeDispatchPort
+from internal.ports.knowledge import (
+    KnowledgeBatchNotificationPort,
+)
 from internal.ports.runtime import RuntimeHarnessPort, RuntimeRunPort, SkillExecutionPort
 
 __all__ = [
@@ -38,7 +40,7 @@ __all__ = [
     "EventPublisherPort",
     "EventWorkerPort",
     "IngestUseCase",
-    "KnowledgeDispatchPort",
+    "KnowledgeBatchNotificationPort",
     "PartitionAccessPort",
     "PartitionLookupPort",
     "PartitionProfileReadPort",

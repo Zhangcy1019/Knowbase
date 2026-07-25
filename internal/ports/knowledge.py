@@ -1,17 +1,16 @@
-"""Cross-module ports for knowledge-owned task shaping."""
+"""Cross-module ports for Knowledge batch notifications."""
 
 from __future__ import annotations
 
-from typing import Protocol
+from typing import Any, Protocol
 
-from internal.runtime.contracts import RuntimeRunRequest
+class KnowledgeBatchNotificationPort(Protocol):
+    """Notify Knowledge that a backlog batch is ready for maintenance."""
 
-
-class KnowledgeDispatchPort(Protocol):
-    """Turn business-owned work batches into runtime requests."""
-
-    def build_runtime_request(self, *, batch) -> RuntimeRunRequest:
+    async def notify_batch(self, *, batch) -> None:
         ...
 
 
-__all__ = ["KnowledgeDispatchPort"]
+__all__ = [
+    "KnowledgeBatchNotificationPort",
+]

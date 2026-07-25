@@ -26,11 +26,10 @@ from internal.backlog.worker import KnowbaseEventWorker
 from internal.domain.case.draft_builder import KnowbaseCaseDraftBuilder
 from internal.domain.case.facet_resolver import KnowbaseCaseFacetResolver
 from internal.domain.case.ingestor import KnowbaseCaseIngestor
-from internal.knowledge.dispatch import (
-    KnowbaseKnowledgeDispatchService,
-    RuntimeRequestBuilder,
-)
-from internal.knowledge.planning import BacklogPreparationPlanner, BatchWorkingSetBuilder
+from internal.knowledge.integrations import RuntimeRequestFactory
+from internal.knowledge.service import KnowbaseKnowledgeService
+from internal.knowledge.workflow import KnowledgeDrainWorkflow
+from internal.knowledge.batch import BatchContextBuilder, BatchWorkingSetBuilder
 from internal.models import IngestRequest, PartitionDocument
 from internal.runtime.service import KnowbaseRuntimeService
 from internal.runtime.skills import SkillRuntime
@@ -67,19 +66,22 @@ class RuntimeRoutesIntegrationTest(unittest.TestCase):
         self._ingest_service = self._build_ingest_service(core=self._core)
         self._runtime_service = self._build_runtime_service(core=self._core)
         self._backlog_service = KnowbaseEventBacklogService(repository=self._core.event_record_repository)
-        self._dispatch_service = KnowbaseKnowledgeDispatchService(
-            request_builder=RuntimeRequestBuilder(
+        self._knowledge_service = KnowbaseKnowledgeService(
+            backlog_service=self._backlog_service,
+            workflow=KnowledgeDrainWorkflow(
+                request_factory=RuntimeRequestFactory(
                 working_set_builder=BatchWorkingSetBuilder(),
-                preparation_planner=BacklogPreparationPlanner(
+                context_builder=BatchContextBuilder(
                     partition_service=self._core.partition_service,
                     case_repository=self._core.case_repository,
                 ),
+                ),
+                runtime_service=self._runtime_service,
             ),
         )
         self._event_worker = KnowbaseEventWorker(
             backlog_service=self._backlog_service,
-            dispatch_service=self._dispatch_service,
-            runtime_service=self._runtime_service,
+            knowledge_service=self._knowledge_service,
         )
         app = FastAPI()
         register_runtime_routes(

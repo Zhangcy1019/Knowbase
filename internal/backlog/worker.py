@@ -2,12 +2,9 @@
 
 from __future__ import annotations
 
-from datetime import timedelta
-
 from pydantic import BaseModel, Field
 
-from internal.ports import KnowledgeDispatchPort, RuntimeHarnessPort
-from internal.runtime.contracts import RuntimeRunResult
+from internal.ports import KnowledgeBatchNotificationPort
 from internal.utils.logger import get_logger
 
 from .queue import KnowbaseEventBacklogService
@@ -17,14 +14,14 @@ logger = get_logger("knowbase.events.worker")
 
 
 class EventWorkerRunResult(BaseModel):
-    """Structured result of one backlog drain cycle."""
+    """Structured result of one asynchronous Knowledge submission."""
 
     batch_id: str = ""
     attempted_count: int = 0
     completed_count: int = 0
     failed_count: int = 0
     event_ids: list[str] = Field(default_factory=list)
-    runtime_result: RuntimeRunResult | None = None
+    accepted: bool = False
 
 
 class KnowbaseEventWorker:
@@ -34,12 +31,10 @@ class KnowbaseEventWorker:
         self,
         *,
         backlog_service: KnowbaseEventBacklogService,
-        dispatch_service: KnowledgeDispatchPort,
-        runtime_service: RuntimeHarnessPort,
+        knowledge_service: KnowledgeBatchNotificationPort,
     ):
         self._backlog_service = backlog_service
-        self._dispatch_service = dispatch_service
-        self._runtime_service = runtime_service
+        self._knowledge_service = knowledge_service
 
     async def run_once(
         self,
@@ -60,7 +55,7 @@ class KnowbaseEventWorker:
             )
             return EventWorkerRunResult()
         logger.info(
-            "Assembled backlog batch for runtime.",
+                "Assembled backlog batch for Knowledge.",
             extra={
                 "batch_id": batch.batch_id,
                 "partition": batch.partition,
@@ -70,64 +65,12 @@ class KnowbaseEventWorker:
             },
         )
         self._backlog_service.mark_batch_running(event_ids=batch.event_ids)
-        request = self._dispatch_service.build_runtime_request(batch=batch)
-        runtime_result = await self._runtime_service.run_request(request=request)
-        run_failed = runtime_result.status == "failed" or not runtime_result.run_id
-        if run_failed:
-            failed_skill_results = [item for item in runtime_result.skill_results if not item.ok]
-            logger.warning(
-                "Backlog batch runtime failed.",
-                extra={
-                    "batch_id": batch.batch_id,
-                    "partition": batch.partition,
-                    "event_count": batch.event_count,
-                    "run_id": runtime_result.run_id,
-                    "failed_skills": [
-                        {
-                            "skill_id": item.skill_id,
-                            "invocation_id": item.invocation_id,
-                            "error_message": item.error_message,
-                        }
-                        for item in failed_skill_results
-                    ],
-                    "reasoning_summary": runtime_result.reasoning_summary,
-                    "final_summary": runtime_result.final_summary,
-                },
-            )
-            self._backlog_service.fail_batch(
-                event_ids=batch.event_ids,
-                error_message="runtime failed or did not materialize a backlog run",
-                next_retry_at=(batch.assembled_at + timedelta(minutes=15)) if batch.assembled_at else None,
-                last_run_at=batch.assembled_at,
-            )
-            return EventWorkerRunResult(
-                batch_id=batch.batch_id,
-                attempted_count=batch.event_count,
-                completed_count=0,
-                failed_count=batch.event_count,
-                event_ids=batch.event_ids,
-                runtime_result=runtime_result,
-            )
-        logger.info(
-            "Backlog batch runtime completed.",
-            extra={
-                "batch_id": batch.batch_id,
-                "partition": batch.partition,
-                "event_count": batch.event_count,
-                "run_id": runtime_result.run_id,
-                "run_status": runtime_result.status,
-            },
-        )
-        self._backlog_service.complete_batch(
-            event_ids=batch.event_ids,
-            run_id=runtime_result.run_id,
-            last_run_at=batch.assembled_at,
-        )
+        await self._knowledge_service.notify_batch(batch=batch)
         return EventWorkerRunResult(
             batch_id=batch.batch_id,
             attempted_count=batch.event_count,
-            completed_count=batch.event_count,
+            completed_count=0,
             failed_count=0,
             event_ids=batch.event_ids,
-            runtime_result=runtime_result,
+            accepted=True,
         )

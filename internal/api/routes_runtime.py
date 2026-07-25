@@ -292,7 +292,9 @@ def register_runtime_routes(app: FastAPI, *, deps: KnowbaseRouteDeps) -> None:
     @app.post("/api/knowbase/runtime/maintenance/drain-backlog", response_model=MaintenanceActionResponse)
     async def drain_backlog(req: PartitionMaintenanceRequest) -> MaintenanceActionResponse:
         result = await deps.event_worker.run_once(partition=req.partition, limit=req.limit, trigger_source="manual")
-        runtime_result = result.runtime_result
+        event_record = deps.event_backlog_service.get_event(result.event_ids[0]) if result.event_ids else None
+        run_id = "" if event_record is None else event_record.run_id
+        run = deps.runtime_service.get_run(run_id) if run_id else None
         return MaintenanceActionResponse(
             action="drain_backlog",
             ok=result.failed_count == 0,
@@ -304,9 +306,9 @@ def register_runtime_routes(app: FastAPI, *, deps: KnowbaseRouteDeps) -> None:
                 "completed_count": result.completed_count,
                 "failed_count": result.failed_count,
                 "event_ids": result.event_ids,
-                "run_id": "" if runtime_result is None else runtime_result.run_id,
-                "run_status": "" if runtime_result is None else runtime_result.status,
-                "requires_review": False if runtime_result is None else runtime_result.requires_review,
+                "run_id": run_id,
+                "run_status": "accepted" if run is None and result.accepted else ("" if run is None else run.status),
+                "requires_review": False if run is None else run.requires_review,
             },
         )
 

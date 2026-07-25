@@ -13,6 +13,7 @@ from internal.models import EventRecord, KnowbaseCaseDocument, KnowbaseCaseSearc
 from internal.models.facet import PartitionFacetIndex, PartitionFacetIndexDocument, PartitionFacetSchemaDocument
 from internal.models.partition_semantic_index import PartitionSemanticIndex, PartitionSemanticIndexDocument
 from internal.models.run import AgentRun, RunArtifact, RunStep
+from internal.knowledge.statistics.models import SemanticObservation, StatisticsSnapshot
 from internal.utils.config import RuntimeConfig
 
 
@@ -142,6 +143,57 @@ class PartitionSemanticIndexRepository:
     def delete(self, partition_name: str) -> dict[str, Any]:
         self._store.delete(partition_name)
         return {"acknowledged": True}
+
+
+class StatisticsObservationRepository:
+    """Append and read Knowledge statistics observations as JSONL."""
+
+    def __init__(self, root: Path):
+        self._root = root / "knowledge_statistics"
+
+    def append(self, observation: SemanticObservation) -> SemanticObservation:
+        partition_root = self._root / observation.partition
+        partition_root.mkdir(parents=True, exist_ok=True)
+        path = partition_root / "observations.jsonl"
+        with path.open("a", encoding="utf-8") as stream:
+            stream.write(json.dumps(observation.model_dump(mode="json"), ensure_ascii=False))
+            stream.write("\n")
+        return observation
+
+    def list_by_partition(self, partition: str) -> list[SemanticObservation]:
+        path = self._root / partition / "observations.jsonl"
+        if not path.exists():
+            return []
+        observations: list[SemanticObservation] = []
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if line.strip():
+                observations.append(SemanticObservation.model_validate(json.loads(line)))
+        return observations
+
+
+class StatisticsSnapshotRepository:
+    """Persist the current statistics snapshot for a partition."""
+
+    def __init__(self, root: Path):
+        self._root = root / "knowledge_statistics"
+
+    def get(self, partition: str) -> StatisticsSnapshot | None:
+        path = self._root / partition / "snapshot.json"
+        if not path.exists():
+            return None
+        return StatisticsSnapshot.model_validate(json.loads(path.read_text(encoding="utf-8")))
+
+    def upsert(self, snapshot: StatisticsSnapshot) -> StatisticsSnapshot:
+        partition_root = self._root / snapshot.partition
+        partition_root.mkdir(parents=True, exist_ok=True)
+        path = partition_root / "snapshot.json"
+        temporary = path.with_suffix(".json.tmp")
+        temporary.write_text(
+            json.dumps(snapshot.model_dump(mode="json"), ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        temporary.replace(path)
+        return snapshot
 
 
 class KnowbaseCaseRepository:
