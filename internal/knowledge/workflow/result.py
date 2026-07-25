@@ -12,9 +12,10 @@ class KnowledgeWorkflowResult:
     batch_id: str = ""
     status: str = "failed"
     iteration: int = 0
-    runtime_run_ids: list[str] = field(default_factory=list)
-    patch_id: str = ""
+    mutation_plan_id: str = ""
+    committed_revision: str = ""
     schema_changed: bool = False
+    applied_case_ids: list[str] = field(default_factory=list)
     requires_review: bool = False
     error_message: str = ""
 

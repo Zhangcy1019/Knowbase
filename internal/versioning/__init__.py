@@ -1,5 +1,5 @@
 """Application-independent workspace versioning policies."""
 
-from internal.versioning.commit_coordinator import KnowledgeMutationTransaction, VersionCommitCoordinator
+from internal.versioning.commit_coordinator import MutationTransaction, VersionCommitCoordinator
 
-__all__ = ["KnowledgeMutationTransaction", "VersionCommitCoordinator"]
+__all__ = ["MutationTransaction", "VersionCommitCoordinator"]

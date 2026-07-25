@@ -21,6 +21,7 @@ from internal.infrastructure.persistence import build_persistence_bundle
 from internal.infrastructure.version_control.git import GitRepository
 from internal.versioning import VersionCommitCoordinator
 from internal.knowledge.projection import CaseFacetProjector, KnowledgeProjectionService
+from internal.knowledge.execution import KnowledgeMutationExecutor
 from internal.knowledge.statistics import (
     KnowledgeStatisticsService,
     QueryStatisticsService,
@@ -66,6 +67,7 @@ class CoreProviders:
     statistics_service: KnowledgeStatisticsService
     query_statistics_service: QueryStatisticsService
     projection_service: KnowledgeProjectionService
+    mutation_executor: KnowledgeMutationExecutor
 
 
 @dataclass(slots=True)
@@ -142,6 +144,10 @@ def build_core_providers(*, runtime_cfg: RuntimeConfig) -> CoreProviders:
         case_repository=case_repository,
         projector=CaseFacetProjector(facet_resolver=facet_resolver),
     )
+    mutation_executor = KnowledgeMutationExecutor(
+        case_repository=case_repository,
+        partition_service=partition_service,
+    )
     return CoreProviders(
         runtime_cfg=runtime_cfg,
         partition_service=partition_service,
@@ -160,6 +166,7 @@ def build_core_providers(*, runtime_cfg: RuntimeConfig) -> CoreProviders:
         statistics_service=statistics_service,
         query_statistics_service=query_statistics_service,
         projection_service=projection_service,
+        mutation_executor=mutation_executor,
         versioning=versioning,
     )
 

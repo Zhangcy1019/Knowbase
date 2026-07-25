@@ -2,7 +2,7 @@
 
 本文档定义 Knowbase `knowledge` 模块的 v1 总体架构。
 
-目标：围绕 `case 原文 -> case 结构化结果 -> knowledge 统计索引 -> 分区 facet 收敛 -> case facet 重投影 -> 可逆 patch 执行` 建立一条稳定、可解释、可回滚的知识整理主线。
+目标：围绕 `case 原文 -> case 结构化结果 -> knowledge 统计索引 -> 分区 facet 收敛 -> case facet 重投影 -> 可审计 mutation 执行` 建立一条稳定、可解释、可回滚的知识整理主线。
 
 ## 1. 核心边界
 
@@ -32,13 +32,9 @@ Knowledge v1 的主目标不是直接整理文档，而是先稳定分区级 sch
   - 接收 case / query 的结构化统计输入
   - 分区统计与索引
   - facet 收敛判定
-  - patch 生成
+  - mutation plan 生成
   - 熔断评估
-- `runtime` 负责：
-  - 接收知识任务
-  - 调用 tool / skill 落地执行
-  - 记录运行轨迹
-  - 做执行期验证
+- `runtime` 可作为后续只读分析或受限子任务的通用 agent 底座；它不属于 facet 收敛和 mutation 执行的默认闭环。
 
 ## 2. v1 单向算法链
 
@@ -55,8 +51,8 @@ Knowledge v1 必须保持单向计算，不允许形成统计自举回路。
 7. 基于当前 `PartitionSemanticIndex + 当前 facet schema` 进行 `facet key convergence`
 8. 若 facet schema proposal 通过熔断评估，则生成新的 partition facet schema
 9. 使用新的 facet schema 对受影响 case 重新投影 `case facet`
-10. 输出一个批次级 `KnowledgePatch`
-11. 通过 git 管理的 patch 执行链进行提交 / 回滚 / 封存
+10. 输出一个批次级 `KnowledgeMutationPlan`
+11. 通过 `MutationTransaction` 执行并由 Git 提交 / 回滚
 
 ## 3. 分层模型
 
@@ -80,7 +76,7 @@ Knowledge v1 必须保持单向计算，不允许形成统计自举回路。
 
 ### 3.4 执行层
 
-- `KnowledgePatch`
+- `KnowledgeMutationPlan`
 - git commit / branch / revert / archive
 
 ## 4. v1 明确不做的事情
@@ -100,7 +96,7 @@ v1 不进入以下能力：
 
 ### 5.1 Domain Model
 
-定义 Knowledge 的领域对象：case/query observation、partition statistics、facet schema、convergence proposal、batch 和 `KnowledgePatch`。不负责外部读写和 runtime 调用。
+定义 Knowledge 的领域对象：case/query observation、partition statistics、facet schema、convergence proposal、batch 和 `KnowledgeMutationPlan`。不负责外部读写和 runtime 调用。
 
 ### 5.2 Statistics
 
@@ -137,21 +133,17 @@ v1 不进入以下能力：
 - 输出 projection change
 - 不负责决定 schema 是否变化
 
-### 5.5 Patch
+### 5.5 Execution
 
 职责：
 
-- 生成可逆 `KnowledgePatch`
-- 保存 patch 和快照
-- 通过 Git 执行提交、回滚与封存
+- 组合 `FacetGovernanceResult` 与 `ProjectionPlan` 为 `KnowledgeMutationPlan`
+- 校验并写入 schema 与 case facet
+- 通过 Git `MutationTransaction` 提交或回滚
 
-### 5.6 Integrations
+### 5.6 Workflow
 
-负责 backlog、case、partition 和 runtime 的边界适配，不承载 Knowledge 算法。
-
-### 5.7 Workflow
-
-`KnowledgeDrainWorkflow` 是顶层编排者，负责串联 batch、statistics、schema、projection、patch 和 runtime request，但不实现这些模块内部的算法。
+`KnowledgeDrainWorkflow` 是顶层编排者，负责串联 batch、statistics、facet governance、projection、execution 和版本事务，但不实现这些模块内部的算法。
 
 Backlog 只向 Knowledge 投递 batch，不等待 runtime 结果。Knowledge service 将 batch 放入自己的后台处理任务，由该任务独立调用 runtime 一次或多次，并在最终完成后通过 `EventBacklogPort` 更新 backlog 状态。backlog port 只负责 batch 生命周期，不暴露 runtime 执行接口。
 
@@ -159,15 +151,11 @@ Backlog 只向 Knowledge 投递 batch，不等待 runtime 结果。Knowledge ser
 KnowledgeDrainWorkflow
   -> batch resolver
   -> StatisticsService
-  -> SchemaService
+  -> FacetGovernanceService
   -> ProjectionService
-  -> PatchService
-  -> RuntimeRequestFactory
+  -> KnowledgeMutationExecutor
+  -> MutationTransaction
 ```
-
-### 5.8 Capability Registration
-
-Knowledge 的 skill/tool 只作为能力声明或注册适配。具体能力注册和执行仍由 runtime 负责，不属于 Knowledge 主领域链路。
 
 ## 6. v1 设计原则
 
@@ -175,7 +163,7 @@ Knowledge 的 skill/tool 只作为能力声明或注册适配。具体能力注�
 2. `facet` 是主轴，`semantic candidates` 是统计中间层
 3. 先收敛 key，再考虑 value
 4. 先稳定 schema，再做 case refit
-5. 只允许可逆 patch
+5. 只允许经 `before_facets` 校验的可逆 mutation
 6. 任何高风险结构变更都必须经过熔断评估
 7. 无法安全自动执行时，整批封存而不是部分提交
 
@@ -190,10 +178,8 @@ internal/knowledge/
   batch/
   statistics/
   facet_governance/
-  schema/
   projection/
-  patch/
-  integrations/
+  execution/
   workflow/
   service.py
 ```
@@ -206,8 +192,7 @@ internal/knowledge/
 - `statistics/`: 统计输入、聚合、索引与快照
 - `facet_governance/`: facet schema 分析、收敛与安全策略；对外通过 `assess()` 提供统一治理入口
 - `projection/`: case facet 重投影
-- `patch/`: KnowledgePatch 生成、持久化与 Git 应用
-- `integrations/`: case、partition、runtime 边界适配
+- `execution/`: `KnowledgeMutationPlan` 的校验与落盘；Git 事务由顶层 `versioning/` 负责
 - `workflow/`: 顶层 Knowledge 编排
 - `service.py`: Knowledge 对外统一入口，支持 batch、手动 API 等多种触发源
 
@@ -220,7 +205,7 @@ Knowledge v1 的主闭环是：
 - `partition semantic index`
 - `facet key convergence`
 - `case facet refit`
-- `KnowledgePatch`
-- `runtime execution`
+- `KnowledgeMutationPlan`
+- `MutationTransaction`
 
 这一闭环先于文档整理与更高层知识主轴管理。目录表达功能边界，实际执行顺序只存在于 `workflow/`。

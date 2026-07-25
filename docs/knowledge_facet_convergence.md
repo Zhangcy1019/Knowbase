@@ -39,9 +39,7 @@ facet 收敛算法输入为：
 - `estimated_coverage_gain`
 - `estimated_migration_cost`
 
-最终转为：
-
-- `PartitionFacetSchemaPatch`
+最终作为 `FacetGovernanceResult.accepted_schema`，与 case 的 `ProjectionPlan` 一起组成 `KnowledgeMutationPlan`。
 
 ## 4. promotion 判定
 

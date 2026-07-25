@@ -39,42 +39,42 @@ class KnowbaseKnowledgeService(KnowledgeBatchNotificationPort):
             extra={"batch_id": batch.batch_id, "partition": batch.partition},
         )
 
-    async def submit_manual(self, *, request) -> None:
-        """Submit a manually triggered Knowledge request asynchronously."""
+    async def submit_manual(self, *, batch) -> None:
+        """Submit a manually triggered Knowledge batch asynchronously."""
         task = asyncio.create_task(
-            self._process_request(request=request),
-            name=f"knowledge:manual:{getattr(request, 'request_id', 'request')}",
+            self._process_request(batch=batch),
+            name=f"knowledge:manual:{batch.batch_id}",
         )
         self._tasks.add(task)
         task.add_done_callback(self._tasks.discard)
 
-    async def _process_request(self, *, request) -> None:
+    async def _process_request(self, *, batch) -> None:
         try:
-            await self._workflow.run_manual(request=request)
+            await self._workflow.run_manual(batch=batch)
         except Exception:
             logger.exception(
                 "Manual Knowledge request crashed.",
-                extra={"request_id": getattr(request, "request_id", "")},
+                extra={"batch_id": batch.batch_id},
             )
 
     async def _process_batch(self, batch) -> None:
         try:
             workflow_result = await self._workflow.run_batch(batch=batch)
-            if workflow_result.status == "failed" or not workflow_result.runtime_run_ids:
+            if workflow_result.status != "completed":
                 logger.warning(
-                    "Knowledge batch runtime failed.",
-                    extra={"batch_id": batch.batch_id, "run_ids": workflow_result.runtime_run_ids},
+                    "Knowledge batch did not complete.",
+                    extra={"batch_id": batch.batch_id, "mutation_plan_id": workflow_result.mutation_plan_id},
                 )
                 self._backlog_service.fail_batch(
                     event_ids=batch.event_ids,
-                    error_message="knowledge runtime failed or did not materialize a run",
+                    error_message=workflow_result.error_message or "knowledge processing did not complete",
                     next_retry_at=(batch.assembled_at + timedelta(minutes=15)) if batch.assembled_at else None,
                     last_run_at=batch.assembled_at,
                 )
                 return
             self._backlog_service.complete_batch(
                 event_ids=batch.event_ids,
-                run_id=workflow_result.runtime_run_ids[-1],
+                run_id=workflow_result.committed_revision or workflow_result.mutation_plan_id,
                 last_run_at=batch.assembled_at,
             )
         except Exception as exc:

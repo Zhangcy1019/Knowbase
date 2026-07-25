@@ -23,7 +23,6 @@ from internal.backlog.worker import KnowbaseEventWorker
 from internal.domain.case.draft_builder import KnowbaseCaseDraftBuilder
 from internal.domain.case.facet_resolver import KnowbaseCaseFacetResolver
 from internal.domain.case.ingestor import KnowbaseCaseIngestor
-from internal.knowledge.integrations import RuntimeRequestFactory
 from internal.knowledge.service import KnowbaseKnowledgeService
 from internal.knowledge.workflow import KnowledgeDrainWorkflow
 from internal.knowledge.batch import BatchContextBuilder, BatchWorkingSetBuilder
@@ -102,14 +101,12 @@ class LocalMinimalFlowIntegrationTest(unittest.TestCase):
         knowledge_service = KnowbaseKnowledgeService(
             backlog_service=backlog_service,
             workflow=KnowledgeDrainWorkflow(
-                request_factory=RuntimeRequestFactory(
                 working_set_builder=BatchWorkingSetBuilder(),
-                context_builder=BatchContextBuilder(
-                    partition_service=core.partition_service,
-                    case_repository=core.case_repository,
-                ),
-                ),
-                runtime_service=runtime_service,
+                partition_service=core.partition_service,
+                statistics=core.statistics_service,
+                projection=core.projection_service,
+                mutation_executor=core.mutation_executor,
+                versioning=core.versioning,
             ),
         )
         worker = KnowbaseEventWorker(

@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 from internal.knowledge.ports import (
-    KnowledgePatchBuilderPort,
     KnowledgeProjectionPort,
     KnowledgeFacetGovernancePort,
     KnowledgeStatisticsReaderPort,
 )
+from internal.knowledge.batch import BatchWorkingSetBuilder
+from internal.knowledge.model import KnowledgeMutationPlan
 from internal.knowledge.workflow.result import KnowledgeWorkflowResult
 
 
@@ -17,31 +18,25 @@ class KnowledgeDrainWorkflow:
     def __init__(
         self,
         *,
-        request_factory,
-        runtime_service,
+        working_set_builder: BatchWorkingSetBuilder | None = None,
+        partition_service=None,
         statistics: KnowledgeStatisticsReaderPort | None = None,
         facet_governance: KnowledgeFacetGovernancePort | None = None,
         projection: KnowledgeProjectionPort | None = None,
-        patch: KnowledgePatchBuilderPort | None = None,
+        mutation_executor=None,
         versioning=None,
     ):
-        self._request_factory = request_factory
-        self._runtime_service = runtime_service
+        self._working_set_builder = working_set_builder or BatchWorkingSetBuilder()
+        self._partition_service = partition_service
         self._statistics = statistics
         self._facet_governance = facet_governance
         self._projection = projection
-        self._patch = patch
+        self._mutation_executor = mutation_executor
         self._versioning = versioning
 
     async def run_batch(self, *, batch):
         """Run the current batch workflow and return a Knowledge result."""
-        transaction = (
-            self._versioning.begin_transaction(
-                message=f"knowledge: update partition {batch.partition}"
-            )
-            if self._versioning
-            else None
-        )
+        working_set = self._working_set_builder.build(batch=batch)
         statistics = (
             self._statistics.load_partition_statistics(partition=batch.partition)
             if self._statistics
@@ -50,41 +45,74 @@ class KnowledgeDrainWorkflow:
         governance = (
             self._facet_governance.assess(
                 statistics=statistics,
-                current_schema=None,
-                working_set=batch,
+                current_schema=(
+                    self._partition_service.get_facet_schema(batch.partition)
+                    if self._partition_service is not None
+                    else None
+                ),
+                working_set=working_set,
             )
             if self._facet_governance
             else None
+        )
+        if governance is None:
+            return KnowledgeWorkflowResult(
+                batch_id=batch.batch_id,
+                status="requires_review",
+                iteration=1,
+                requires_review=True,
+                error_message="facet governance is not configured",
+            )
+        if governance.decision != "accepted":
+            return KnowledgeWorkflowResult(
+                batch_id=batch.batch_id,
+                status="requires_review" if governance.requires_review else "completed",
+                iteration=1,
+                requires_review=governance.requires_review,
+                error_message="; ".join(governance.reasons),
+            )
+        target_case_ids = (
+            list(governance.rebuild.target_case_ids)
+            if governance.rebuild is not None and governance.rebuild.target_case_ids
+            else list(working_set.affected_case_ids)
         )
         projection = (
             self._projection.plan(
                 partition=batch.partition,
                 accepted_schema=governance.accepted_schema,
-                case_ids=[],
+                case_ids=target_case_ids,
             )
-            if self._projection and governance and governance.accepted_schema is not None
+            if self._projection and governance.accepted_schema is not None
             else None
         )
-        patch = (
-            self._patch.build(
-                schema_change=governance,
-                projection_change=projection,
-                batch=batch,
+        mutation_plan = KnowledgeMutationPlan.from_governance(
+            batch=batch,
+            governance=governance,
+            projection=projection,
+        )
+        if self._mutation_executor is None:
+            return KnowledgeWorkflowResult(
+                batch_id=batch.batch_id,
+                status="requires_review",
+                iteration=1,
+                mutation_plan_id=mutation_plan.plan_id,
+                requires_review=True,
+                error_message="knowledge mutation executor is not configured",
             )
-            if self._patch and governance
+        transaction = (
+            self._versioning.begin_transaction(
+                message=f"knowledge: update partition {batch.partition}"
+            )
+            if self._versioning
             else None
         )
-        request = self._request_factory.build_for_batch(batch=batch, patch=patch)
         try:
-            runtime_result = await self._runtime_service.run_request(request=request)
-            if runtime_result.status == "completed":
-                if transaction is not None:
-                    if self._statistics and hasattr(self._statistics, "stamp_source_revision"):
-                        self._statistics.stamp_source_revision(
-                            partition=batch.partition,
-                            source_revision=transaction.base_revision,
-                        )
-                    transaction.commit()
+            if transaction is not None:
+                transaction.register_paths(self._mutation_executor.planned_paths(plan=mutation_plan))
+            apply_result = self._mutation_executor.apply(plan=mutation_plan)
+            if transaction is not None:
+                transaction.register_paths(apply_result.updated_paths)
+                commit = transaction.commit()
         except Exception:
             if transaction is not None:
                 transaction.register_paths(transaction.changed_paths())
@@ -92,20 +120,14 @@ class KnowledgeDrainWorkflow:
             raise
         return KnowledgeWorkflowResult(
             batch_id=batch.batch_id,
-            status=runtime_result.status,
+            status="completed",
             iteration=1,
-            runtime_run_ids=[runtime_result.run_id] if runtime_result.run_id else [],
-            requires_review=runtime_result.requires_review,
-            error_message=runtime_result.final_summary if runtime_result.status == "failed" else "",
+            mutation_plan_id=mutation_plan.plan_id,
+            committed_revision=commit.revision if transaction is not None else "",
+            schema_changed=mutation_plan.accepted_schema is not None,
+            applied_case_ids=apply_result.updated_case_ids,
         )
 
-    async def run_manual(self, *, request):
-        """Run a manually constructed Knowledge request."""
-        runtime_result = await self._runtime_service.run_request(request=request)
-        return KnowledgeWorkflowResult(
-            status=runtime_result.status,
-            iteration=1,
-            runtime_run_ids=[runtime_result.run_id] if runtime_result.run_id else [],
-            requires_review=runtime_result.requires_review,
-            error_message=runtime_result.final_summary if runtime_result.status == "failed" else "",
-        )
+    async def run_manual(self, *, batch):
+        """Run one manually submitted Knowledge batch through the same pipeline."""
+        return await self.run_batch(batch=batch)

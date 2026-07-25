@@ -6,12 +6,9 @@ from internal.knowledge.facet_governance import (
     KnowledgeCircuitBreaker,
     PartitionFitMetrics,
 )
-from internal.knowledge.integrations import RuntimeRequestFactory
 from internal.knowledge.model import (
-    CaseFacetPatch,
     CaseSemanticCandidate,
-    KnowledgePatch,
-    PartitionFacetSchemaPatch,
+    KnowledgeMutationPlan,
     PartitionSemanticIndex,
 )
 from internal.knowledge.statistics import (
@@ -28,7 +25,7 @@ from internal.knowledge.statistics import (
     StatisticsSupportFilter,
     StatisticsObservationNormalizer,
 )
-from internal.knowledge.patch import KnowledgePatchApplier, KnowledgePatchBuilder, PatchEnvelope
+from internal.knowledge.execution import KnowledgeMutationExecutor
 from internal.knowledge.batch import BatchContextBuilder, BatchWorkingSetBuilder
 from internal.knowledge.service import KnowbaseKnowledgeService
 from internal.knowledge.projection import CaseFacetProjector
@@ -40,25 +37,20 @@ from internal.knowledge.workflow import KnowledgeDrainWorkflow
 __all__ = [
     "BatchContextBuilder",
     "BatchWorkingSetBuilder",
-    "CaseFacetPatch",
     "CaseFacetProjector",
     "CaseSemanticCandidate",
     "CaseObservation",
     "CaseSupportQuery",
     "FacetFreezePolicy",
     "FacetKeyConvergencePlanner",
-    "KnowledgePatchApplier",
-    "PatchEnvelope",
+    "KnowledgeMutationExecutor",
     "KnowledgeCircuitBreaker",
-    "KnowledgePatch",
-    "KnowledgePatchBuilder",
+    "KnowledgeMutationPlan",
     "KnowledgeProjectionService",
     "KnowbaseKnowledgeService",
-    "PartitionFacetSchemaPatch",
     "PartitionFitMetrics",
     "PartitionSemanticIndex",
     "QueryObservation",
-    "RuntimeRequestFactory",
     "SemanticObservation",
     "StatisticsReader",
     "StatisticsAggregator",

@@ -26,7 +26,6 @@ from internal.backlog.worker import KnowbaseEventWorker
 from internal.domain.case.draft_builder import KnowbaseCaseDraftBuilder
 from internal.domain.case.facet_resolver import KnowbaseCaseFacetResolver
 from internal.domain.case.ingestor import KnowbaseCaseIngestor
-from internal.knowledge.integrations import RuntimeRequestFactory
 from internal.knowledge.service import KnowbaseKnowledgeService
 from internal.knowledge.workflow import KnowledgeDrainWorkflow
 from internal.knowledge.batch import BatchContextBuilder, BatchWorkingSetBuilder
@@ -69,14 +68,12 @@ class RuntimeRoutesIntegrationTest(unittest.TestCase):
         self._knowledge_service = KnowbaseKnowledgeService(
             backlog_service=self._backlog_service,
             workflow=KnowledgeDrainWorkflow(
-                request_factory=RuntimeRequestFactory(
                 working_set_builder=BatchWorkingSetBuilder(),
-                context_builder=BatchContextBuilder(
-                    partition_service=self._core.partition_service,
-                    case_repository=self._core.case_repository,
-                ),
-                ),
-                runtime_service=self._runtime_service,
+                partition_service=self._core.partition_service,
+                statistics=self._core.statistics_service,
+                projection=self._core.projection_service,
+                mutation_executor=self._core.mutation_executor,
+                versioning=self._core.versioning,
             ),
         )
         self._event_worker = KnowbaseEventWorker(

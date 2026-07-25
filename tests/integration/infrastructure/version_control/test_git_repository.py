@@ -10,7 +10,7 @@ from tempfile import TemporaryDirectory
 import subprocess
 import unittest
 
-from internal.versioning import KnowledgeMutationTransaction, VersionCommitCoordinator
+from internal.versioning import MutationTransaction, VersionCommitCoordinator
 from internal.infrastructure.version_control.git import GitRepository
 
 
@@ -20,7 +20,7 @@ class GitRepositoryIntegrationTest(unittest.TestCase):
             root = Path(directory)
             repository = GitRepository(root=root)
             base_revision = repository.initialize()
-            transaction = KnowledgeMutationTransaction(
+            transaction = MutationTransaction(
                 version_control=repository,
                 message="knowledge: apply mutation",
             )

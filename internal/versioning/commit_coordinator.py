@@ -6,7 +6,7 @@ from internal.models.version_control import VersionCommit
 from internal.ports.version_control import VersionControlPort
 
 
-class KnowledgeMutationTransaction:
+class MutationTransaction:
     """Stage one workspace mutation and commit or restore it as a unit."""
 
     def __init__(self, *, version_control: VersionControlPort, message: str):
@@ -60,8 +60,8 @@ class VersionCommitCoordinator:
             raise RuntimeError("Knowledge governance requires a clean working tree")
         return status.revision
 
-    def begin_transaction(self, *, message: str) -> KnowledgeMutationTransaction:
-        return KnowledgeMutationTransaction(version_control=self._version_control, message=message)
+    def begin_transaction(self, *, message: str) -> MutationTransaction:
+        return MutationTransaction(version_control=self._version_control, message=message)
 
     def commit_case_ingest(self, *, paths: list[str], case_id: str) -> VersionCommit:
         return self._version_control.commit(message=f"ingest: add or update case {case_id}", paths=paths)
@@ -82,4 +82,4 @@ class VersionCommitCoordinator:
         )
 
 
-__all__ = ["KnowledgeMutationTransaction", "VersionCommitCoordinator"]
+__all__ = ["MutationTransaction", "VersionCommitCoordinator"]

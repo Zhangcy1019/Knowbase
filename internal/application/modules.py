@@ -7,11 +7,9 @@ from dataclasses import dataclass
 from internal.agents.product import AnswerSynthesisAgent
 from internal.backlog.queue import KnowbaseEventBacklogService
 from internal.backlog.worker import KnowbaseEventWorker
-from internal.knowledge.integrations import RuntimeRequestFactory
 from internal.knowledge.service import KnowbaseKnowledgeService
 from internal.knowledge.workflow import KnowledgeDrainWorkflow
-from internal.knowledge.batch import BatchContextBuilder, BatchWorkingSetBuilder
-from internal.knowledge.service import KnowbaseKnowledgeService
+from internal.knowledge.batch import BatchWorkingSetBuilder
 from internal.ports import EventBacklogPort, EventWorkerPort, IngestUseCase, QueryUseCase, RuntimeRunPort
 from internal.product.ingest.service import KnowbaseIngestService
 from internal.product.ingest.validator import KnowbaseIngestValidator
@@ -82,18 +80,13 @@ def build_runtime_module(
         trace_recorder=trace_recorder,
     )
     event_backlog_service = KnowbaseEventBacklogService(repository=core.event_record_repository)
-    request_factory = RuntimeRequestFactory(
-        working_set_builder=BatchWorkingSetBuilder(),
-        context_builder=BatchContextBuilder(
-            partition_service=core.partition_service,
-            case_repository=core.case_repository,
-        ),
-    )
     knowledge_workflow = KnowledgeDrainWorkflow(
-        request_factory=request_factory,
-        runtime_service=runtime_service,
+        working_set_builder=BatchWorkingSetBuilder(),
+        partition_service=core.partition_service,
+        statistics=core.statistics_service,
         versioning=core.versioning,
         projection=core.projection_service,
+        mutation_executor=core.mutation_executor,
     )
     knowledge_service = KnowbaseKnowledgeService(
         backlog_service=event_backlog_service,

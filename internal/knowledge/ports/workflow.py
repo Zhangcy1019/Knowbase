@@ -12,7 +12,7 @@ class KnowledgeDrainPort(Protocol):
     async def run_batch(self, *, batch: Any) -> KnowledgeWorkflowResult:
         ...
 
-    async def run_manual(self, *, request: Any) -> KnowledgeWorkflowResult:
+    async def run_manual(self, *, batch: Any) -> KnowledgeWorkflowResult:
         ...
 
 

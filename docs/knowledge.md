@@ -16,8 +16,8 @@
 4. [knowledge_facet_convergence.md](/home/zcy/Project/knowbase/docs/knowledge_facet_convergence.md)
 说明 `partition facet key convergence`、冻结规则、拟合度与熔断前模拟。
 
-5. [knowledge_patch_execution.md](/home/zcy/Project/knowbase/docs/knowledge_patch_execution.md)
-说明 `KnowledgePatch`、git 执行链路、回滚、封存与审计。
+5. [knowledge_mutation_execution.md](/home/zcy/Project/knowbase/docs/knowledge_mutation_execution.md)
+说明 `KnowledgeMutationPlan`、执行器、Git 事务、回滚与审计。
 
 当前推荐阅读顺序：
 
@@ -25,4 +25,4 @@
 2. 语义统计与索引
 3. query 统计输入
 4. facet 收敛算法
-5. patch 与执行链路
+5. mutation 与执行链路

@@ -269,7 +269,7 @@ workspace/knowledge/
 - `facet key convergence`
 - `fit metric evaluation`
 - `circuit breaker`
-- `KnowledgePatch` 影响范围分析
+- `KnowledgeMutationPlan` 影响范围分析
 
 query 统计当前只作为索引内容存在，不接入上述自动决策链。
 
