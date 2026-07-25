@@ -58,6 +58,7 @@ class KnowledgeDrainWorkflow:
         )
         projection = (
             self._projection.plan(
+                partition=batch.partition,
                 accepted_schema=governance.accepted_schema,
                 case_ids=[],
             )

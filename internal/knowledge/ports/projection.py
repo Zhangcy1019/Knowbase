@@ -8,7 +8,7 @@ from typing import Any, Protocol
 class KnowledgeProjectionPort(Protocol):
     """Plan case projections under an accepted schema."""
 
-    def plan(self, *, accepted_schema: Any, case_ids: list[str]) -> Any:
+    def plan(self, *, partition: str, accepted_schema: Any, case_ids: list[str]) -> Any:
         ...
 
 

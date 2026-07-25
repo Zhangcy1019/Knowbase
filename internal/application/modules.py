@@ -93,6 +93,7 @@ def build_runtime_module(
         request_factory=request_factory,
         runtime_service=runtime_service,
         versioning=core.versioning,
+        projection=core.projection_service,
     )
     knowledge_service = KnowbaseKnowledgeService(
         backlog_service=event_backlog_service,

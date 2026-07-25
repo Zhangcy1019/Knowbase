@@ -20,6 +20,7 @@ from internal.domain.partition.service import PartitionService
 from internal.infrastructure.persistence import build_persistence_bundle
 from internal.infrastructure.version_control.git import GitRepository
 from internal.versioning import VersionCommitCoordinator
+from internal.knowledge.projection import CaseFacetProjector, KnowledgeProjectionService
 from internal.knowledge.statistics import (
     KnowledgeStatisticsService,
     QueryStatisticsService,
@@ -64,6 +65,7 @@ class CoreProviders:
     versioning: VersionCommitCoordinator
     statistics_service: KnowledgeStatisticsService
     query_statistics_service: QueryStatisticsService
+    projection_service: KnowledgeProjectionService
 
 
 @dataclass(slots=True)
@@ -111,12 +113,13 @@ def build_core_providers(*, runtime_cfg: RuntimeConfig) -> CoreProviders:
         store=statistics_store,
     )
     case_repository = persistence.case_repository
+    facet_resolver = KnowbaseCaseFacetResolver()
     case_service = KnowbaseCaseService(repository=case_repository)
     case_write_service = KnowbaseCaseWriteService(
         repository=case_repository,
         partition_service=partition_service,
         ingestor=KnowbaseCaseIngestor(),
-        facet_resolver=KnowbaseCaseFacetResolver(),
+        facet_resolver=facet_resolver,
         embedding_provider=embedding_provider,
         statistics=statistics_service,
         versioning=versioning,
@@ -135,6 +138,10 @@ def build_core_providers(*, runtime_cfg: RuntimeConfig) -> CoreProviders:
             aggregator=StatisticsAggregator(),
         ),
     )
+    projection_service = KnowledgeProjectionService(
+        case_repository=case_repository,
+        projector=CaseFacetProjector(facet_resolver=facet_resolver),
+    )
     return CoreProviders(
         runtime_cfg=runtime_cfg,
         partition_service=partition_service,
@@ -152,6 +159,7 @@ def build_core_providers(*, runtime_cfg: RuntimeConfig) -> CoreProviders:
         embedding_provider=embedding_provider,
         statistics_service=statistics_service,
         query_statistics_service=query_statistics_service,
+        projection_service=projection_service,
         versioning=versioning,
     )
 
