@@ -15,3 +15,4 @@ class PersistenceBundle:
     step_repository: object
     artifact_repository: object
     statistics_snapshot_repository: object
+    query_statistics_snapshot_repository: object

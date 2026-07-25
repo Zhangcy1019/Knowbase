@@ -143,5 +143,5 @@ def build_query_flow(*, core: CoreProviders) -> QueryUseCase:
         ),
         partition_service=core.partition_service,
         answer_agent=AnswerSynthesisAgent(),
-        statistics=core.statistics_service,
+        statistics=core.query_statistics_service,
     )

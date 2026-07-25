@@ -19,9 +19,10 @@ from internal.domain.partition.schema_suggester import PartitionSchemaSuggester
 from internal.domain.partition.service import PartitionService
 from internal.infrastructure.persistence import build_persistence_bundle
 from internal.infrastructure.version_control.git import GitRepository
-from internal.application.versioning import VersionCommitCoordinator
+from internal.versioning import VersionCommitCoordinator
 from internal.knowledge.statistics import (
     KnowledgeStatisticsService,
+    QueryStatisticsService,
     StatisticsAggregator,
     StatisticsObservationNormalizer,
     StatisticsReader,
@@ -62,6 +63,7 @@ class CoreProviders:
     embedding_provider: object
     versioning: VersionCommitCoordinator
     statistics_service: KnowledgeStatisticsService
+    query_statistics_service: QueryStatisticsService
 
 
 @dataclass(slots=True)
@@ -98,18 +100,6 @@ def build_core_providers(*, runtime_cfg: RuntimeConfig) -> CoreProviders:
         facet_schema_repository=persistence.partition_facet_schema_repository,
         semantic_index_repository=persistence.partition_semantic_index_repository,
     )
-    case_repository = persistence.case_repository
-    case_service = KnowbaseCaseService(repository=case_repository)
-    case_write_service = KnowbaseCaseWriteService(
-        repository=case_repository,
-        partition_service=partition_service,
-        ingestor=KnowbaseCaseIngestor(),
-        facet_resolver=KnowbaseCaseFacetResolver(),
-        embedding_provider=embedding_provider,
-    )
-    event_record_repository = persistence.event_record_repository
-    event_inbox_service = KnowbaseEventInboxService(repository=event_record_repository)
-    event_publisher = KnowbaseEventPublisher(inbox_service=event_inbox_service)
     statistics_store = StatisticsStore(repository=persistence.statistics_snapshot_repository)
     statistics_service = KnowledgeStatisticsService(
         reader=StatisticsReader(store=statistics_store),
@@ -119,6 +109,31 @@ def build_core_providers(*, runtime_cfg: RuntimeConfig) -> CoreProviders:
             aggregator=StatisticsAggregator(),
         ),
         store=statistics_store,
+    )
+    case_repository = persistence.case_repository
+    case_service = KnowbaseCaseService(repository=case_repository)
+    case_write_service = KnowbaseCaseWriteService(
+        repository=case_repository,
+        partition_service=partition_service,
+        ingestor=KnowbaseCaseIngestor(),
+        facet_resolver=KnowbaseCaseFacetResolver(),
+        embedding_provider=embedding_provider,
+        statistics=statistics_service,
+        versioning=versioning,
+    )
+    event_record_repository = persistence.event_record_repository
+    event_inbox_service = KnowbaseEventInboxService(repository=event_record_repository)
+    event_publisher = KnowbaseEventPublisher(inbox_service=event_inbox_service)
+    query_statistics_store = StatisticsStore(
+        repository=persistence.query_statistics_snapshot_repository
+    )
+    query_statistics_service = QueryStatisticsService(
+        reader=StatisticsReader(store=query_statistics_store),
+        writer=StatisticsWriter(
+            snapshot_store=query_statistics_store,
+            normalizer=StatisticsObservationNormalizer(),
+            aggregator=StatisticsAggregator(),
+        ),
     )
     return CoreProviders(
         runtime_cfg=runtime_cfg,
@@ -136,6 +151,7 @@ def build_core_providers(*, runtime_cfg: RuntimeConfig) -> CoreProviders:
         artifact_repository=persistence.artifact_repository,
         embedding_provider=embedding_provider,
         statistics_service=statistics_service,
+        query_statistics_service=query_statistics_service,
         versioning=versioning,
     )
 

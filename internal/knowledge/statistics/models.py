@@ -64,14 +64,13 @@ class StatisticsSnapshot(BaseModel):
     partition: str
     generated_at: datetime | None = None
     source_revision: str | None = None
-    applied_observation_ids: list[str] = Field(default_factory=list)
     case_count: int = 0
     query_count: int = 0
     case_key_stats: dict[str, int] = Field(default_factory=dict)
     query_key_stats: dict[str, int] = Field(default_factory=dict)
-    value_stats: dict[str, dict[str, int]] = Field(default_factory=dict)
+    case_value_stats: dict[str, dict[str, int]] = Field(default_factory=dict)
+    query_value_stats: dict[str, dict[str, int]] = Field(default_factory=dict)
     case_support_index: dict[str, list[str]] = Field(default_factory=dict)
-    query_support_index: dict[str, list[str]] = Field(default_factory=dict)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 

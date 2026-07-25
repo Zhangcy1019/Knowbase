@@ -58,5 +58,7 @@ def build_app_container(*, runtime_cfg: RuntimeConfig) -> KnowbaseAppContainer:
             skill_runtime=skill_runtime,
             ingest_service=ingest_service,
             query_flow=query_flow,
+            statistics_service=core.statistics_service,
+            versioning=core.versioning,
         )
     )

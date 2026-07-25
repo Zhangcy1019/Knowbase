@@ -38,15 +38,19 @@ class KnowledgeStatisticsWriterPort(Protocol):
     def append_case_observation(self, *, observation: CaseObservation) -> StatisticsSnapshot:
         ...
 
-    def append_query_observation(self, *, observation: QueryObservation) -> StatisticsSnapshot:
-        ...
-
     def rebuild_partition_statistics(
         self,
         *,
         partition: str,
         observations: list[SemanticObservation],
     ) -> StatisticsSnapshot:
+        ...
+
+
+class QueryStatisticsPort(Protocol):
+    """Record runtime query signals outside knowledge statistics."""
+
+    def record(self, *, observation: QueryObservation) -> StatisticsSnapshot:
         ...
 
 
@@ -64,4 +68,5 @@ __all__ = [
     "KnowledgeStatisticsReaderPort",
     "KnowledgeStatisticsStorePort",
     "KnowledgeStatisticsWriterPort",
+    "QueryStatisticsPort",
 ]

@@ -28,5 +28,8 @@ class VersionControlPort(Protocol):
     def restore(self, *, revision: str, paths: list[str]) -> None:
         ...
 
+    def discard_untracked(self, *, paths: list[str]) -> None:
+        ...
+
 
 __all__ = ["VersionControlPort"]

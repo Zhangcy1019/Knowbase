@@ -10,11 +10,78 @@ from tempfile import TemporaryDirectory
 import subprocess
 import unittest
 
-from internal.application.versioning import VersionCommitCoordinator
+from internal.versioning import KnowledgeMutationTransaction, VersionCommitCoordinator
 from internal.infrastructure.version_control.git import GitRepository
 
 
 class GitRepositoryIntegrationTest(unittest.TestCase):
+    def test_mutation_transaction_commits_dynamic_changed_paths(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            repository = GitRepository(root=root)
+            base_revision = repository.initialize()
+            transaction = KnowledgeMutationTransaction(
+                version_control=repository,
+                message="knowledge: apply mutation",
+            )
+            first = root / "cases" / "case-1.json"
+            second = root / "knowledge_statistics" / "ci" / "snapshot.json"
+            first.parent.mkdir(parents=True)
+            second.parent.mkdir(parents=True)
+            first.write_text('{"id":"case-1"}\n', encoding="utf-8")
+            second.write_text('{"partition":"ci"}\n', encoding="utf-8")
+
+            result = transaction.commit()
+
+            self.assertNotEqual(result.revision, base_revision)
+            self.assertEqual(
+                result.paths,
+                ["cases/case-1.json", "knowledge_statistics/ci/snapshot.json"],
+            )
+            self.assertTrue(repository.status().clean)
+
+    def test_mutation_transaction_records_base_revision_and_rolls_back_tracked_file(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            repository = GitRepository(root=root)
+            repository.initialize()
+            document = root / "knowledge_statistics" / "ci" / "snapshot.json"
+            document.parent.mkdir(parents=True)
+            document.write_text('{"count":1}\n', encoding="utf-8")
+            baseline = repository.commit(
+                message="knowledge: baseline",
+                paths=["knowledge_statistics/ci/snapshot.json"],
+            )
+            transaction = VersionCommitCoordinator(
+                version_control=repository,
+            ).begin_transaction(message="knowledge: failed mutation")
+            document.write_text('{"count":2}\n', encoding="utf-8")
+            transaction.register_paths(["knowledge_statistics/ci/snapshot.json"])
+
+            self.assertEqual(transaction.base_revision, baseline.revision)
+            transaction.rollback()
+
+            self.assertEqual(document.read_text(encoding="utf-8"), '{"count":1}\n')
+            self.assertTrue(repository.status().clean)
+
+    def test_mutation_transaction_removes_new_files_on_rollback(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            repository = GitRepository(root=root)
+            repository.initialize()
+            transaction = VersionCommitCoordinator(
+                version_control=repository,
+            ).begin_transaction(message="knowledge: failed new file")
+            document = root / "partition_facet_schemas" / "ci.json"
+            document.parent.mkdir(parents=True)
+            document.write_text('{"partition":"ci"}\n', encoding="utf-8")
+            transaction.register_paths(["partition_facet_schemas/ci.json"])
+
+            transaction.rollback()
+
+            self.assertFalse(document.exists())
+            self.assertTrue(repository.status().clean)
+
     def test_initialize_creates_workspace_repository_and_initial_revision(self) -> None:
         with TemporaryDirectory() as directory:
             repository = GitRepository(root=Path(directory))

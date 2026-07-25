@@ -193,6 +193,9 @@ class CaseWritePort(Protocol):
     ) -> tuple[KnowbaseCaseDocument, KnowbaseCaseDocument, list[str]]:
         ...
 
+    def delete_case(self, *, case_id: str) -> KnowbaseCaseDocument:
+        ...
+
 
 class EventPublisherPort(Protocol):
     """Stable event publishing surface used by product and API layers."""

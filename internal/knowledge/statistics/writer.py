@@ -69,7 +69,10 @@ class StatisticsWriter:
     def _append(self, observation: CaseObservation | QueryObservation) -> StatisticsSnapshot:
         with self._snapshot_store.lock(partition=observation.partition):
             current = self._snapshot_store.load(partition=observation.partition)
-            updated = self._aggregator.apply(snapshot=current, observation=observation)
+            updated = self._aggregator.apply(
+                snapshot=current,
+                observation=observation,
+            )
             self._snapshot_store.save(statistics=updated)
             return updated
 

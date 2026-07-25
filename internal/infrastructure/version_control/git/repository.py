@@ -21,7 +21,8 @@ class GitRepository:
     def initialize(self) -> str:
         self._root.mkdir(parents=True, exist_ok=True)
         discovered_root = self._discover_root()
-        if discovered_root is not None and discovered_root != self._root.resolve():
+        local_git_dir = self._root / ".git"
+        if discovered_root is not None and discovered_root != self._root.resolve() and not local_git_dir.exists():
             logger.error(
                 "Git workspace is nested inside another repository; startup is blocked.",
                 extra={
@@ -39,7 +40,13 @@ class GitRepository:
                 extra={"workspace": str(self._root.resolve())},
             )
             self._run("init")
+            self._ensure_workspace_gitignore()
             self._run("add", "-A")
+        elif local_git_dir.exists():
+            logger.info(
+                "Using existing nested Git workspace repository.",
+                extra={"workspace": str(self._root.resolve()), "parent_repository": str(discovered_root)},
+            )
         else:
             logger.info(
                 "Using existing Git workspace.",
@@ -71,6 +78,22 @@ class GitRepository:
                 + ", ".join(status.changed_paths)
             )
         return status.revision
+
+    def _ensure_workspace_gitignore(self) -> None:
+        """Keep runtime-only telemetry out of the workspace history."""
+        path = self._root / ".gitignore"
+        if path.exists():
+            return
+        path.write_text(
+            "runtime_statistics/\n"
+            "logs/\n"
+            "cache/\n",
+            encoding="utf-8",
+        )
+        logger.info(
+            "Created default Git workspace ignore rules.",
+            extra={"workspace": str(self._root.resolve()), "path": str(path)},
+        )
 
     def _discover_root(self) -> Path | None:
         result = subprocess.run(
@@ -130,11 +153,33 @@ class GitRepository:
     def restore(self, *, revision: str, paths: list[str]) -> None:
         if not paths:
             return
+        tracked_paths = [
+            path
+            for path in paths
+            if subprocess.run(
+                ["git", "cat-file", "-e", f"{revision}:{path}"],
+                cwd=self._root,
+                check=False,
+                capture_output=True,
+            ).returncode
+            == 0
+        ]
+        if not tracked_paths:
+            return
         logger.info(
             "Restoring files from Git revision.",
-            extra={"workspace": str(self._root.resolve()), "revision": revision, "paths": paths},
+            extra={
+                "workspace": str(self._root.resolve()),
+                "revision": revision,
+                "paths": tracked_paths,
+            },
         )
-        self._run("restore", "--source", revision, "--", *paths)
+        self._run("restore", "--source", revision, "--", *tracked_paths)
+
+    def discard_untracked(self, *, paths: list[str]) -> None:
+        if not paths:
+            return
+        self._run("clean", "-f", "--", *paths)
 
     def _run(self, *args: str) -> str:
         result = subprocess.run(

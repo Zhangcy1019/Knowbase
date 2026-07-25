@@ -50,10 +50,10 @@ class KnowledgeStatisticsTest(unittest.TestCase):
 
             self.assertIsNotNone(incremental)
             self.assertEqual(incremental.case_key_stats, rebuilt.case_key_stats)
-            self.assertEqual(incremental.value_stats, rebuilt.value_stats)
+            self.assertEqual(incremental.case_value_stats, rebuilt.case_value_stats)
             self.assertEqual(incremental.case_support_index, rebuilt.case_support_index)
 
-    def test_duplicate_observation_is_idempotent(self) -> None:
+    def test_append_is_explicitly_non_idempotent(self) -> None:
         with TemporaryDirectory() as directory:
             writer, store = self._build_writer(Path(directory))
             observation = CaseObservation(
@@ -66,8 +66,8 @@ class KnowledgeStatisticsTest(unittest.TestCase):
             writer.append_case_observation(observation=observation)
 
             snapshot = store.load(partition="ci")
-            self.assertEqual(snapshot.case_count, 1)
-            self.assertEqual(snapshot.value_stats["facet:area"]["build"], 1)
+            self.assertEqual(snapshot.case_count, 2)
+            self.assertEqual(snapshot.case_value_stats["facet:area"]["build"], 2)
 
     def test_support_query_matches_multiple_filters(self) -> None:
         with TemporaryDirectory() as directory:

@@ -27,6 +27,8 @@ class KnowbaseCaseWriteService:
         ingestor: KnowbaseCaseIngestor | None = None,
         facet_resolver: KnowbaseCaseFacetResolver | None = None,
         embedding_provider: EmbeddingProvider | None = None,
+        statistics=None,
+        versioning=None,
     ):
         self._repository = repository
         self._partition_service = partition_service
@@ -35,6 +37,8 @@ class KnowbaseCaseWriteService:
         if embedding_provider is None:
             raise ValueError("KnowbaseCaseWriteService requires an explicit embedding_provider")
         self._embedding_provider = embedding_provider
+        self._statistics = statistics
+        self._versioning = versioning
 
     def create_case(
         self,
@@ -149,7 +153,66 @@ class KnowbaseCaseWriteService:
         )
         self._enrich_document(updated)
         persisted = self._repository.upsert(updated)
+        self._record_update(existing=existing, updated=persisted)
         return existing, persisted, changed_fields
+
+    def delete_case(self, *, case_id: str) -> KnowbaseCaseDocument:
+        """Delete a case and maintain its derived statistics and revision."""
+        existing = self._repository.get(case_id)
+        if existing is None:
+            raise ValueError(f"case not found: {case_id}")
+        self._repository.delete(case_id)
+        try:
+            self._remove_statistics(existing)
+            self._commit_case(existing)
+        except Exception as exc:
+            logger.exception(
+                "Case delete side effects failed after persistence.",
+                extra={"case_id": case_id, "partition": existing.partition},
+            )
+            raise RuntimeError(f"case delete side effects failed for {case_id}: {exc}") from exc
+        return existing
+
+    def _record_update(self, *, existing: KnowbaseCaseDocument, updated: KnowbaseCaseDocument) -> None:
+        try:
+            if self._statistics is not None:
+                self._statistics.replace_case_observation(
+                    old_observation=self._observation(existing),
+                    new_observation=self._observation(updated),
+                )
+            self._commit_case(updated)
+        except Exception as exc:
+            logger.exception(
+                "Case update side effects failed after persistence.",
+                extra={"case_id": updated.case_id, "partition": updated.partition},
+            )
+            raise RuntimeError(f"case update side effects failed for {updated.case_id}: {exc}") from exc
+
+    def _remove_statistics(self, document: KnowbaseCaseDocument) -> None:
+        if self._statistics is not None:
+            self._statistics.remove_observation(observation=self._observation(document))
+
+    def _commit_case(self, document: KnowbaseCaseDocument) -> None:
+        if self._versioning is not None:
+            self._versioning.commit_case_ingest(
+                case_id=document.case_id,
+                paths=[
+                    f"cases/{document.case_id}.json",
+                    f"knowledge_statistics/{document.partition}/snapshot.json",
+                ],
+            )
+
+    @staticmethod
+    def _observation(document: KnowbaseCaseDocument):
+        from internal.knowledge.statistics import CaseObservation
+
+        return CaseObservation(
+            observation_id=f"case:{document.case_id}",
+            partition=document.partition,
+            source_id=document.case_id,
+            facets=document.facets.model_dump(),
+            semantic_profile=document.semantic_profile.model_dump(),
+        )
 
     @staticmethod
     def _normalize_facets(*, facets: CaseFacetProfile | dict[str, list[str]]) -> CaseFacetProfile:

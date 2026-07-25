@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from internal.ports import (
     CaseReadPort,
@@ -18,6 +19,9 @@ from internal.ports import (
     RuntimeRunPort,
     SkillExecutionPort,
 )
+if TYPE_CHECKING:
+    from internal.versioning import VersionCommitCoordinator
+    from internal.knowledge.statistics import KnowledgeStatisticsService
 
 
 @dataclass(slots=True)
@@ -33,3 +37,5 @@ class KnowbaseRouteDeps:
     skill_runtime: SkillExecutionPort
     ingest_service: IngestUseCase
     query_flow: QueryUseCase
+    statistics_service: KnowledgeStatisticsService | None = None
+    versioning: VersionCommitCoordinator | None = None

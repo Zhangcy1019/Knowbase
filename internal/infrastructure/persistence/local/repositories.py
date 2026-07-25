@@ -152,8 +152,8 @@ class PartitionSemanticIndexRepository:
 class StatisticsSnapshotRepository:
     """Persist the current statistics snapshot for a partition."""
 
-    def __init__(self, root: Path):
-        self._root = root / "knowledge_statistics"
+    def __init__(self, root: Path, *, directory: str = "knowledge_statistics"):
+        self._root = root / directory
 
     @contextmanager
     def lock(self, partition: str):
@@ -399,4 +399,7 @@ def build_local_persistence_bundle(*, runtime_cfg: RuntimeConfig) -> Persistence
         step_repository=RunStepRepository(root=root),
         artifact_repository=RunArtifactRepository(root=root),
         statistics_snapshot_repository=StatisticsSnapshotRepository(root=root),
+        query_statistics_snapshot_repository=StatisticsSnapshotRepository(
+            root=root, directory="runtime_statistics/query"
+        ),
     )

@@ -5,6 +5,7 @@ node_modules/
 dist/
 workspace/
 workspace_test/
+runtime_statistics/
 
 config/app.yaml
 config/app.test.yaml
