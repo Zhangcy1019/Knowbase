@@ -10,6 +10,7 @@ from internal.ports import (
     EventPublisherPort,
     EventWorkerPort,
     IngestUseCase,
+    PartitionTaskQueuePort,
     PartitionReadPort,
     PartitionProfileReadPort,
     PartitionProfileWritePort,
@@ -37,3 +38,4 @@ class KnowbaseRouteDeps:
     ingest_service: IngestUseCase
     query_flow: QueryUseCase
     statistics_service: KnowledgeStatisticsService | None = None
+    task_queue: PartitionTaskQueuePort | None = None

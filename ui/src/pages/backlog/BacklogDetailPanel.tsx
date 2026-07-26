@@ -3,7 +3,6 @@ import { IconTraceDetail } from "../../shared/icons";
 import type { EventRecordResponse } from "../../shared/api";
 
 type BacklogDetailPanelProps = {
-  activePartition: string | null;
   selectedEvent: EventRecordResponse | null;
   selectedResourceRef: string;
   lastRunAt: string | null;
@@ -18,7 +17,6 @@ function PanelMark({ children }: { children: ReactNode }) {
 }
 
 export function BacklogDetailPanel({
-  activePartition,
   selectedEvent,
   selectedResourceRef,
   lastRunAt,
@@ -36,7 +34,7 @@ export function BacklogDetailPanel({
           </PanelMark>
           <h3>{selectedEvent?.event_id || "Detail"}</h3>
         </div>
-        <code>{selectedEvent?.partition || activePartition || "No active partition"}</code>
+        {selectedEvent?.partition ? <code>{selectedEvent.partition}</code> : null}
       </div>
 
       <div className="backlog-detail-scroll">

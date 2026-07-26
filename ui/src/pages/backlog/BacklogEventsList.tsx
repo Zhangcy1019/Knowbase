@@ -1,7 +1,7 @@
 import type { MouseEvent, ReactNode, RefObject } from "react";
 
 import { ConfirmDeletePopover } from "../../shared/component/confirm";
-import { IconDelete, IconTraceList } from "../../shared/icons";
+import { IconDelete, IconSend, IconTraceList } from "../../shared/icons";
 import type { EventRecordResponse } from "../../shared/api";
 
 type BacklogEventsListProps = {
@@ -27,6 +27,9 @@ type BacklogEventsListProps = {
   onCancelDelete: () => void;
   onConfirmDelete: (eventId: string) => void;
   formatTime: (value: string | null) => string;
+  onOpenDrainConfirm: () => void;
+  draining: boolean;
+  consoleMessage: string;
 };
 
 function PanelMark({ children }: { children: ReactNode }) {
@@ -52,6 +55,9 @@ export function BacklogEventsList({
   onCancelDelete,
   onConfirmDelete,
   formatTime,
+  onOpenDrainConfirm,
+  draining,
+  consoleMessage,
 }: BacklogEventsListProps) {
   return (
     <article className="skeleton-card backlog-rail-card">
@@ -62,7 +68,20 @@ export function BacklogEventsList({
           </PanelMark>
           <h3>Events</h3>
         </div>
-        <code>{activePartition || "No active partition"}</code>
+        <div className="backlog-panel-actions">
+          {activePartition ? <code>{activePartition}</code> : null}
+          <button
+            type="button"
+            className="backlog-drain-button"
+            onClick={onOpenDrainConfirm}
+            disabled={!activePartition || draining}
+            data-backlog-drain-trigger="true"
+          >
+            <IconSend />
+            <span>{draining ? "Draining" : "Drain pending"}</span>
+          </button>
+          {consoleMessage ? <span className="backlog-action-note" aria-live="polite">{consoleMessage}</span> : null}
+        </div>
       </div>
 
       <div className="backlog-filter-strip">

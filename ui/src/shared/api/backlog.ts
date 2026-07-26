@@ -22,11 +22,24 @@ export type EventRecordResponse = {
   metadata: Record<string, unknown>;
 };
 
-export type MaintenanceActionResponse = {
+export type BacklogMaintenanceActionResponse = {
   action: string;
   ok: boolean;
   summary: string;
   details: Record<string, unknown>;
+};
+
+export type PartitionTaskResponse = {
+  task_id: string;
+  partition: string;
+  kind: string;
+  payload: Record<string, unknown>;
+  status: "queued" | "running" | "completed" | "failed" | "cancelled" | string;
+  attempt_count: number;
+  error_message: string;
+  created_at: string | null;
+  started_at: string | null;
+  finished_at: string | null;
 };
 
 export function listBacklogEvents({
@@ -56,6 +69,30 @@ export function getBacklogEvent(eventId: string) {
   return requestJson<EventRecordResponse>(`/api/knowbase/runtime/backlog/${encodeURIComponent(eventId)}`);
 }
 
+export function listBacklogTasks({
+  partition,
+  status = "",
+}: {
+  partition?: string;
+  status?: string;
+}) {
+  const search = new URLSearchParams();
+  if (partition?.trim()) {
+    search.set("partition", partition.trim());
+  }
+  if (status.trim()) {
+    search.set("status", status.trim());
+  }
+  const suffix = search.size > 0 ? `?${search.toString()}` : "";
+  return requestJson<PartitionTaskResponse[]>(`/api/knowbase/runtime/backlog/tasks${suffix}`);
+}
+
+export function getBacklogTask(taskId: string) {
+  return requestJson<PartitionTaskResponse>(
+    `/api/knowbase/runtime/backlog/tasks/${encodeURIComponent(taskId)}`,
+  );
+}
+
 export function requeueBacklogEvent(eventId: string) {
   return requestJson<EventRecordResponse>(`/api/knowbase/runtime/backlog/${encodeURIComponent(eventId)}/requeue`, {
     method: "POST",
@@ -70,7 +107,7 @@ export function deleteBacklogEvent(eventId: string) {
 }
 
 export function drainBacklog(partition: string, limit = 20) {
-  return requestJson<MaintenanceActionResponse>("/api/knowbase/runtime/maintenance/drain-backlog", {
+  return requestJson<BacklogMaintenanceActionResponse>("/api/knowbase/runtime/maintenance/drain-backlog", {
     method: "POST",
     headers: {
       Accept: "application/json",

@@ -100,6 +100,9 @@ class PartitionTaskQueuePort(Protocol):
     def get(self, task_id: str) -> Any | None:
         ...
 
+    def list(self, *, partition: str = "", status: str = "") -> list[Any]:
+        ...
+
 
 __all__ = [
     "EventBacklogPort",

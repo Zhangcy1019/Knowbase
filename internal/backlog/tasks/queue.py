@@ -49,6 +49,15 @@ class PartitionTaskQueue:
         """Return the current in-process state for a submitted task."""
         return self._tasks.get(task_id)
 
+    def list(self, *, partition: str = "", status: str = "") -> list[PartitionTask]:
+        """Return current task states for the backlog console."""
+        tasks = self._tasks.values()
+        if partition.strip():
+            tasks = (task for task in tasks if task.partition == partition)
+        if status.strip():
+            tasks = (task for task in tasks if task.status == status)
+        return sorted(tasks, key=lambda task: task.created_at, reverse=True)
+
     async def wait_idle(self, *, partition: str) -> None:
         worker = self._workers.get(partition)
         if worker is not None:

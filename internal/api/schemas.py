@@ -206,6 +206,19 @@ class EventRecordResponse(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
+class PartitionTaskResponse(BaseModel):
+    task_id: str
+    partition: str
+    kind: str
+    payload: dict[str, Any] = Field(default_factory=dict)
+    status: str
+    attempt_count: int = 0
+    error_message: str = ""
+    created_at: datetime | None = None
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+
+
 class MaintenanceActionResponse(BaseModel):
     action: str
     ok: bool = True
