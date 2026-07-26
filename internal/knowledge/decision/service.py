@@ -24,6 +24,15 @@ class KnowledgeDecisionService:
     def get(self, decision_id: str) -> KnowledgeDecisionRecord | None:
         return self._repository.get(decision_id)
 
+    def list(
+        self,
+        *,
+        partition: str = "",
+        status: str = "",
+    ) -> list[KnowledgeDecisionRecord]:
+        """List persisted decisions for Knowledge inspection surfaces."""
+        return self._repository.list(partition=partition, status=status)
+
     def transition(
         self,
         *,

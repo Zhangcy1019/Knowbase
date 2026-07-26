@@ -21,7 +21,8 @@ from internal.ports import (
     SkillExecutionPort,
 )
 if TYPE_CHECKING:
-    from internal.knowledge.statistics import KnowledgeStatisticsService
+    from internal.knowledge.decision import KnowledgeDecisionService
+    from internal.knowledge.statistics import KnowledgeStatisticsService, QueryStatisticsService
 
 
 @dataclass(slots=True)
@@ -38,4 +39,6 @@ class KnowbaseRouteDeps:
     ingest_service: IngestUseCase
     query_flow: QueryUseCase
     statistics_service: KnowledgeStatisticsService | None = None
+    query_statistics_service: QueryStatisticsService | None = None
+    decision_service: KnowledgeDecisionService | None = None
     task_queue: PartitionTaskQueuePort | None = None

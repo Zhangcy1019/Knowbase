@@ -141,6 +141,35 @@ export function getPartitionSemanticIndex(partitionName: string) {
   );
 }
 
+export type PartitionQueryStatistics = {
+  partition: string;
+  generated_at: string | null;
+  query_count: number;
+  query_key_stats: Record<string, number>;
+  query_value_stats: Record<string, Record<string, number>>;
+  metadata: Record<string, unknown>;
+};
+
+export function getPartitionQueryStatistics(partitionName: string) {
+  return requestJson<PartitionQueryStatistics>(
+    `/api/knowbase/partitions/${encodeURIComponent(partitionName)}/query-statistics`,
+  );
+}
+
+export type PartitionCaseStatistics = {
+  partition: string;
+  generated_at: string | null;
+  case_count: number;
+  case_key_stats: Record<string, number>;
+  case_value_stats: Record<string, Record<string, number>>;
+};
+
+export function getPartitionCaseStatistics(partitionName: string) {
+  return requestJson<PartitionCaseStatistics>(
+    `/api/knowbase/partitions/${encodeURIComponent(partitionName)}/case-statistics`,
+  );
+}
+
 export function listPartitionCases(partitionName: string) {
   const search = new URLSearchParams({ partition: partitionName });
   return requestJson<KnowbaseCaseDocument[]>(`/api/knowbase/cases?${search.toString()}`);

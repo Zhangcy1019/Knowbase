@@ -8,6 +8,7 @@ import {
   IconQuery,
   IconRuns,
   IconSettings,
+  IconTraceLoop,
 } from "../../shared/icons";
 
 const navGroups = [
@@ -19,6 +20,7 @@ const navGroups = [
       { href: "/query", label: "Query", icon: IconQuery },
       { href: "/ingest", label: "Ingest", icon: IconIngest },
       { href: "/backlog", label: "Backlog", icon: IconBacklog },
+      { href: "/knowledge", label: "Knowledge", icon: IconTraceLoop },
       { href: "/runs", label: "Runs", icon: IconRuns },
     ],
   },

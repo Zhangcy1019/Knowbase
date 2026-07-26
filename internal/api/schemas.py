@@ -219,6 +219,68 @@ class PartitionTaskResponse(BaseModel):
     finished_at: datetime | None = None
 
 
+class KnowledgeDrainSummaryResponse(BaseModel):
+    """One persisted Knowledge governance attempt for the console."""
+
+    decision_id: str
+    partition: str
+    batch_id: str
+    status: str
+    created_at: datetime
+    updated_at: datetime
+    base_revision: str = ""
+    applied_revision: str = ""
+    mutation_plan_id: str = ""
+    change_count: int = 0
+    schema_changed: bool = False
+    requires_review: bool = False
+    error_message: str = ""
+
+
+class KnowledgeDrainDetailResponse(KnowledgeDrainSummaryResponse):
+    """Full persisted Knowledge decision payload for debugging and audit."""
+
+    statistics_fingerprint: str = ""
+    statistics_snapshot: dict[str, Any] = Field(default_factory=dict)
+    working_set_snapshot: dict[str, Any] = Field(default_factory=dict)
+    governance_result: dict[str, Any] = Field(default_factory=dict)
+    mutation_plan: dict[str, Any] | None = None
+    reviewer: str = ""
+    review_reason: str = ""
+    supersedes_decision_id: str = ""
+
+
+class KnowledgeOverviewResponse(BaseModel):
+    """Compact current Knowledge state for the page header."""
+
+    partition: str
+    case_count: int = 0
+    facet_key_count: int = 0
+    pending_decision_count: int = 0
+    last_drain_at: datetime | None = None
+
+
+class QueryStatisticsResponse(BaseModel):
+    """Query-derived signals kept separate from the partition knowledge schema."""
+
+    partition: str
+    generated_at: datetime | None = None
+    query_count: int = 0
+    query_key_stats: dict[str, int] = Field(default_factory=dict)
+    query_value_stats: dict[str, dict[str, int]] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class CaseStatisticsResponse(BaseModel):
+    """Current case-derived statistics used by Knowledge inspection surfaces."""
+
+    partition: str
+    generated_at: datetime | None = None
+    case_count: int = 0
+    case_key_stats: dict[str, int] = Field(default_factory=dict)
+    case_value_stats: dict[str, dict[str, int]] = Field(default_factory=dict)
+
+
 class MaintenanceActionResponse(BaseModel):
     action: str
     ok: bool = True
