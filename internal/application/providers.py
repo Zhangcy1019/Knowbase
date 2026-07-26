@@ -18,8 +18,24 @@ from internal.domain.event.publisher import KnowbaseEventPublisher
 from internal.domain.partition.schema_suggester import PartitionSchemaSuggester
 from internal.domain.partition.service import PartitionService
 from internal.infrastructure.persistence import build_persistence_bundle
-from internal.infrastructure.version_control.git import GitRepository
-from internal.versioning import VersionCommitCoordinator
+from internal.infrastructure.coordination import PartitionMutationLock
+from internal.versioning import PartitionVersioningManager
+from internal.knowledge.decision import (
+    KnowledgeDecisionRepository,
+    KnowledgeDecisionService,
+    PartitionReviewLock,
+)
+from internal.knowledge.batch import BatchContextBuilder
+from internal.knowledge.facet_governance import (
+    FacetFreezePolicy,
+    FacetGovernanceService,
+    FacetKeyConvergencePlanner,
+    FacetGovernanceMetrics,
+    KnowledgeCircuitBreaker,
+    PartitionFitMetrics,
+)
+from internal.knowledge.ports import KnowledgeFacetGovernancePort
+from internal.backlog.tasks import PartitionTaskQueue
 from internal.knowledge.projection import CaseFacetProjector, KnowledgeProjectionService
 from internal.knowledge.execution import KnowledgeMutationExecutor
 from internal.knowledge.statistics import (
@@ -39,6 +55,7 @@ from internal.ports import (
     PartitionAccessPort,
     PartitionProfileReadPort,
     PartitionSchemaSuggestPort,
+    PartitionTaskQueuePort,
 )
 from internal.utils.config import RuntimeConfig
 from internal.utils.logger import get_logger
@@ -63,11 +80,14 @@ class CoreProviders:
     step_repository: object
     artifact_repository: object
     embedding_provider: object
-    versioning: VersionCommitCoordinator
+    partition_versioning: PartitionVersioningManager
+    decision_service: KnowledgeDecisionService
+    task_queue: PartitionTaskQueuePort
     statistics_service: KnowledgeStatisticsService
     query_statistics_service: QueryStatisticsService
     projection_service: KnowledgeProjectionService
     mutation_executor: KnowledgeMutationExecutor
+    facet_governance: KnowledgeFacetGovernancePort
 
 
 @dataclass(slots=True)
@@ -86,23 +106,25 @@ def build_core_providers(*, runtime_cfg: RuntimeConfig) -> CoreProviders:
             "unsupported storage.version_control_backend: "
             f"{runtime_cfg.storage.version_control_backend}"
         )
-    version_control = GitRepository(root=Path(runtime_cfg.storage.local_root).expanduser())
-    if runtime_cfg.storage.version_control_auto_init:
-        try:
-            version_control.initialize()
-        except RuntimeError:
-            logger.exception(
-                "Versioned workspace is not clean; manual intervention is required before startup.",
-                extra={"workspace": runtime_cfg.storage.local_root},
-            )
-            raise
-    versioning = VersionCommitCoordinator(version_control=version_control)
+    partition_versioning = PartitionVersioningManager(
+        local_root=Path(runtime_cfg.storage.local_root).expanduser()
+    )
+    decision_service = KnowledgeDecisionService(
+        repository=KnowledgeDecisionRepository(
+            local_root=Path(runtime_cfg.storage.local_root).expanduser()
+        ),
+        review_lock=PartitionReviewLock(
+            local_root=Path(runtime_cfg.storage.local_root).expanduser()
+        ),
+    )
+    task_queue = PartitionTaskQueue()
     embedding_provider = create_embedding_provider(runtime_cfg.embedding)
     partition_service = PartitionService(
         repository=persistence.partition_repository,
         facet_index_repository=persistence.partition_facet_index_repository,
         facet_schema_repository=persistence.partition_facet_schema_repository,
         semantic_index_repository=persistence.partition_semantic_index_repository,
+        versioning_manager=partition_versioning,
     )
     statistics_store = StatisticsStore(repository=persistence.statistics_snapshot_repository)
     statistics_service = KnowledgeStatisticsService(
@@ -124,7 +146,12 @@ def build_core_providers(*, runtime_cfg: RuntimeConfig) -> CoreProviders:
         facet_resolver=facet_resolver,
         embedding_provider=embedding_provider,
         statistics=statistics_service,
-        versioning=versioning,
+        versioning_factory=partition_versioning.prepare,
+        task_queue=task_queue,
+        mutation_lock_factory=lambda partition: PartitionMutationLock(
+            local_root=Path(runtime_cfg.storage.local_root),
+            partition=partition,
+        ),
     )
     event_record_repository = persistence.event_record_repository
     event_inbox_service = KnowbaseEventInboxService(repository=event_record_repository)
@@ -148,6 +175,17 @@ def build_core_providers(*, runtime_cfg: RuntimeConfig) -> CoreProviders:
         case_repository=case_repository,
         partition_service=partition_service,
     )
+    facet_governance = FacetGovernanceService(
+        context_builder=BatchContextBuilder(
+            partition_service=partition_service,
+            case_repository=case_repository,
+        ),
+        metrics=FacetGovernanceMetrics(),
+        key_planner=FacetKeyConvergencePlanner(),
+        fit_metrics=PartitionFitMetrics(),
+        freeze_policy=FacetFreezePolicy(),
+        circuit_breaker=KnowledgeCircuitBreaker(),
+    )
     return CoreProviders(
         runtime_cfg=runtime_cfg,
         partition_service=partition_service,
@@ -167,7 +205,10 @@ def build_core_providers(*, runtime_cfg: RuntimeConfig) -> CoreProviders:
         query_statistics_service=query_statistics_service,
         projection_service=projection_service,
         mutation_executor=mutation_executor,
-        versioning=versioning,
+        facet_governance=facet_governance,
+        partition_versioning=partition_versioning,
+        decision_service=decision_service,
+        task_queue=task_queue,
     )
 
 

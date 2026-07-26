@@ -53,39 +53,95 @@ class _JsonDirectoryStore:
         return documents
 
 
+class _PartitionJsonStore:
+    """JSON storage rooted at ``partitions/{partition}``."""
+
+    def __init__(self, root: Path):
+        self._root = root
+
+    def create_index(self) -> dict[str, Any]:
+        self._root.mkdir(parents=True, exist_ok=True)
+        return {"acknowledged": True, "index": str(self._root), "created": True}
+
+    def path(self, partition: str, relative_path: str) -> Path:
+        return self._root / partition / relative_path
+
+    def save(self, *, partition: str, relative_path: str, model: Any) -> Any:
+        path = self.path(partition, relative_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            json.dumps(model.model_dump(mode="json"), ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        return model
+
+    def load(self, *, partition: str, relative_path: str, model_cls):
+        path = self.path(partition, relative_path)
+        if not path.exists():
+            return None
+        return model_cls.model_validate(json.loads(path.read_text(encoding="utf-8")))
+
+    def delete(self, *, partition: str, relative_path: str) -> None:
+        self.path(partition, relative_path).unlink(missing_ok=True)
+
+    def list(self, *, partition: str, directory: str, model_cls) -> list[Any]:
+        root = self._root / partition / directory
+        if not root.exists():
+            return []
+        return [
+            model_cls.model_validate(json.loads(path.read_text(encoding="utf-8")))
+            for path in sorted(root.glob("*.json"))
+        ]
+
+    def list_single(self, *, filename: str, model_cls) -> list[Any]:
+        documents: list[Any] = []
+        for path in sorted(self._root.glob(f"*/{filename}")):
+            documents.append(model_cls.model_validate(json.loads(path.read_text(encoding="utf-8"))))
+        return documents
+
+    def list_all(self, *, directory: str, model_cls) -> list[Any]:
+        documents: list[Any] = []
+        if not self._root.exists():
+            return documents
+        for partition_root in sorted(self._root.iterdir()):
+            if partition_root.is_dir():
+                documents.extend(self.list(partition=partition_root.name, directory=directory, model_cls=model_cls))
+        return documents
+
+
 class PartitionRepository:
     def __init__(self, root: Path):
-        self._store = _JsonDirectoryStore(root / "partitions")
+        self._store = _PartitionJsonStore(root / "partitions")
 
     def create_index(self) -> dict[str, Any]:
         return self._store.create_index()
 
     def upsert(self, document: PartitionDocument) -> PartitionDocument:
-        return self._store.save_model(document.partition_name, document)
+        return self._store.save(partition=document.partition_name, relative_path="partition.json", model=document)
 
     def list_documents(self) -> list[PartitionDocument]:
-        return self._store.list_models(PartitionDocument)
+        return self._store.list_single(filename="partition.json", model_cls=PartitionDocument)
 
     def get(self, partition_name: str) -> PartitionDocument | None:
-        return self._store.load_model(partition_name, PartitionDocument)
+        return self._store.load(partition=partition_name, relative_path="partition.json", model_cls=PartitionDocument)
 
     def delete(self, partition_name: str) -> dict[str, Any]:
-        self._store.delete(partition_name)
+        self._store.delete(partition=partition_name, relative_path="partition.json")
         return {"acknowledged": True}
 
 
 class PartitionFacetSchemaRepository:
     def __init__(self, root: Path):
-        self._store = _JsonDirectoryStore(root / "partition_facet_schemas")
+        self._store = _PartitionJsonStore(root / "partitions")
 
     def create_index(self) -> dict[str, Any]:
         return self._store.create_index()
 
     def upsert(self, document: PartitionFacetSchemaDocument) -> PartitionFacetSchemaDocument:
-        return self._store.save_model(document.partition_name, document)
+        return self._store.save(partition=document.partition_name, relative_path="facet_schema.json", model=document)
 
     def get(self, partition_name: str) -> PartitionFacetSchemaDocument | None:
-        return self._store.load_model(partition_name, PartitionFacetSchemaDocument)
+        return self._store.load(partition=partition_name, relative_path="facet_schema.json", model_cls=PartitionFacetSchemaDocument)
 
     def get_or_create(self, partition_name: str) -> PartitionFacetSchemaDocument:
         existing = self.get(partition_name)
@@ -95,22 +151,22 @@ class PartitionFacetSchemaRepository:
         return self.upsert(PartitionFacetSchemaDocument(partition_name=partition_name, created_at=now, updated_at=now))
 
     def delete(self, partition_name: str) -> dict[str, Any]:
-        self._store.delete(partition_name)
+        self._store.delete(partition=partition_name, relative_path="facet_schema.json")
         return {"acknowledged": True}
 
 
 class PartitionFacetIndexRepository:
     def __init__(self, root: Path):
-        self._store = _JsonDirectoryStore(root / "partition_facet_indices")
+        self._store = _PartitionJsonStore(root / "partitions")
 
     def create_index(self) -> dict[str, Any]:
         return self._store.create_index()
 
     def upsert(self, document: PartitionFacetIndexDocument) -> PartitionFacetIndexDocument:
-        return self._store.save_model(document.partition_name, document)
+        return self._store.save(partition=document.partition_name, relative_path="facet_index.json", model=document)
 
     def get(self, partition_name: str) -> PartitionFacetIndexDocument | None:
-        return self._store.load_model(partition_name, PartitionFacetIndexDocument)
+        return self._store.load(partition=partition_name, relative_path="facet_index.json", model_cls=PartitionFacetIndexDocument)
 
     def get_or_create(self, partition_name: str) -> PartitionFacetIndexDocument:
         existing = self.get(partition_name)
@@ -120,22 +176,22 @@ class PartitionFacetIndexRepository:
         return self.upsert(PartitionFacetIndexDocument(partition_name=partition_name, facet_index=PartitionFacetIndex(partition_name=partition_name), created_at=now, updated_at=now))
 
     def delete(self, partition_name: str) -> dict[str, Any]:
-        self._store.delete(partition_name)
+        self._store.delete(partition=partition_name, relative_path="facet_index.json")
         return {"acknowledged": True}
 
 
 class PartitionSemanticIndexRepository:
     def __init__(self, root: Path):
-        self._store = _JsonDirectoryStore(root / "partition_semantic_indices")
+        self._store = _PartitionJsonStore(root / "partitions")
 
     def create_index(self) -> dict[str, Any]:
         return self._store.create_index()
 
     def upsert(self, document: PartitionSemanticIndexDocument) -> PartitionSemanticIndexDocument:
-        return self._store.save_model(document.partition_name, document)
+        return self._store.save(partition=document.partition_name, relative_path="semantic_index.json", model=document)
 
     def get(self, partition_name: str) -> PartitionSemanticIndexDocument | None:
-        return self._store.load_model(partition_name, PartitionSemanticIndexDocument)
+        return self._store.load(partition=partition_name, relative_path="semantic_index.json", model_cls=PartitionSemanticIndexDocument)
 
     def get_or_create(self, partition_name: str) -> PartitionSemanticIndexDocument:
         existing = self.get(partition_name)
@@ -145,7 +201,7 @@ class PartitionSemanticIndexRepository:
         return self.upsert(PartitionSemanticIndexDocument(partition_name=partition_name, semantic_index=PartitionSemanticIndex(partition_name=partition_name), created_at=now, updated_at=now))
 
     def delete(self, partition_name: str) -> dict[str, Any]:
-        self._store.delete(partition_name)
+        self._store.delete(partition=partition_name, relative_path="semantic_index.json")
         return {"acknowledged": True}
 
 
@@ -195,26 +251,42 @@ class StatisticsSnapshotRepository:
 
 class KnowbaseCaseRepository:
     def __init__(self, root: Path):
-        self._store = _JsonDirectoryStore(root / "cases")
+        self._store = _PartitionJsonStore(root / "partitions")
 
     def create_index(self) -> dict[str, Any]:
         return self._store.create_index()
 
     def upsert(self, document: KnowbaseCaseDocument) -> KnowbaseCaseDocument:
-        return self._store.save_model(document.case_id, document)
+        return self._store.save(
+            partition=document.partition,
+            relative_path=f"cases/{document.case_id}.json",
+            model=document,
+        )
 
     def get(self, case_id: str) -> KnowbaseCaseDocument | None:
-        return self._store.load_model(case_id, KnowbaseCaseDocument)
+        for document in self._store.list_all(directory="cases", model_cls=KnowbaseCaseDocument):
+            if document.case_id == case_id:
+                return document
+        return None
 
     def delete(self, case_id: str) -> dict[str, Any]:
-        self._store.delete(case_id)
+        document = self.get(case_id)
+        if document is not None:
+            self._store.delete(
+                partition=document.partition,
+                relative_path=f"cases/{document.case_id}.json",
+            )
         return {"acknowledged": True}
 
     def get_many(self, case_ids: list[str]) -> list[KnowbaseCaseDocument]:
         return [document for case_id in case_ids if (document := self.get(case_id)) is not None]
 
     def list_by_partition(self, partition: str, *, size: int = 500) -> list[KnowbaseCaseDocument]:
-        return [document for document in self._store.list_models(KnowbaseCaseDocument) if document.partition == partition][:size]
+        return self._store.list(
+            partition=partition,
+            directory="cases",
+            model_cls=KnowbaseCaseDocument,
+        )[:size]
 
     def search_lexical(self, query: KnowbaseCaseSearchQuery) -> list[KnowbaseCaseSearchHit]:
         documents = self._filter_documents(query=query)
@@ -243,7 +315,7 @@ class KnowbaseCaseRepository:
         return [self._to_hit(document=item[1], score=item[0]) for item in ranked[: query.size]]
 
     def _filter_documents(self, *, query: KnowbaseCaseSearchQuery) -> list[KnowbaseCaseDocument]:
-        documents = self._store.list_models(KnowbaseCaseDocument)
+        documents = self._store.list_all(directory="cases", model_cls=KnowbaseCaseDocument)
         filtered: list[KnowbaseCaseDocument] = []
         for document in documents:
             if query.case_ids and document.case_id not in query.case_ids:

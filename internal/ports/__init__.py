@@ -19,7 +19,7 @@ from internal.ports.domain import (
     PartitionSchemaSuggestPort,
     PartitionWritePort,
 )
-from internal.ports.backlog import EventBacklogPort, EventWorkerPort
+from internal.ports.backlog import EventBacklogPort, EventWorkerPort, PartitionTaskQueuePort
 from internal.ports.product import IngestUseCase, QueryUseCase
 from internal.ports.knowledge import (
     KnowledgeBatchNotificationPort,
@@ -40,6 +40,7 @@ __all__ = [
     "EventBacklogPort",
     "EventPublisherPort",
     "EventWorkerPort",
+    "PartitionTaskQueuePort",
     "IngestUseCase",
     "KnowledgeBatchNotificationPort",
     "PartitionAccessPort",

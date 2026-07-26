@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from .queue import KnowbaseEventBacklogService
-from .worker import EventWorkerRunResult, KnowbaseEventWorker
+from internal.backlog.events.queue import KnowbaseEventBacklogService
+from internal.backlog.events.worker import EventWorkerRunResult, KnowbaseEventWorker
 
 
 class KnowbaseEventService:

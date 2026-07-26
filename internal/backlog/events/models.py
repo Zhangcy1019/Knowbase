@@ -1,4 +1,4 @@
-"""Backlog-owned batch models."""
+"""Models for persisted event batching."""
 
 from __future__ import annotations
 
@@ -24,6 +24,5 @@ class BacklogBatch(BaseModel):
     events: list[EventRecord] = Field(default_factory=list)
     summary: str = ""
     metadata: dict[str, Any] = Field(default_factory=dict)
-
 
 __all__ = ["BacklogBatch"]

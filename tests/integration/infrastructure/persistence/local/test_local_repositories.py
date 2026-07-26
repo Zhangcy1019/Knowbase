@@ -134,9 +134,9 @@ class LocalRepositoriesIntegrationTest(unittest.TestCase):
         self.assertEqual(semantic_index.semantic_index.key_stats[0].aliases, ["subject"])
 
         self.assertTrue((self._root / "partitions" / "CI.json").exists())
-        self.assertTrue((self._root / "partition_facet_schemas" / "CI.json").exists())
-        self.assertTrue((self._root / "partition_facet_indices" / "CI.json").exists())
-        self.assertTrue((self._root / "partition_semantic_indices" / "CI.json").exists())
+        self.assertTrue((self._root / "partitions" / "CI" / "facet_schema.json").exists())
+        self.assertTrue((self._root / "partitions" / "CI" / "facet_index.json").exists())
+        self.assertTrue((self._root / "partitions" / "CI" / "semantic_index.json").exists())
 
     def test_case_repository_supports_partition_listing_and_search(self) -> None:
         now = datetime.now(timezone.utc)
@@ -206,7 +206,7 @@ class LocalRepositoriesIntegrationTest(unittest.TestCase):
 
         self._bundle.case_repository.delete("case-claims-1")
         self.assertIsNone(self._bundle.case_repository.get("case-claims-1"))
-        self.assertTrue((self._root / "cases" / "case-tax-1.json").exists())
+        self.assertTrue((self._root / "partitions" / "CI" / "cases" / "case-tax-1.json").exists())
 
     def test_event_and_trace_repositories_persist_generated_ids_and_filters(self) -> None:
         now = datetime.now(timezone.utc)

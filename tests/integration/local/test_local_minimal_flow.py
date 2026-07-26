@@ -18,14 +18,16 @@ from internal.application.modules import (
     build_ingest_service,
 )
 from internal.application.providers import CoreProviders, IngestProviders, build_core_providers
-from internal.backlog.queue import KnowbaseEventBacklogService
-from internal.backlog.worker import KnowbaseEventWorker
+from internal.backlog.events.queue import KnowbaseEventBacklogService
+from internal.backlog.events.worker import KnowbaseEventWorker
+from internal.backlog.tasks import PartitionTaskQueue
 from internal.domain.case.draft_builder import KnowbaseCaseDraftBuilder
 from internal.domain.case.facet_resolver import KnowbaseCaseFacetResolver
 from internal.domain.case.ingestor import KnowbaseCaseIngestor
 from internal.knowledge.service import KnowbaseKnowledgeService
 from internal.knowledge.workflow import KnowledgeDrainWorkflow
 from internal.knowledge.batch import BatchContextBuilder, BatchWorkingSetBuilder
+from internal.knowledge.facet_governance.models import FacetGovernanceResult
 from internal.models import IngestRequest, PartitionDocument, PartitionFacetSchema
 from internal.models.semantic_profile import CaseSemanticProfile
 from internal.runtime.contracts import RuntimeDecision
@@ -81,6 +83,15 @@ class _StaticTurnPlanner(RuntimeTurnPlannerPort):
         )
 
 
+class _StaticFacetGovernance:
+    def assess(self, *, current_schema, **kwargs):
+        _ = kwargs
+        return FacetGovernanceResult(
+            decision="accepted",
+            accepted_schema=current_schema,
+        )
+
+
 class LocalMinimalFlowIntegrationTest(unittest.TestCase):
     def setUp(self) -> None:
         self._runtime_cfg = load_test_runtime_config()
@@ -93,6 +104,7 @@ class LocalMinimalFlowIntegrationTest(unittest.TestCase):
 
     def test_local_backend_minimal_flow_runs_end_to_end(self) -> None:
         core = build_core_providers(runtime_cfg=self._runtime_cfg)
+        core.case_write_service._embedding_provider = _NoopEmbeddingProvider()
         self._create_partition(core=core, partition_name="CI")
 
         ingest_service = self._build_ingest_service(core=core)
@@ -104,74 +116,59 @@ class LocalMinimalFlowIntegrationTest(unittest.TestCase):
                 working_set_builder=BatchWorkingSetBuilder(),
                 partition_service=core.partition_service,
                 statistics=core.statistics_service,
+                facet_governance=_StaticFacetGovernance(),
                 projection=core.projection_service,
                 mutation_executor=core.mutation_executor,
-                versioning=core.versioning,
             ),
+            task_queue=PartitionTaskQueue(),
         )
         worker = KnowbaseEventWorker(
             backlog_service=backlog_service,
             knowledge_service=knowledge_service,
         )
 
-        with patch("internal.domain.case.write_service.create_embedding_provider", return_value=_NoopEmbeddingProvider()):
-            ingest_result = asyncio.run(
-                ingest_service.ingest(
-                    IngestRequest(
-                        partition_name="CI",
-                        title="Tax policy note",
-                        source_content="This tax document should enter the backlog and be summarized by runtime.",
-                        source_refs=["doc://tax-note-1"],
-                        author="integration-test",
-                        source="user",
-                    )
+        ingest_result = asyncio.run(
+            ingest_service.ingest(
+                IngestRequest(
+                    partition_name="CI",
+                    title="Tax policy note",
+                    source_content="This tax document should enter the backlog and be summarized by runtime.",
+                    source_refs=["doc://tax-note-1"],
+                    author="integration-test",
+                    source="user",
                 )
             )
+        )
+        asyncio.run(core.task_queue.wait_idle(partition="CI"))
 
         self.assertTrue(ingest_result.case_id)
         self.assertEqual(ingest_result.partition, "CI")
-        self.assertTrue(ingest_result.backlog_event_id)
+        self.assertTrue(ingest_result.task_id)
 
         events_before = backlog_service.list_events(partition="CI")
         self.assertEqual(len(events_before), 1)
         self.assertEqual(events_before[0].status, "pending")
+        event_id = events_before[0].event_id
 
         worker_result = asyncio.run(worker.run_once(partition="CI", trigger_source="integration_test"))
         self.assertEqual(worker_result.attempted_count, 1)
-        self.assertEqual(worker_result.completed_count, 1)
+        self.assertEqual(worker_result.completed_count, 0)
         self.assertEqual(worker_result.failed_count, 0)
         self.assertTrue(worker_result.accepted)
-        event_after = backlog_service.get_event(ingest_result.backlog_event_id)
+        asyncio.run(core.task_queue.wait_idle(partition="CI"))
+        event_after = backlog_service.get_event(event_id)
         assert event_after is not None
-        runtime_result = runtime_service.get_run(event_after.run_id)
-        assert runtime_result is not None
-        self.assertEqual(runtime_result.status, "completed")
-        self.assertTrue(runtime_result.run_id)
-        self.assertEqual(runtime_result.applied_actions, [])
-        self.assertGreaterEqual(len(runtime_result.steps), 1)
-        self.assertGreaterEqual(len(runtime_result.artifacts), 1)
+        self.assertEqual(event_after.status, "completed")
+        self.assertTrue(event_after.run_id)
 
         events_after = backlog_service.list_events(partition="CI")
         self.assertEqual(len(events_after), 1)
         self.assertEqual(events_after[0].status, "completed")
-        self.assertEqual(events_after[0].run_id, runtime_result.run_id)
 
-        replay = runtime_service.get_trace_replay(runtime_result.run_id)
-        self.assertIsNotNone(replay)
-        assert replay is not None
-        self.assertEqual(replay.run.run_id, runtime_result.run_id)
-        self.assertGreaterEqual(len(replay.turns), 1)
-
-        cases_dir = self._root / "cases"
+        cases_dir = self._root / "partitions" / "CI" / "cases"
         events_dir = self._root / "events"
-        runs_dir = self._root / "runs"
-        steps_dir = self._root / "run_steps"
-        artifacts_dir = self._root / "run_artifacts"
         self.assertEqual(len(list(cases_dir.glob("*.json"))), 1)
         self.assertEqual(len(list(events_dir.glob("*.json"))), 1)
-        self.assertEqual(len(list(runs_dir.glob("*.json"))), 1)
-        self.assertGreaterEqual(len(list(steps_dir.glob("*.json"))), 2)
-        self.assertGreaterEqual(len(list(artifacts_dir.glob("*.json"))), 2)
 
     def _build_ingest_service(self, *, core: CoreProviders):
         ingest = IngestProviders(
@@ -212,10 +209,6 @@ class LocalMinimalFlowIntegrationTest(unittest.TestCase):
                 created_at=now,
                 updated_at=now,
             )
-        )
-        core.partition_service.save_facet_schema(
-            partition_name=partition_name,
-            facet_schema=PartitionFacetSchema(),
         )
 
 

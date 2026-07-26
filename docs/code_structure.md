@@ -1,235 +1,59 @@
 # 代码结构
 
-本文档说明当前 Knowbase 推荐收敛的代码结构。
-
-## 顶层结构
-
-```text
-knowbase/
-  main.py
-  bootstrap.py
-  config/
-  docs/
-  internal/
-  tests/
-  ui/
-```
-
-- `main.py`
-  统一启动入口，负责加载配置、初始化日志、启动服务。
-- `bootstrap.py`
-  应用装配入口，负责创建 FastAPI app、注册路由、挂载 UI。
-- `internal/`
-  所有后端内部实现。
-
-## internal 分层
+## 顶层目录
 
 ```text
 internal/
-  api/
-  agents/
-    product/
-  application/
+  api/                         HTTP routes and schemas
+  application/                 dependency assembly
   backlog/
-  connectors/
-    es/
+    events/                    event persistence and batch assembly
+    tasks/                     partition task queue
   domain/
-    case/
-    event/
-    partition/
-    run/
-  embedding/
+    case/                      case lifecycle and extraction
+    event/                     event publishing
+    partition/                 partition lifecycle and profiles
+    run/                       run persistence domain
+  infrastructure/
+    ai/                        LLM and embedding adapters
+    coordination/              mutation lock
+    persistence/               local / Elasticsearch stores
+    version_control/           Git adapter
   knowledge/
-    planning/
-    skills/
-      case/
-      partition/
-    tools/
-      case/
-      partition/
-  models/
-  ports/
+    batch/                     working set and preparation inputs
+    statistics/                case/query statistics
+    facet_governance/          schema governance boundary
+    projection/                case facet projection
+    execution/                 mutation plan application
+    decision/                  decision audit and review lock
+    workflow/                  Knowledge top-level orchestration
+    capability/                Knowledge tool/skill registration
+  models/                      cross-module models
+  ports/                       cross-module protocols
   product/
-    ingest/
-    query/
-  runtime/
-    skills/
-    tools/
-  utils/
+    ingest/                    case input use case
+    query/                     query use case
+  runtime/                     generic agent harness
+  versioning/                  partition Git policy and transactions
 ```
 
-## 模块职责
-
-### `api`
-
-HTTP 适配层。
-
-- route 注册
-- request / response schema
-- route 级依赖装配
-
-不承载核心业务编排。
-
-### `application`
-
-应用装配层。
-
-- 构建 container
-- 装配 providers / registries / modules
-- 暴露启动所需的 facade
-
-### `product`
-
-在线主流程层。
-
-- `product/ingest`
-- `product/query`
-
-负责用户直接感知的用例编排。
-
-### `backlog`
-
-后台事件编排层。
-
-- backlog queue
-- worker drain
-
-它负责管理事件与批次，不负责任务塑形与执行 loop。
-
-### `knowledge`
-
-知识整理业务层。
-
-- batch working set
-- preparation planner
-- knowledge task
-- runtime request dispatch
-- knowledge tools / skills
-
-它负责把 backlog batch 变成 knowledge-owned runtime request。
-
-### `runtime`
-
-agent harness 层。
-
-- request contract
-- session / loop state
-- memory
-- agent decision
-- action execution
-- termination
-- run result assembly
-
-它负责真正执行一次 run。
-
-### `domain`
-
-领域层。
-
-- `case`
-- `partition`
-- `event`
-- `run`
-
-负责核心资源、领域服务、仓储。
-
-### `runtime/skills` 和 `runtime/tools`
-
-runtime capability 基建层。
-
-- registry
-- runtime executor
-- capability protocol
-
-### `knowledge/skills`
-
-有副作用的可执行能力。
-
-例如：
-
-- `case.rebuild_case`
-- `case.refresh_case_facets`
-- `partition.refresh_selected_cases_facets`
-
-### `knowledge/tools`
-
-只读观察能力。
-
-例如：
-
-- `case.get`
-- `case.list`
-- `partition.get`
-
-### `models`
-
-跨层共享的数据结构和持久化模型。
-
-### `ports`
-
-跨模块依赖接口。
-
-所有顶层模块之间的稳定调用关系，尽量通过 `ports` 收口。
-
-## 核心接口
-
-### backlog -> knowledge -> runtime
-
-`KnowledgeDispatchPort`
-
-- `build_runtime_request(batch: BacklogBatch) -> RuntimeRunRequest`
-
-knowledge 内部当前推荐分两段：
-
-- `BacklogBatch -> KnowledgeTask`
-- `KnowledgeTask -> RuntimeRunRequest`
-
-`RuntimeHarnessPort`
-
-- `run_request(request: RuntimeRunRequest) -> RuntimeRunResult`
-
-### product -> domain
-
-`PartitionAccessPort`
-
-- `get_partition(partition_name: str) -> PartitionDocument | None`
-- `get_facet_schema(partition_name: str) -> PartitionFacetSchema | None`
-- `get_semantic_index(partition_name: str) -> PartitionSemanticIndex | None`
-
-`CaseStorePort`
-
-- `save(document: KnowbaseCaseDocument) -> KnowbaseCaseDocument`
-
-`CaseReadPort`
-
-- `get(case_id: str) -> KnowbaseCaseDocument | None`
-- `list_by_partition(partition_name: str) -> list[KnowbaseCaseDocument]`
-
-### runtime -> capabilities
-
-`SkillExecutionPort`
-
-- `resolve_spec(skill_id: str) -> SkillSpec | None`
-- `execute(invocation: SkillInvocation, *, context: SkillExecutionContext | None = None) -> SkillResult`
-
-运行时内部也会直接使用 `ToolRuntime` 执行 tool。
-
-## 当前推荐依赖方向
+## 依赖方向
 
 ```text
-api -> application / ports
-application -> product / backlog / knowledge / runtime / domain
+api -> application -> product / backlog / knowledge / runtime
 product -> domain / ports / models
 backlog -> ports / models
-knowledge -> backlog / ports / models
-runtime -> ports / models / domain.run
-domain -> models / connectors
-knowledge.capability.skills -> capability registration
-knowledge.capability.tools -> capability registration
+knowledge -> ports / models / domain reads
+runtime -> ports / models / capabilities
+domain -> models
+infrastructure -> ports / models
 ```
 
-## 一句话总结
+`application` 只组装对象，不实现业务规则。`workflow` 负责串联 Knowledge 模块，不拥有统计、治理或文件写入算法。
 
-当前结构的重点不是目录多，而是边界清楚：
+## 重要边界
 
-`product 做在线主流程，backlog 做事件批次，knowledge 做知识整理任务塑形，runtime 做 agent harness。`
+- `backlog/events` 是已发生事件；`backlog/tasks` 是待执行命令，两者不共用状态模型。
+- `knowledge/projection` 计算“应该改什么”；`knowledge/execution` 执行已经确认的 mutation plan。
+- `runtime` 是通用执行底座；Knowledge 通过受限 request 注入目标和能力。
+- `versioning` 管理分区 Git；Knowledge 不直接调用 Git subprocess。

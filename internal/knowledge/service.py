@@ -7,6 +7,9 @@ from datetime import timedelta
 
 from internal.ports import KnowledgeBatchNotificationPort
 from internal.ports import EventBacklogPort
+from typing import Any
+
+from internal.ports.backlog import PartitionTaskQueuePort
 from internal.utils.logger import get_logger
 
 
@@ -20,10 +23,18 @@ class KnowbaseKnowledgeService(KnowledgeBatchNotificationPort):
     work; they do not build runtime requests or observe execution details.
     """
 
-    def __init__(self, *, backlog_service: EventBacklogPort, workflow):
+    def __init__(
+        self,
+        *,
+        backlog_service: EventBacklogPort,
+        workflow,
+        task_queue: PartitionTaskQueuePort | None = None,
+    ):
         self._backlog_service = backlog_service
         self._workflow = workflow
-        self._tasks: set[asyncio.Task[None]] = set()
+        if task_queue is None:
+            raise ValueError("KnowbaseKnowledgeService requires a partition task queue")
+        self._task_queue = task_queue
 
     async def notify_batch(self, *, batch) -> None:
         """Accept a batch and schedule Knowledge processing in the background."""
@@ -31,9 +42,12 @@ class KnowbaseKnowledgeService(KnowledgeBatchNotificationPort):
 
     async def submit_batch(self, *, batch) -> None:
         """Submit a backlog-derived batch for asynchronous processing."""
-        task = asyncio.create_task(self._process_batch(batch), name=f"knowledge:batch:{batch.batch_id}")
-        self._tasks.add(task)
-        task.add_done_callback(self._tasks.discard)
+        self._task_queue.enqueue(
+            partition=batch.partition,
+            kind="knowledge_drain",
+            payload={"batch_id": batch.batch_id, "event_ids": batch.event_ids},
+            handler=lambda task: self._process_batch_task(task=task, batch=batch),
+        )
         logger.info(
             "Knowledge batch accepted for asynchronous processing.",
             extra={"batch_id": batch.batch_id, "partition": batch.partition},
@@ -41,12 +55,22 @@ class KnowbaseKnowledgeService(KnowledgeBatchNotificationPort):
 
     async def submit_manual(self, *, batch) -> None:
         """Submit a manually triggered Knowledge batch asynchronously."""
-        task = asyncio.create_task(
-            self._process_request(batch=batch),
-            name=f"knowledge:manual:{batch.batch_id}",
+        self._task_queue.enqueue(
+            partition=batch.partition,
+            kind="knowledge_drain",
+            payload={"batch_id": batch.batch_id, "trigger": "manual"},
+            handler=lambda task: self._process_request_task(task=task, batch=batch),
         )
-        self._tasks.add(task)
-        task.add_done_callback(self._tasks.discard)
+
+    async def wait_partition_idle(self, *, partition: str) -> None:
+        """Test/worker hook to await all queued work for one partition."""
+        await self._task_queue.wait_idle(partition=partition)
+
+    async def _process_batch_task(self, *, task: Any, batch) -> None:
+        await self._process_batch(batch)
+
+    async def _process_request_task(self, *, task: Any, batch) -> None:
+        await self._process_request(batch=batch)
 
     async def _process_request(self, *, batch) -> None:
         try:

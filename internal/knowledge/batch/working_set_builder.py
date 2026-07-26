@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections import defaultdict
 from datetime import datetime
 
-from internal.backlog.models import BacklogBatch
+from internal.backlog.events.models import BacklogBatch
 from internal.knowledge.batch.models import BatchWorkingSet, NormalizedEvent, ResourceEventGroup
 from internal.utils.logger import get_logger
 

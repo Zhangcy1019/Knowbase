@@ -44,15 +44,6 @@ class KnowledgeStatisticsService:
     def load_partition_statistics(self, *, partition: str) -> CaseStatisticsSnapshot | None:
         return self._reader.load_partition_statistics(partition=partition)
 
-    def stamp_source_revision(self, *, partition: str, source_revision: str) -> CaseStatisticsSnapshot | None:
-        with self._store.lock(partition=partition):
-            snapshot = self._store.load(partition=partition)
-            if snapshot is None:
-                return None
-            updated = snapshot.model_copy(update={"source_revision": source_revision})
-            self._store.save(statistics=updated)
-            return updated
-
     def query_key_stats(
         self,
         *,

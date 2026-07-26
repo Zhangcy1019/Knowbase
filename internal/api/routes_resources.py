@@ -61,7 +61,7 @@ def register_resource_routes(app: FastAPI, *, deps: KnowbaseRouteDeps) -> None:
     @app.put("/api/knowbase/cases/{case_id}", response_model=KnowbaseCaseDocument)
     async def update_knowbase_case(case_id: str, req: CaseUpdateRequest) -> KnowbaseCaseDocument:
         try:
-            existing, updated, changed_fields = deps.case_write_service.update_case(
+            existing, updated, changed_fields = await deps.case_write_service.update_case_queued(
                 case_id=case_id,
                 title=req.title,
                 source_content=req.source_content,
@@ -122,7 +122,7 @@ def register_resource_routes(app: FastAPI, *, deps: KnowbaseRouteDeps) -> None:
     @app.delete("/api/knowbase/cases/{case_id}")
     async def delete_knowbase_case(case_id: str) -> dict[str, str]:
         try:
-            existing = deps.case_write_service.delete_case(case_id=case_id)
+            existing = await deps.case_write_service.delete_case_queued(case_id=case_id)
         except ValueError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
         except RuntimeError as exc:

@@ -84,7 +84,7 @@ class KnowledgeMutationExecutorIntegrationTest(unittest.TestCase):
             self.assertEqual(result.updated_case_ids, ["case-1"])
             self.assertEqual(
                 result.updated_paths,
-                ["cases/case-1.json", "partition_facet_schemas/ci.json"],
+                ["cases/case-1.json", "facet_schema.json"],
             )
             self.assertEqual(repository.get("case-1").facets.model_dump(), {"Area": ["Build"]})
             self.assertEqual(partition_service.saved, [("ci", schema)])

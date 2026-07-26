@@ -1,111 +1,49 @@
-# Semantic Index 设计
+# Statistics 与 Semantic Index
 
-`PartitionSemanticIndex` 是当前系统最关键的统计中间层。
+## 定位
 
-## 为什么需要 semantic index
+`PartitionSemanticIndex` 是开放语义的分区级统计层，位于 case semantic profile 和正式 facet schema 之间。
 
-如果只有开放 `semantic_profile`，会遇到两个问题：
+它提供：
 
-- query 不知道库里常见的表达方式
-- 后台结构治理没有长期统计依据
+- key/value 频次
+- 覆盖率和 case count
+- alias / support 参考
+- query 对齐参考
+- facet governance 证据
 
-semantic index 的出现，就是为了解决这两个问题。
+它不是事实源，也不是强约束 schema。
 
-## semantic index 的定位
+## 两类统计
 
-它位于：
+### Case statistics
 
-- case 开放语义层
-- facet 正式结构层
+来源是 `domain/case` 已经生成的 facet 和 semantic profile，存储为：
 
-之间。
+```text
+knowledge_statistics/{partition}/snapshot.json
+```
 
-它既不保存原始事实，也不直接代表正式 schema。
+### Query statistics
 
-## semantic index 的职责
+query 的 facts/semantic profile 独立存储：
 
-核心职责：
+```text
+runtime_statistics/query/{partition}/snapshot.json
+```
 
-- 聚合 case 的开放语义
-- 统计高频 key / value
-- 为 query 提供对齐参考
-- 为 facet 演化提供证据
-- 为新 case 写入提供偏置参考
+query 当前只做统计，不直接影响 facet/schema 收敛。
 
-## semantic index 不是做什么的
+## 更新方式
 
-它不应：
+- case create：append observation
+- case update：replace old observation with new observation
+- case delete：remove old observation
+- query：append query observation
+- snapshot 文件使用临时文件替换，并按 partition 加锁
 
-- 替代 case 原始事实
-- 成为强校验器
-- 限制开放 `semantic_profile`
-- 等价于 facet schema
+当前 snapshot 不保存历史 observation id，因此生命周期服务必须保证 update/delete 的调用语义正确。Redis 幂等层暂未接入。
 
-所以它是：
+## Drain 快照
 
-- 统计层
-- 参考层
-- 检索增强层
-
-不是：
-
-- 强约束层
-
-## 当前建议维护的信息
-
-一个 `PartitionSemanticIndex` 可以维护：
-
-- 高频 key
-- 高频 value
-- key 覆盖度
-- aliases 候选
-- 治理候选信号
-
-后续如有必要，再逐步增加：
-
-- co-occurrence
-- query utility signals
-- dormant key signals
-
-## 它在三条主流程里的作用
-
-### 1. 写入
-
-新 case 在生成 `semantic_profile` 时参考 semantic index，可以：
-
-- 尽量复用已有表达
-- 降低无意义新 key / 新 value 的数量
-
-### 2. query
-
-query consult semantic index，可以：
-
-- key alignment
-- value alignment
-- alias resolution
-- retrieval expansion
-
-### 3. backlog / runtime 治理
-
-后台治理 consult semantic index，可以：
-
-- 发现 promote 候选
-- 发现 demote 候选
-- 发现冗余 key
-- 生成治理解释
-
-## 当前与 backlog / runtime 的关系
-
-semantic index 是 backlog preparation 和 runtime request context 的重要输入之一。
-
-后台链路不应该直接“凭感觉”做 facet 调整，而应该基于：
-
-- semantic index snapshot
-- 当前 facet schema
-- 当前 batch working set
-
-来给出 preparation assessment 和 action hints。
-
-## 一句话总结
-
-`PartitionSemanticIndex` 是当前系统的语义统计认知层，是 query 对齐和结构治理的共同基础。
+Knowledge drain 开始时读取一次当前 statistics，作为本轮治理输入；完整现场写入 `KnowledgeDecisionRecord` 用于复盘。治理过程中不重新读取 live snapshot。

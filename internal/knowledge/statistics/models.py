@@ -59,7 +59,6 @@ class CaseStatisticsSnapshot(BaseModel):
 
     partition: str
     generated_at: datetime | None = None
-    source_revision: str | None = None  # the git commit revision of base commit
     case_count: int = 0
     case_key_stats: dict[str, int] = Field(default_factory=dict)
     case_value_stats: dict[str, dict[str, int]] = Field(default_factory=dict)

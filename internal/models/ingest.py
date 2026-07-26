@@ -23,6 +23,7 @@ class IngestResult(BaseModel):
     """Result returned after one ingest operation."""
 
     case_id: str = ""
+    task_id: str = ""
     partition: str = ""
     accepted: bool = True
     processing_status: str = "queued"

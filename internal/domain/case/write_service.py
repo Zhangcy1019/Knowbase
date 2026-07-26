@@ -28,7 +28,9 @@ class KnowbaseCaseWriteService:
         facet_resolver: KnowbaseCaseFacetResolver | None = None,
         embedding_provider: EmbeddingProvider | None = None,
         statistics=None,
-        versioning=None,
+        versioning_factory=None,
+        task_queue=None,
+        mutation_lock_factory=None,
     ):
         self._repository = repository
         self._partition_service = partition_service
@@ -38,11 +40,67 @@ class KnowbaseCaseWriteService:
             raise ValueError("KnowbaseCaseWriteService requires an explicit embedding_provider")
         self._embedding_provider = embedding_provider
         self._statistics = statistics
-        self._versioning = versioning
+        self._versioning_factory = versioning_factory
+        self._task_queue = task_queue
+        self._mutation_lock_factory = mutation_lock_factory
+
+    async def update_case_queued(self, **kwargs):
+        """Serialize an update through the shared partition task queue."""
+        case_id = kwargs.get("case_id", "")
+        existing = self._repository.get(case_id)
+        if existing is None:
+            raise ValueError(f"case not found: {case_id}")
+        if self._task_queue is None:
+            return self.update_case(**kwargs)
+        result: dict[str, object] = {}
+
+        async def handler(_task) -> None:
+            lock = self._mutation_lock_factory(existing.partition) if self._mutation_lock_factory else _NullContext()
+            with lock:
+                self._prepare_versioning(existing.partition)
+                result["value"] = self.update_case(**kwargs)
+
+        task = self._task_queue.enqueue(
+            partition=existing.partition,
+            kind="case_update",
+            payload={"case_id": case_id},
+            handler=handler,
+        )
+        await self._task_queue.wait_idle(partition=existing.partition)
+        if task.status == "failed":
+            raise RuntimeError(task.error_message or f"case update task failed: {case_id}")
+        return result["value"]
+
+    async def delete_case_queued(self, *, case_id: str):
+        """Serialize a delete through the shared partition task queue."""
+        existing = self._repository.get(case_id)
+        if existing is None:
+            raise ValueError(f"case not found: {case_id}")
+        if self._task_queue is None:
+            return self.delete_case(case_id=case_id)
+        result: dict[str, object] = {}
+
+        async def handler(_task) -> None:
+            lock = self._mutation_lock_factory(existing.partition) if self._mutation_lock_factory else _NullContext()
+            with lock:
+                self._prepare_versioning(existing.partition)
+                result["value"] = self.delete_case(case_id=case_id)
+
+        task = self._task_queue.enqueue(
+            partition=existing.partition,
+            kind="case_delete",
+            payload={"case_id": case_id},
+            handler=handler,
+        )
+        await self._task_queue.wait_idle(partition=existing.partition)
+        if task.status == "failed":
+            raise RuntimeError(task.error_message or f"case delete task failed: {case_id}")
+        return result["value"]
 
     def create_case(
         self,
         *,
+        case_id: str | None = None,
         partition_name: str,
         title: str,
         source_content: str,
@@ -64,7 +122,7 @@ class KnowbaseCaseWriteService:
         )
         now = datetime.now(timezone.utc)
         case_document = KnowbaseCaseDocument(
-            case_id=f"case-{uuid4().hex}",
+            case_id=case_id or f"case-{uuid4().hex}",
             partition=partition_name,
             created_at=now,
             updated_at=now,
@@ -101,6 +159,7 @@ class KnowbaseCaseWriteService:
         partition = self._partition_service.get_partition(existing.partition)
         if partition is None:
             raise ValueError(f"partition not found: {existing.partition}")
+        self._prepare_versioning(existing.partition)
         facet_definitions = self._partition_service.list_facet_definitions(existing.partition)
 
         resolved_source_content = existing.source_content
@@ -161,6 +220,7 @@ class KnowbaseCaseWriteService:
         existing = self._repository.get(case_id)
         if existing is None:
             raise ValueError(f"case not found: {case_id}")
+        self._prepare_versioning(existing.partition)
         self._repository.delete(case_id)
         try:
             self._remove_statistics(existing)
@@ -193,14 +253,17 @@ class KnowbaseCaseWriteService:
             self._statistics.remove_observation(observation=self._observation(document))
 
     def _commit_case(self, document: KnowbaseCaseDocument) -> None:
-        if self._versioning is not None:
-            self._versioning.commit_case_ingest(
+        if self._versioning_factory is not None:
+            self._versioning_factory(document.partition).commit_case_ingest(
                 case_id=document.case_id,
                 paths=[
                     f"cases/{document.case_id}.json",
-                    f"knowledge_statistics/{document.partition}/snapshot.json",
                 ],
             )
+
+    def _prepare_versioning(self, partition: str) -> None:
+        if self._versioning_factory is not None:
+            self._versioning_factory(partition)
 
     @staticmethod
     def _observation(document: KnowbaseCaseDocument):
@@ -255,3 +318,11 @@ class KnowbaseCaseWriteService:
             raise RuntimeError(
                 f"Failed to build case embedding for {document.case_id}: {exc}"
             ) from exc
+
+
+class _NullContext:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        return None

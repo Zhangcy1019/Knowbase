@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 
 from internal.agents.product import AnswerSynthesisAgent
-from internal.backlog.queue import KnowbaseEventBacklogService
-from internal.backlog.worker import KnowbaseEventWorker
+from internal.backlog.events.queue import KnowbaseEventBacklogService
+from internal.backlog.events.worker import KnowbaseEventWorker
 from internal.knowledge.service import KnowbaseKnowledgeService
+from internal.infrastructure.coordination import PartitionMutationLock
 from internal.knowledge.workflow import KnowledgeDrainWorkflow
 from internal.knowledge.batch import BatchWorkingSetBuilder
 from internal.ports import EventBacklogPort, EventWorkerPort, IngestUseCase, QueryUseCase, RuntimeRunPort
@@ -84,13 +86,20 @@ def build_runtime_module(
         working_set_builder=BatchWorkingSetBuilder(),
         partition_service=core.partition_service,
         statistics=core.statistics_service,
-        versioning=core.versioning,
+        versioning_factory=core.partition_versioning.prepare,
         projection=core.projection_service,
+        facet_governance=core.facet_governance,
         mutation_executor=core.mutation_executor,
+        decision_service=core.decision_service,
+        mutation_lock_factory=lambda partition: PartitionMutationLock(
+            local_root=Path(runtime_cfg.storage.local_root),
+            partition=partition,
+        ),
     )
     knowledge_service = KnowbaseKnowledgeService(
         backlog_service=event_backlog_service,
         workflow=knowledge_workflow,
+        task_queue=core.task_queue,
     )
     event_worker = KnowbaseEventWorker(
         backlog_service=event_backlog_service,
@@ -118,7 +127,12 @@ def build_ingest_service(
         semantic_profile_extractor=ingest.semantic_profile_extractor,
         facet_resolver=ingest.facet_resolver,
         statistics=core.statistics_service,
-        versioning=core.versioning,
+        versioning_factory=core.partition_versioning.prepare,
+        task_queue=core.task_queue,
+        mutation_lock_factory=lambda partition: PartitionMutationLock(
+            local_root=Path(core.runtime_cfg.storage.local_root),
+            partition=partition,
+        ),
     )
 
 

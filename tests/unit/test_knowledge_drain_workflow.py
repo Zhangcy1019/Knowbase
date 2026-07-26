@@ -4,7 +4,7 @@ import asyncio
 from types import SimpleNamespace
 import unittest
 
-from internal.backlog.models import BacklogBatch
+from internal.backlog.events.models import BacklogBatch
 from internal.knowledge.facet_governance.models import (
     FacetGovernanceResult,
     PartitionFacetSchemaProposal,

@@ -1,28 +1,54 @@
-# Knowledge 文档入口
+# Knowledge 模块
 
-原 [knowledge.md](/home/zcy/Project/knowbase/docs/knowledge.md) 中的统一规约已经拆分，避免一份总文档和多份子文档并存导致重复与漂移。
+Knowledge 负责把一批 case 变化整理成可审计的分区级知识 mutation。
 
-当前请以以下文档为准：
+## 主链路
 
-1. [knowledge_architecture.md](/home/zcy/Project/knowbase/docs/knowledge_architecture.md)
-说明 Knowledge v1 的总体边界、主链路和模块分层。
+```text
+BacklogBatch
+  -> BatchWorkingSetBuilder
+  -> statistics snapshot
+  -> FacetGovernanceService
+  -> ProjectionService
+  -> KnowledgeMutationPlan
+  -> KnowledgeMutationExecutor
+  -> partition Git transaction
+```
 
-2. [knowledge_semantic_index.md](/home/zcy/Project/knowbase/docs/knowledge_semantic_index.md)
-说明 `CaseSemanticCandidate`、`PartitionSemanticIndex`、统计量与反向索引。
+## 模块职责
 
-3. [knowledge_query_stats.md](/home/zcy/Project/knowbase/docs/knowledge_query_stats.md)
-说明 query 如何进入 knowledge 统计层，以及为什么当前不参与知识结构决策。
+| 模块 | 输入 | 输出 |
+| --- | --- | --- |
+| `batch` | `BacklogBatch` | `BatchWorkingSet` |
+| `statistics` | case/query observation | snapshot、统计查询、支持 case 查询 |
+| `facet_governance` | snapshot、current schema、working set | `FacetGovernanceResult` |
+| `projection` | accepted schema、case ids | `ProjectionPlan` |
+| `execution` | `KnowledgeMutationPlan` | 文件变更和更新路径 |
+| `decision` | workflow 结论 | `KnowledgeDecisionRecord` |
+| `workflow` | 上述模块 | `KnowledgeWorkflowResult` |
 
-4. [knowledge_facet_convergence.md](/home/zcy/Project/knowbase/docs/knowledge_facet_convergence.md)
-说明 `partition facet key convergence`、冻结规则、拟合度与熔断前模拟。
+## Governance 结果
 
-5. [knowledge_mutation_execution.md](/home/zcy/Project/knowbase/docs/knowledge_mutation_execution.md)
-说明 `KnowledgeMutationPlan`、执行器、Git 事务、回滚与审计。
+- `no_change`：当前结构无需调整，流程完成。
+- `requires_review`：保存完整现场，冻结新的 Knowledge drain，等待人工处理。
+- `accepted`：进入 projection 和 execution。
 
-当前推荐阅读顺序：
+当前 `FacetGovernanceService.assess()` 仍是骨架；它的职责是只读分析和裁决，不修改文件。
 
-1. 架构总览
-2. 语义统计与索引
-3. query 统计输入
-4. facet 收敛算法
-5. mutation 与执行链路
+## Projection 与 execution
+
+`ProjectionService` 只计算 case facet 应有的变化：
+
+```text
+current case + accepted schema -> CaseProjectionChange
+```
+
+`KnowledgeMutationExecutor` 才写入 case/schema 文件。执行前记录实际路径，失败时回滚；成功后由 `VersionCommitCoordinator` 提交分区 Git。
+
+## Knowledge 不负责
+
+- 修改 case 原文
+- 直接调用 Git
+- 直接调用 LLM 修改文件
+- 把 query 统计直接转成 facet 变化
+- 在 workflow 中实现收敛算法

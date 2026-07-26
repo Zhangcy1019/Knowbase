@@ -20,7 +20,6 @@ from internal.ports import (
     SkillExecutionPort,
 )
 if TYPE_CHECKING:
-    from internal.versioning import VersionCommitCoordinator
     from internal.knowledge.statistics import KnowledgeStatisticsService
 
 
@@ -38,4 +37,3 @@ class KnowbaseRouteDeps:
     ingest_service: IngestUseCase
     query_flow: QueryUseCase
     statistics_service: KnowledgeStatisticsService | None = None
-    versioning: VersionCommitCoordinator | None = None

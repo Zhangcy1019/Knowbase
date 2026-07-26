@@ -34,7 +34,7 @@ class KnowledgeMutationExecutor:
                 partition_name=plan.partition,
                 facet_schema=plan.accepted_schema,
             )
-            updated_paths.append(f"partition_facet_schemas/{plan.partition}.json")
+            updated_paths.append("facet_schema.json")
         for change in plan.case_changes:
             case = self._case_repository.get(change.case_id)
             assert case is not None
@@ -56,7 +56,7 @@ class KnowledgeMutationExecutor:
         """Return all workspace paths that a plan may mutate for transaction rollback."""
         paths = [f"cases/{change.case_id}.json" for change in plan.case_changes]
         if plan.accepted_schema is not None:
-            paths.append(f"partition_facet_schemas/{plan.partition}.json")
+            paths.append("facet_schema.json")
         return sorted(set(paths))
 
     def _validate_plan(self, *, plan) -> None:
