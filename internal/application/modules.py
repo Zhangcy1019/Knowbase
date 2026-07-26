@@ -3,15 +3,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 
 from internal.agents.product import AnswerSynthesisAgent
-from internal.backlog.queue import KnowbaseEventBacklogService
-from internal.backlog.worker import KnowbaseEventWorker
-from internal.knowledge.dispatch import (
-    KnowbaseKnowledgeDispatchService,
-    RuntimeRequestBuilder,
-)
-from internal.knowledge.planning import BacklogPreparationPlanner, BatchWorkingSetBuilder
+from internal.backlog.events.queue import KnowbaseEventBacklogService
+from internal.backlog.events.worker import KnowbaseEventWorker
+from internal.knowledge.service import KnowbaseKnowledgeService
+from internal.infrastructure.coordination import PartitionMutationLock
+from internal.knowledge.workflow import KnowledgeDrainWorkflow
+from internal.knowledge.batch import BatchWorkingSetBuilder
 from internal.ports import EventBacklogPort, EventWorkerPort, IngestUseCase, QueryUseCase, RuntimeRunPort
 from internal.product.ingest.service import KnowbaseIngestService
 from internal.product.ingest.validator import KnowbaseIngestValidator
@@ -82,19 +82,28 @@ def build_runtime_module(
         trace_recorder=trace_recorder,
     )
     event_backlog_service = KnowbaseEventBacklogService(repository=core.event_record_repository)
-    dispatch_service = KnowbaseKnowledgeDispatchService(
-        request_builder=RuntimeRequestBuilder(
-            working_set_builder=BatchWorkingSetBuilder(),
-            preparation_planner=BacklogPreparationPlanner(
-                partition_service=core.partition_service,
-                case_repository=core.case_repository,
-            ),
+    knowledge_workflow = KnowledgeDrainWorkflow(
+        working_set_builder=BatchWorkingSetBuilder(),
+        partition_service=core.partition_service,
+        statistics=core.statistics_service,
+        versioning_factory=core.partition_versioning.prepare,
+        projection=core.projection_service,
+        facet_governance=core.facet_governance,
+        mutation_executor=core.mutation_executor,
+        decision_service=core.decision_service,
+        mutation_lock_factory=lambda partition: PartitionMutationLock(
+            local_root=Path(runtime_cfg.storage.local_root),
+            partition=partition,
         ),
+    )
+    knowledge_service = KnowbaseKnowledgeService(
+        backlog_service=event_backlog_service,
+        workflow=knowledge_workflow,
+        task_queue=core.task_queue,
     )
     event_worker = KnowbaseEventWorker(
         backlog_service=event_backlog_service,
-        dispatch_service=dispatch_service,
-        runtime_service=runtime_service,
+        knowledge_service=knowledge_service,
     )
     return RuntimeModule(
         runtime_service=runtime_service,
@@ -117,6 +126,13 @@ def build_ingest_service(
         summary_extractor=ingest.summary_extractor,
         semantic_profile_extractor=ingest.semantic_profile_extractor,
         facet_resolver=ingest.facet_resolver,
+        statistics=core.statistics_service,
+        versioning_factory=core.partition_versioning.prepare,
+        task_queue=core.task_queue,
+        mutation_lock_factory=lambda partition: PartitionMutationLock(
+            local_root=Path(core.runtime_cfg.storage.local_root),
+            partition=partition,
+        ),
     )
 
 
@@ -135,4 +151,5 @@ def build_query_flow(*, core: CoreProviders) -> QueryUseCase:
         ),
         partition_service=core.partition_service,
         answer_agent=AnswerSynthesisAgent(),
+        statistics=core.query_statistics_service,
     )

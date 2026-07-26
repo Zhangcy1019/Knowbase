@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from uuid import uuid4
+
 from internal.domain.case.draft_builder import KnowbaseCaseDraftBuilder
 from internal.domain.case.facet_resolver import KnowbaseCaseFacetResolver
 from internal.domain.case.semantic_profile_extractor import KnowbaseSemanticProfileExtractor
@@ -14,11 +16,13 @@ from internal.models import (
     KnowbaseEvent,
     KnowbaseEventType,
 )
+from internal.knowledge.statistics import CaseObservation
 from internal.ports import (
     CaseWritePort,
     EventPublisherPort,
     PartitionProfileReadPort,
     PartitionReadPort,
+    PartitionTaskQueuePort,
 )
 from internal.product.ingest.validator import KnowbaseIngestValidator
 
@@ -37,6 +41,10 @@ class KnowbaseIngestService:
         semantic_profile_extractor: KnowbaseSemanticProfileExtractor | None = None,
         summary_extractor: KnowbaseCaseSummaryExtractor | None = None,
         facet_resolver: KnowbaseCaseFacetResolver | None = None,
+        statistics=None,
+        versioning_factory=None,
+        task_queue: PartitionTaskQueuePort | None = None,
+        mutation_lock_factory=None,
     ):
         self._validator = validator
         self._draft_builder = draft_builder
@@ -46,6 +54,12 @@ class KnowbaseIngestService:
         self._semantic_profile_extractor = semantic_profile_extractor or KnowbaseSemanticProfileExtractor()
         self._summary_extractor = summary_extractor or KnowbaseCaseSummaryExtractor()
         self._facet_resolver = facet_resolver or KnowbaseCaseFacetResolver()
+        self._statistics = statistics
+        self._versioning_factory = versioning_factory
+        if task_queue is None:
+            raise ValueError("KnowbaseIngestService requires a partition task queue")
+        self._task_queue = task_queue
+        self._mutation_lock_factory = mutation_lock_factory
 
     async def ingest(self, request: IngestRequest) -> IngestResult:
         request = self._validator.validate(request)
@@ -71,18 +85,67 @@ class KnowbaseIngestService:
             semantic_profile=draft.semantic_profile,
             facet_definitions=facet_definitions,
         )
-        case_document = self._case_write_service.create_case(
-            partition_name=draft.partition,
-            title=draft.title,
-            source_content=draft.source_content,
-            source_refs=draft.source_refs,
-            summary_text=draft.summary_text,
-            semantic_profile=draft.semantic_profile,
-            metadata=draft.metadata,
-            facets=draft.facets,
+        case_id = f"case-{uuid4().hex}"
+        task = self._task_queue.enqueue(
+            partition=draft.partition,
+            kind="case_input",
+            payload={"case_id": case_id},
+            handler=lambda task: self._execute_case_input(task=task, case_id=case_id, draft=draft),
         )
-        resolved_facets = case_document.facets.model_dump()
-        publish_result = await self._event_publisher.publish(
+        resolved_facets = draft.facets
+        return IngestResult(
+            case_id=case_id,
+            task_id=task.task_id,
+            partition=draft.partition,
+            accepted=True,
+            processing_status="queued",
+            draft=draft,
+            facet_resolution_summary=(
+                "facets were projected from semantic_profile under the current stable facet schema."
+            ),
+            resolved_facets=resolved_facets,
+        )
+
+    async def _execute_case_input(self, *, task, case_id: str, draft) -> None:
+        lock_context = (
+            self._mutation_lock_factory(draft.partition)
+            if self._mutation_lock_factory is not None
+            else _NullContext()
+        )
+        with lock_context:
+            versioning = (
+                self._versioning_factory(draft.partition)
+                if self._versioning_factory is not None
+                else None
+            )
+            case_document = self._case_write_service.create_case(
+                case_id=case_id,
+                partition_name=draft.partition,
+                title=draft.title,
+                source_content=draft.source_content,
+                source_refs=draft.source_refs,
+                summary_text=draft.summary_text,
+                semantic_profile=draft.semantic_profile,
+                metadata=draft.metadata,
+                facets=draft.facets,
+            )
+            if self._statistics is not None:
+                self._statistics.append_case_observation(
+                    observation=CaseObservation(
+                        observation_id=f"case:{case_document.case_id}",
+                        partition=case_document.partition,
+                        source_id=case_document.case_id,
+                        facets=case_document.facets.model_dump(),
+                        semantic_profile=case_document.semantic_profile.model_dump(),
+                        metadata={"event": "case_created"},
+                    )
+                )
+            if versioning is not None:
+                versioning.commit_case_ingest(
+                    case_id=case_document.case_id,
+                    paths=[f"cases/{case_document.case_id}.json"],
+                )
+        await self._event_publisher.publish(
             KnowbaseEvent(
                 event_type=KnowbaseEventType.CASE_CREATED,
                 partition=draft.partition,
@@ -94,7 +157,7 @@ class KnowbaseIngestService:
                     after=CaseEventSnapshot(
                         title=case_document.title,
                         facet_count=sum(len(values) for values in case_document.facets.values()),
-                        facets=resolved_facets,
+                        facets=case_document.facets.model_dump(),
                     ),
                     changed_fields=[
                         "title",
@@ -105,22 +168,15 @@ class KnowbaseIngestService:
                         "metadata",
                         "facets",
                     ],
-                    observed_facets=resolved_facets,
+                    observed_facets=case_document.facets.model_dump(),
                 ),
             )
         )
-        event_record = publish_result.get("event")
-        event_id = getattr(event_record, "event_id", "")
-        result = IngestResult(
-            case_id=case_document.case_id,
-            partition=draft.partition,
-            accepted=True,
-            processing_status="queued",
-            backlog_event_id=event_id,
-            draft=draft,
-        )
-        result.facet_resolution_summary = (
-            "facets were projected from semantic_profile under the current stable facet schema."
-        )
-        result.resolved_facets = case_document.facets
-        return result
+
+
+class _NullContext:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        return None

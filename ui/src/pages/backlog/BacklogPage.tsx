@@ -10,11 +10,13 @@ import {
   listBacklogEvents,
   requeueBacklogEvent,
   type EventRecordResponse,
-  type MaintenanceActionResponse,
+  type BacklogMaintenanceActionResponse,
 } from "../../shared/api";
 import { BacklogDetailPanel } from "./BacklogDetailPanel";
-import { BacklogDrainConsole } from "./BacklogDrainConsole";
 import { BacklogEventsList } from "./BacklogEventsList";
+import { BacklogOverview } from "./BacklogOverview";
+import { BacklogResourceTabs, type BacklogResourceTab } from "./BacklogResourceTabs";
+import { BacklogTasksView } from "./BacklogTasksView";
 
 function formatTime(value: string | null) {
   if (!value) {
@@ -79,21 +81,11 @@ function buildCounts(events: EventRecordResponse[]) {
   );
 }
 
-function summarizeEventTypes(events: EventRecordResponse[]) {
-  const counts = new Map<string, number>();
-  events.forEach((event) => {
-    counts.set(event.event_type, (counts.get(event.event_type) ?? 0) + 1);
-  });
-  return Array.from(counts.entries())
-    .sort((left, right) => right[1] - left[1])
-    .slice(0, 3);
-}
-
 export function BacklogPage({ activePartition }: { activePartition: string | null }) {
   const [events, setEvents] = useState<EventRecordResponse[]>([]);
   const [selectedEventId, setSelectedEventId] = useState("");
   const [selectedEvent, setSelectedEvent] = useState<EventRecordResponse | null>(null);
-  const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "failed">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "failed" | "completed">("all");
   const [loadingEvents, setLoadingEvents] = useState(false);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [actionPending, setActionPending] = useState("");
@@ -104,8 +96,8 @@ export function BacklogPage({ activePartition }: { activePartition: string | nul
   const [deleteErrorMessage, setDeleteErrorMessage] = useState("");
   const deletePopoverRef = useRef<HTMLDivElement | null>(null);
   const [drainConfirmOpen, setDrainConfirmOpen] = useState(false);
+  const [resourceTab, setResourceTab] = useState<BacklogResourceTab>("events");
   const counts = useMemo(() => buildCounts(events), [events]);
-  const eventTypeSummary = useMemo(() => summarizeEventTypes(events), [events]);
   const filteredEvents = useMemo(() => {
     if (statusFilter === "all") {
       return events;
@@ -113,7 +105,10 @@ export function BacklogPage({ activePartition }: { activePartition: string | nul
     if (statusFilter === "pending") {
       return events.filter((event) => event.status === "pending");
     }
-    return events.filter((event) => event.status === "failed");
+    if (statusFilter === "failed") {
+      return events.filter((event) => event.status === "failed");
+    }
+    return events.filter((event) => event.status === "completed");
   }, [events, statusFilter]);
 
   useEffect(() => {
@@ -124,6 +119,7 @@ export function BacklogPage({ activePartition }: { activePartition: string | nul
       setSelectedEvent(null);
       setErrorMessage("");
       setConsoleMessage("");
+      setResourceTab("events");
       setLoadingEvents(false);
       return () => {
         cancelled = true;
@@ -387,14 +383,11 @@ export function BacklogPage({ activePartition }: { activePartition: string | nul
           <h2>Backlog</h2>
         </div>
       </header>
-
-      <BacklogDrainConsole
-        activePartition={activePartition}
-        counts={counts}
-        eventTypeSummary={eventTypeSummary}
-        actionPending={actionPending}
-        consoleMessage={consoleMessage}
-        onDrain={() => setDrainConfirmOpen(true)}
+      <BacklogOverview
+        total={counts.total}
+        pending={counts.pending}
+        failed={counts.failed}
+        completed={counts.completed}
       />
       {drainConfirmOpen ? (
         <div className="backlog-drain-confirm-shell">
@@ -411,8 +404,11 @@ export function BacklogPage({ activePartition }: { activePartition: string | nul
         </div>
       ) : null}
 
-      <section className="backlog-workbench">
-        <BacklogEventsList
+      <BacklogResourceTabs activeTab={resourceTab} onChange={setResourceTab} />
+
+      {resourceTab === "events" ? (
+        <section className="backlog-workbench">
+          <BacklogEventsList
           activePartition={activePartition}
           counts={counts}
           statusFilter={statusFilter}
@@ -434,10 +430,12 @@ export function BacklogPage({ activePartition }: { activePartition: string | nul
           }}
           onConfirmDelete={(eventId) => void handleDeleteEvent(eventId)}
           formatTime={formatTime}
-        />
+          onOpenDrainConfirm={() => setDrainConfirmOpen(true)}
+          draining={actionPending === "drain"}
+          consoleMessage={consoleMessage}
+          />
 
-        <BacklogDetailPanel
-          activePartition={activePartition}
+          <BacklogDetailPanel
           selectedEvent={selectedEvent}
           selectedResourceRef={selectedResourceRef}
           lastRunAt={lastRunAt}
@@ -445,13 +443,16 @@ export function BacklogPage({ activePartition }: { activePartition: string | nul
           actionPending={actionPending}
           onRequeue={() => void handleRequeue()}
           formatDateTime={formatDateTime}
-        />
-      </section>
+          />
+        </section>
+      ) : (
+        <BacklogTasksView activePartition={activePartition} />
+      )}
     </section>
   );
 }
 
-function buildDrainMessage(result: MaintenanceActionResponse) {
+function buildDrainMessage(result: BacklogMaintenanceActionResponse) {
   const partition = typeof result.details.partition === "string" ? result.details.partition : "";
   const runId = typeof result.details.run_id === "string" ? result.details.run_id : "";
   const completed = typeof result.details.completed_count === "number" ? result.details.completed_count : 0;

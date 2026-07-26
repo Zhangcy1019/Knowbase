@@ -2,15 +2,20 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Protocol
+from datetime import datetime
+from collections.abc import Awaitable, Callable
+from typing import TYPE_CHECKING, Any, Protocol
 
 from internal.models import EventRecord
 if TYPE_CHECKING:
-    from backlog.worker import EventWorkerRunResult
+    from internal.backlog.events.worker import EventWorkerRunResult
 
 
 class EventBacklogPort(Protocol):
-    """Stable backlog event admin surface used by runtime API routes."""
+    """Stable backlog storage and batch-lifecycle surface."""
+
+    def assemble_batch(self, *, partition: str = "", trigger_source: str = "manual", limit: int = 200) -> Any:
+        ...
 
     def list_events(
         self,
@@ -18,10 +23,17 @@ class EventBacklogPort(Protocol):
         partition: str = "",
         status: str = "",
         event_type: str = "",
+        size: int = 500,
     ) -> list[EventRecord]:
         ...
 
     def get_event(self, event_id: str) -> EventRecord | None:
+        ...
+
+    def mark_ready(self, *, event_id: str) -> EventRecord:
+        ...
+
+    def mark_ignored(self, *, event_id: str) -> EventRecord:
         ...
 
     def requeue_event(self, *, event_id: str) -> EventRecord:
@@ -30,9 +42,34 @@ class EventBacklogPort(Protocol):
     def delete_event(self, event_id: str) -> None:
         ...
 
+    def list_ready_events(self, *, partition: str = "", limit: int = 100) -> list[EventRecord]:
+        ...
+
+    def mark_batch_running(self, *, event_ids: list[str]) -> list[EventRecord]:
+        ...
+
+    def complete_batch(
+        self,
+        *,
+        event_ids: list[str],
+        run_id: str = "",
+        last_run_at: datetime | None = None,
+    ) -> list[EventRecord]:
+        ...
+
+    def fail_batch(
+        self,
+        *,
+        event_ids: list[str],
+        error_message: str,
+        next_retry_at: datetime | None,
+        last_run_at: datetime | None = None,
+    ) -> list[EventRecord]:
+        ...
+
 
 class EventWorkerPort(Protocol):
-    """Stable backlog drain surface used by runtime API routes."""
+    """Drain surface that submits batches to Knowledge asynchronously."""
 
     async def run_once(
         self,
@@ -44,7 +81,31 @@ class EventWorkerPort(Protocol):
         ...
 
 
+class PartitionTaskQueuePort(Protocol):
+    """Schedule commands serially within each partition."""
+
+    def enqueue(
+        self,
+        *,
+        partition: str,
+        kind: str,
+        handler: Callable[[Any], Awaitable[None]],
+        payload: dict[str, Any] | None = None,
+    ) -> Any:
+        ...
+
+    async def wait_idle(self, *, partition: str) -> None:
+        ...
+
+    def get(self, task_id: str) -> Any | None:
+        ...
+
+    def list(self, *, partition: str = "", status: str = "") -> list[Any]:
+        ...
+
+
 __all__ = [
     "EventBacklogPort",
     "EventWorkerPort",
+    "PartitionTaskQueuePort",
 ]

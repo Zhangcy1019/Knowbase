@@ -1,156 +1,35 @@
-# Facet 设计
+# Facet 与 Semantic Profile
 
-`facet` 是当前系统中的正式结构层，不是完整语义层。
-
-## facet 的定位
-
-当前层次关系是：
-
-- `case` 是事实源
-- `semantic_profile` 是开放语义层
-- `PartitionSemanticIndex` 是统计归纳层
-- `facets` / `PartitionFacetSchema` 是正式结构层
-
-因此 facet 只负责三件事：
-
-- 提供稳定 filter 维度
-- 提供稳定聚合和展示字段
-- 作为治理输出对象
-
-## facet 与 semantic_profile
-
-当前主规则非常明确：
-
-1. 写入 case 时先生成开放 `semantic_profile`
-2. 再根据当前 `PartitionFacetSchema` 从 `semantic_profile` 投影出 `facets`
-
-所以：
-
-- `semantic_profile` 是主语义表达
-- `facets` 是正式视图
-
-反过来不成立：
-
-- 不能让 `facets` 完整决定 `semantic_profile`
-
-## facet 与 semantic index
-
-`facet` 的正确来源不是单条 case，而是统计层。
-
-关系应理解为：
+## 层次
 
 ```text
-case.semantic_profile
-  -> partition semantic index
-  -> facet evolution
-  -> facet schema
+case 原文
+  -> semantic_profile（开放语义）
+  -> PartitionSemanticIndex（分区统计）
+  -> PartitionFacetSchema（正式结构）
+  -> case.facets（正式视图）
 ```
 
-也就是说：
+`case` 原文是事实源；`semantic_profile` 保留开放表达；`facets` 必须服从当前 partition facet schema。
 
-- case 提供开放信号
-- semantic index 提供长期统计
-- facet schema 只沉淀少量稳定 key
+## Facet Schema
 
-## facet schema 该管理什么
+当前 schema 主要描述：
 
-当前 `PartitionFacetSchema` 只应管理：
+- key
+- display name
+- description
+- examples
+- enabled
 
-- `key`
-- `display_name`
-- `description`
-- `examples`
-- `enabled`
+它不是完整的 value 闭集，也不是原文的替代品。
 
-不再管理：
+## 治理原则
 
-- `allowed_values`
-- value 闭集
-- 强 canonicalization 规则
+- 优先评估 facet key，再评估 value。
+- promote 需要长期统计、覆盖率和语义稳定性证据。
+- 单个 batch 的偶然信号不足以改变主轴。
+- 高风险变化经过 freeze/circuit-breaker 后才能 accepted。
+- governance 只返回结论，不写文件。
 
-原因很简单：
-
-- 当前治理重点是 `key`
-- value 保持开放更符合知识演化现实
-
-## 哪些 key 适合被提升为 facet
-
-通常应满足：
-
-- 在 semantic index 中持续高频出现
-- 覆盖较多 case
-- 语义稳定
-- 对 query / filter / 展示有价值
-- 与已有 facet 不高度重叠
-
-重要原则：
-
-- promote 主要看长期统计
-- 不应因为一个 batch 里偶然出现就提升
-
-## 哪些 facet key 适合被降级
-
-应更保守。
-
-通常需要看到：
-
-- 长期覆盖低
-- 价值弱
-- 与其他 key 高度重复
-- 已经不适合作为正式结构维护
-
-降级不等于“这次 batch 没出现”，而是：
-
-- 在长期统计和使用价值上都不值得继续保留
-
-## facet 演化的真实目标
-
-facet 演化不是为了“让所有 case 都变成结构化表单”，而是为了：
-
-- 从开放语义中提炼少量正式结构
-- 控制正式结构的膨胀速度
-- 让 query 和 UI 有稳定抓手
-
-## facet 变化后 case 是否需要适配
-
-需要，但不应默认全量同步重建。
-
-### 新增 facet key
-
-如果新增一个 facet key：
-
-- 新写入 case 应立即按新 schema 生成该 key 的 `facets`
-- 历史 case 需要在后续 rebuild 中逐步补齐 projection
-
-### 删除 facet key
-
-如果删除一个 facet key：
-
-- query / filter / UI 层应立即忽略该 key
-- case 存储里的旧 projection 可以延迟清理
-
-也就是说：
-
-- 先逻辑失效
-- 再物理收敛
-
-## 为什么不能默认全量重建
-
-如果每次 promote / demote 都要求：
-
-- 全 partition 扫描
-- 全量重建 case facets
-
-系统会重新回到旧问题：
-
-- rebuild 成本高
-- runtime 太重
-- 治理过程不稳定
-
-所以 facet schema 变化后的 case 适配必须依赖最小影响范围判断，而不是默认全量刷新。
-
-## 一句话总结
-
-当前 facet 的正确理解是：
-
-`从开放 semantic_profile 经过 semantic index 归纳后沉淀出来的少量正式结构。`
+schema accepted 后，`ProjectionService` 为受影响 case 生成 facet changes；execution 再统一落盘。

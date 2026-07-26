@@ -11,6 +11,7 @@ from .schemas import (
     EventRecordResponse,
     MaintenanceActionResponse,
     PartitionMaintenanceRequest,
+    PartitionTaskResponse,
     ResourceMaintenanceRequest,
     RuntimeRunActionView,
     RuntimeRunArtifactResponse,
@@ -43,6 +44,21 @@ def _to_event_record_response(record: EventRecord) -> EventRecordResponse:
         created_at=record.created_at,
         updated_at=record.updated_at,
         metadata=record.metadata,
+    )
+
+
+def _to_task_response(task) -> PartitionTaskResponse:
+    return PartitionTaskResponse(
+        task_id=task.task_id,
+        partition=task.partition,
+        kind=task.kind,
+        payload=task.payload,
+        status=task.status,
+        attempt_count=task.attempt_count,
+        error_message=task.error_message,
+        created_at=task.created_at,
+        started_at=task.started_at,
+        finished_at=task.finished_at,
     )
 
 
@@ -266,6 +282,24 @@ def register_runtime_routes(app: FastAPI, *, deps: KnowbaseRouteDeps) -> None:
         )
         return [_to_event_record_response(item) for item in records]
 
+    @app.get("/api/knowbase/runtime/backlog/tasks", response_model=list[PartitionTaskResponse])
+    async def list_backlog_tasks(
+        partition: str = "",
+        status: str = "",
+    ) -> list[PartitionTaskResponse]:
+        if deps.task_queue is None:
+            return []
+        return [_to_task_response(item) for item in deps.task_queue.list(partition=partition, status=status)]
+
+    @app.get("/api/knowbase/runtime/backlog/tasks/{task_id}", response_model=PartitionTaskResponse)
+    async def get_backlog_task(task_id: str) -> PartitionTaskResponse:
+        if deps.task_queue is None:
+            raise HTTPException(status_code=404, detail=f"backlog task not found: {task_id}")
+        task = deps.task_queue.get(task_id)
+        if task is None:
+            raise HTTPException(status_code=404, detail=f"backlog task not found: {task_id}")
+        return _to_task_response(task)
+
     @app.get("/api/knowbase/runtime/backlog/{event_id}", response_model=EventRecordResponse)
     async def get_backlog_event(event_id: str) -> EventRecordResponse:
         record = deps.event_backlog_service.get_event(event_id)
@@ -292,7 +326,9 @@ def register_runtime_routes(app: FastAPI, *, deps: KnowbaseRouteDeps) -> None:
     @app.post("/api/knowbase/runtime/maintenance/drain-backlog", response_model=MaintenanceActionResponse)
     async def drain_backlog(req: PartitionMaintenanceRequest) -> MaintenanceActionResponse:
         result = await deps.event_worker.run_once(partition=req.partition, limit=req.limit, trigger_source="manual")
-        runtime_result = result.runtime_result
+        event_record = deps.event_backlog_service.get_event(result.event_ids[0]) if result.event_ids else None
+        run_id = "" if event_record is None else event_record.run_id
+        run = deps.runtime_service.get_run(run_id) if run_id else None
         return MaintenanceActionResponse(
             action="drain_backlog",
             ok=result.failed_count == 0,
@@ -304,9 +340,9 @@ def register_runtime_routes(app: FastAPI, *, deps: KnowbaseRouteDeps) -> None:
                 "completed_count": result.completed_count,
                 "failed_count": result.failed_count,
                 "event_ids": result.event_ids,
-                "run_id": "" if runtime_result is None else runtime_result.run_id,
-                "run_status": "" if runtime_result is None else runtime_result.status,
-                "requires_review": False if runtime_result is None else runtime_result.requires_review,
+                "run_id": run_id,
+                "run_status": "accepted" if run is None and result.accepted else ("" if run is None else run.status),
+                "requires_review": False if run is None else run.requires_review,
             },
         )
 

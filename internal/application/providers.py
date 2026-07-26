@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 
 from internal.infrastructure.ai.embedding_service import create_embedding_provider
 from internal.domain.case.draft_builder import KnowbaseCaseDraftBuilder
@@ -17,6 +18,35 @@ from internal.domain.event.publisher import KnowbaseEventPublisher
 from internal.domain.partition.schema_suggester import PartitionSchemaSuggester
 from internal.domain.partition.service import PartitionService
 from internal.infrastructure.persistence import build_persistence_bundle
+from internal.infrastructure.coordination import PartitionMutationLock
+from internal.versioning import PartitionVersioningManager
+from internal.knowledge.decision import (
+    KnowledgeDecisionRepository,
+    KnowledgeDecisionService,
+    PartitionReviewLock,
+)
+from internal.knowledge.batch import BatchContextBuilder
+from internal.knowledge.facet_governance import (
+    FacetFreezePolicy,
+    FacetGovernanceService,
+    FacetKeyConvergencePlanner,
+    FacetGovernanceMetrics,
+    KnowledgeCircuitBreaker,
+    PartitionFitMetrics,
+)
+from internal.knowledge.ports import KnowledgeFacetGovernancePort
+from internal.backlog.tasks import PartitionTaskQueue
+from internal.knowledge.projection import CaseFacetProjector, KnowledgeProjectionService
+from internal.knowledge.execution import KnowledgeMutationExecutor
+from internal.knowledge.statistics import (
+    KnowledgeStatisticsService,
+    QueryStatisticsService,
+    StatisticsAggregator,
+    StatisticsObservationNormalizer,
+    StatisticsReader,
+    StatisticsStore,
+    StatisticsWriter,
+)
 from internal.ports import (
     CaseReadPort,
     CaseSearchPort,
@@ -25,8 +55,13 @@ from internal.ports import (
     PartitionAccessPort,
     PartitionProfileReadPort,
     PartitionSchemaSuggestPort,
+    PartitionTaskQueuePort,
 )
 from internal.utils.config import RuntimeConfig
+from internal.utils.logger import get_logger
+
+
+logger = get_logger("knowbase.application.providers")
 
 
 @dataclass(slots=True)
@@ -45,6 +80,14 @@ class CoreProviders:
     step_repository: object
     artifact_repository: object
     embedding_provider: object
+    partition_versioning: PartitionVersioningManager
+    decision_service: KnowledgeDecisionService
+    task_queue: PartitionTaskQueuePort
+    statistics_service: KnowledgeStatisticsService
+    query_statistics_service: QueryStatisticsService
+    projection_service: KnowledgeProjectionService
+    mutation_executor: KnowledgeMutationExecutor
+    facet_governance: KnowledgeFacetGovernancePort
 
 
 @dataclass(slots=True)
@@ -58,25 +101,96 @@ class IngestProviders:
 
 def build_core_providers(*, runtime_cfg: RuntimeConfig) -> CoreProviders:
     persistence = build_persistence_bundle(runtime_cfg=runtime_cfg)
+    if runtime_cfg.storage.version_control_backend != "git":
+        raise ValueError(
+            "unsupported storage.version_control_backend: "
+            f"{runtime_cfg.storage.version_control_backend}"
+        )
+    partition_versioning = PartitionVersioningManager(
+        local_root=Path(runtime_cfg.storage.local_root).expanduser()
+    )
+    decision_service = KnowledgeDecisionService(
+        repository=KnowledgeDecisionRepository(
+            local_root=Path(runtime_cfg.storage.local_root).expanduser()
+        ),
+        review_lock=PartitionReviewLock(
+            local_root=Path(runtime_cfg.storage.local_root).expanduser()
+        ),
+    )
+    task_queue = PartitionTaskQueue()
     embedding_provider = create_embedding_provider(runtime_cfg.embedding)
     partition_service = PartitionService(
         repository=persistence.partition_repository,
         facet_index_repository=persistence.partition_facet_index_repository,
         facet_schema_repository=persistence.partition_facet_schema_repository,
         semantic_index_repository=persistence.partition_semantic_index_repository,
+        versioning_manager=partition_versioning,
+    )
+    # Validate all existing partition workspaces while the application is
+    # assembling. A dirty partition must block startup, not the next write.
+    partition_versioning.initialize_existing_partitions(
+        [item.partition_name for item in partition_service.list_partitions()]
+    )
+    statistics_store = StatisticsStore(repository=persistence.statistics_snapshot_repository)
+    statistics_service = KnowledgeStatisticsService(
+        reader=StatisticsReader(store=statistics_store),
+        writer=StatisticsWriter(
+            snapshot_store=statistics_store,
+            normalizer=StatisticsObservationNormalizer(),
+            aggregator=StatisticsAggregator(),
+        ),
+        store=statistics_store,
     )
     case_repository = persistence.case_repository
+    facet_resolver = KnowbaseCaseFacetResolver()
     case_service = KnowbaseCaseService(repository=case_repository)
     case_write_service = KnowbaseCaseWriteService(
         repository=case_repository,
         partition_service=partition_service,
         ingestor=KnowbaseCaseIngestor(),
-        facet_resolver=KnowbaseCaseFacetResolver(),
+        facet_resolver=facet_resolver,
         embedding_provider=embedding_provider,
+        statistics=statistics_service,
+        versioning_factory=partition_versioning.prepare,
+        task_queue=task_queue,
+        mutation_lock_factory=lambda partition: PartitionMutationLock(
+            local_root=Path(runtime_cfg.storage.local_root),
+            partition=partition,
+        ),
     )
     event_record_repository = persistence.event_record_repository
     event_inbox_service = KnowbaseEventInboxService(repository=event_record_repository)
     event_publisher = KnowbaseEventPublisher(inbox_service=event_inbox_service)
+    query_statistics_store = StatisticsStore(
+        repository=persistence.query_statistics_snapshot_repository
+    )
+    query_statistics_service = QueryStatisticsService(
+        reader=StatisticsReader(store=query_statistics_store),
+        writer=StatisticsWriter(
+            snapshot_store=query_statistics_store,
+            normalizer=StatisticsObservationNormalizer(),
+            aggregator=StatisticsAggregator(),
+        ),
+    )
+    projection_service = KnowledgeProjectionService(
+        case_repository=case_repository,
+        projector=CaseFacetProjector(facet_resolver=facet_resolver),
+    )
+    mutation_executor = KnowledgeMutationExecutor(
+        case_repository=case_repository,
+        partition_service=partition_service,
+    )
+    facet_governance = FacetGovernanceService(
+        context_builder=BatchContextBuilder(
+            partition_service=partition_service,
+            case_repository=case_repository,
+        ),
+        metrics=FacetGovernanceMetrics(),
+        key_planner=FacetKeyConvergencePlanner(),
+        fit_metrics=PartitionFitMetrics(),
+        freeze_policy=FacetFreezePolicy(),
+        circuit_breaker=KnowledgeCircuitBreaker(),
+    )
     return CoreProviders(
         runtime_cfg=runtime_cfg,
         partition_service=partition_service,
@@ -92,6 +206,14 @@ def build_core_providers(*, runtime_cfg: RuntimeConfig) -> CoreProviders:
         step_repository=persistence.step_repository,
         artifact_repository=persistence.artifact_repository,
         embedding_provider=embedding_provider,
+        statistics_service=statistics_service,
+        query_statistics_service=query_statistics_service,
+        projection_service=projection_service,
+        mutation_executor=mutation_executor,
+        facet_governance=facet_governance,
+        partition_versioning=partition_versioning,
+        decision_service=decision_service,
+        task_queue=task_queue,
     )
 
 

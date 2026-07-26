@@ -7,6 +7,7 @@ import { DesignPage } from "../pages/design/DesignPage";
 import { QueryPage } from "../pages/query/QueryPage";
 import { PartitionPage } from "../pages/partition/PartitionPage";
 import { IngestPage } from "../pages/ingest/IngestPage";
+import { KnowledgePage } from "../pages/knowledge/KnowledgePage";
 
 export function resolvePath(pathname: string) {
   if (pathname === "/" || pathname === "") {
@@ -39,6 +40,9 @@ export function resolvePath(pathname: string) {
   if (pathname === "/ingest") {
     return "/ingest";
   }
+  if (pathname === "/knowledge") {
+    return "/knowledge";
+  }
   return "/overview";
 }
 
@@ -68,6 +72,8 @@ export function AppRouter({
       return <PartitionPage activePartition={activePartition} />;
     case "/ingest":
       return <IngestPage activePartition={activePartition} />;
+    case "/knowledge":
+      return <KnowledgePage activePartition={activePartition} />;
     case "/overview":
     default:
       return <OverviewPage activePartition={activePartition} onActivatePartition={onActivatePartition} />;

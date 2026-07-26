@@ -34,6 +34,12 @@
   line-height: 1.45;
 }
 
+.partition-title-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .partition-inline-status,
 .partition-inline-note,
 .partition-schema-item-line span,
@@ -52,7 +58,7 @@
 
 .partition-left-stack {
   min-height: 0;
-  grid-template-rows: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(3, minmax(0, 1fr));
 }
 
 .partition-schema-card,
@@ -320,13 +326,12 @@
     overflow: visible;
   }
 
-  .partition-status-strip,
   .partition-workspace {
     grid-template-columns: 1fr;
   }
 
   .partition-left-stack {
-    grid-template-rows: auto;
+    grid-template-rows: repeat(3, minmax(220px, auto));
   }
 
   .partition-schema-card,
@@ -335,4 +340,8 @@
   .partition-detail-scroll {
     overflow: visible;
   }
+
+}
+
+@media (max-width: 720px) {
 }

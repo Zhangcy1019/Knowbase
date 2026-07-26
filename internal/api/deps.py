@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from internal.ports import (
     CaseReadPort,
@@ -9,6 +10,7 @@ from internal.ports import (
     EventPublisherPort,
     EventWorkerPort,
     IngestUseCase,
+    PartitionTaskQueuePort,
     PartitionReadPort,
     PartitionProfileReadPort,
     PartitionProfileWritePort,
@@ -18,6 +20,9 @@ from internal.ports import (
     RuntimeRunPort,
     SkillExecutionPort,
 )
+if TYPE_CHECKING:
+    from internal.knowledge.decision import KnowledgeDecisionService
+    from internal.knowledge.statistics import KnowledgeStatisticsService, QueryStatisticsService
 
 
 @dataclass(slots=True)
@@ -33,3 +38,7 @@ class KnowbaseRouteDeps:
     skill_runtime: SkillExecutionPort
     ingest_service: IngestUseCase
     query_flow: QueryUseCase
+    statistics_service: KnowledgeStatisticsService | None = None
+    query_statistics_service: QueryStatisticsService | None = None
+    decision_service: KnowledgeDecisionService | None = None
+    task_queue: PartitionTaskQueuePort | None = None

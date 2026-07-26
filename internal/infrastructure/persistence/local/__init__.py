@@ -11,6 +11,7 @@ from internal.infrastructure.persistence.local.repositories import (
     PartitionSemanticIndexRepository,
     RunArtifactRepository,
     RunStepRepository,
+    StatisticsSnapshotRepository,
 )
 
 __all__ = [
@@ -23,5 +24,6 @@ __all__ = [
     "PartitionSemanticIndexRepository",
     "RunArtifactRepository",
     "RunStepRepository",
+    "StatisticsSnapshotRepository",
     "build_local_persistence_bundle",
 ]

@@ -22,11 +22,13 @@ class PartitionService:
         facet_schema_repository,
         semantic_index_repository,
         profile_builder: PartitionProfileBuilder | None = None,
+        versioning_manager=None,
     ):
         self._repository = repository
         self._facet_index_repository = facet_index_repository
         self._facet_schema_repository = facet_schema_repository
         self._semantic_index_repository = semantic_index_repository
+        self._versioning_manager = versioning_manager
         self._profile_builder = profile_builder or PartitionProfileBuilder()
         self._partition_store = PartitionStore(repository=repository)
         self._profile_store = PartitionProfileStore(
@@ -43,7 +45,16 @@ class PartitionService:
         return self._partition_store.get_partition(partition_name)
 
     def save_partition(self, document: PartitionDocument) -> PartitionDocument:
-        return self._partition_store.save_partition(document)
+        existing = self._partition_store.get_partition(document.partition_name)
+        saved = self._partition_store.save_partition(document)
+        if existing is None and self._versioning_manager is not None:
+            # Create the initial partition-owned profile files before the
+            # baseline commit so the first case write is not seen as dirty.
+            self._profile_store.get_facet_schema_document(document.partition_name)
+            self._profile_store.get_facet_index_document(document.partition_name)
+            self._profile_store.get_semantic_index_document(document.partition_name)
+            self._versioning_manager.initialize_partition(document.partition_name)
+        return saved
 
     def get_facet_schema(self, partition_name: str) -> PartitionFacetSchema | None:
         partition = self.get_partition(partition_name)

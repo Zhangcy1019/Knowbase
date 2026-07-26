@@ -3,10 +3,15 @@
 from importlib import import_module
 
 _EXPORTS = {
-    "EventWorkerRunResult": "backlog",
-    "KnowbaseEventBacklogService": "backlog",
-    "KnowbaseEventService": "backlog",
-    "KnowbaseEventWorker": "backlog",
+    "EventWorkerRunResult": "internal.backlog.events",
+    "KnowbaseEventBacklogService": "internal.backlog.events",
+    "KnowbaseEventService": "internal.backlog.service",
+    "KnowbaseEventWorker": "internal.backlog.events",
+    "BacklogBatch": "internal.backlog.events",
+    "PartitionTask": "internal.backlog.tasks",
+    "PartitionTaskQueue": "internal.backlog.tasks",
+    "PartitionTaskKind": "internal.backlog.tasks",
+    "PartitionTaskStatus": "internal.backlog.tasks",
 }
 
 
@@ -25,4 +30,9 @@ __all__ = [
     "KnowbaseEventBacklogService",
     "KnowbaseEventService",
     "KnowbaseEventWorker",
+    "BacklogBatch",
+    "PartitionTask",
+    "PartitionTaskQueue",
+    "PartitionTaskKind",
+    "PartitionTaskStatus",
 ]

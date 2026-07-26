@@ -1,7 +1,7 @@
 import type { MouseEvent, ReactNode, RefObject } from "react";
 
 import { ConfirmDeletePopover } from "../../shared/component/confirm";
-import { IconDelete, IconTraceList } from "../../shared/icons";
+import { IconDelete, IconSend, IconTraceList } from "../../shared/icons";
 import type { EventRecordResponse } from "../../shared/api";
 
 type BacklogEventsListProps = {
@@ -10,8 +10,9 @@ type BacklogEventsListProps = {
     total: number;
     pending: number;
     failed: number;
+    completed: number;
   };
-  statusFilter: "all" | "pending" | "failed";
+  statusFilter: "all" | "pending" | "failed" | "completed";
   filteredEvents: EventRecordResponse[];
   selectedEventId: string;
   loadingEvents: boolean;
@@ -22,11 +23,14 @@ type BacklogEventsListProps = {
   deletePopoverPosition: { top: number; left: number } | null;
   deletePopoverRef: RefObject<HTMLDivElement | null>;
   onSelectEvent: (eventId: string) => void;
-  onChangeStatusFilter: (filter: "all" | "pending" | "failed") => void;
+  onChangeStatusFilter: (filter: "all" | "pending" | "failed" | "completed") => void;
   onToggleDelete: (eventId: string, event: MouseEvent<HTMLButtonElement>) => void;
   onCancelDelete: () => void;
   onConfirmDelete: (eventId: string) => void;
   formatTime: (value: string | null) => string;
+  onOpenDrainConfirm: () => void;
+  draining: boolean;
+  consoleMessage: string;
 };
 
 function PanelMark({ children }: { children: ReactNode }) {
@@ -52,6 +56,9 @@ export function BacklogEventsList({
   onCancelDelete,
   onConfirmDelete,
   formatTime,
+  onOpenDrainConfirm,
+  draining,
+  consoleMessage,
 }: BacklogEventsListProps) {
   return (
     <article className="skeleton-card backlog-rail-card">
@@ -62,7 +69,20 @@ export function BacklogEventsList({
           </PanelMark>
           <h3>Events</h3>
         </div>
-        <code>{activePartition || "No active partition"}</code>
+        <div className="backlog-panel-actions">
+          {activePartition ? <code>{activePartition}</code> : null}
+          <button
+            type="button"
+            className="backlog-drain-button"
+            onClick={onOpenDrainConfirm}
+            disabled={!activePartition || draining}
+            data-backlog-drain-trigger="true"
+          >
+            <IconSend />
+            <span>{draining ? "Draining" : "Drain pending"}</span>
+          </button>
+          {consoleMessage ? <span className="backlog-action-note" aria-live="polite">{consoleMessage}</span> : null}
+        </div>
       </div>
 
       <div className="backlog-filter-strip">
@@ -86,6 +106,13 @@ export function BacklogEventsList({
           onClick={() => onChangeStatusFilter("failed")}
         >
           Failed {counts.failed}
+        </button>
+        <button
+          type="button"
+          className={`backlog-chip backlog-chip-button${statusFilter === "completed" ? " is-active" : ""}`}
+          onClick={() => onChangeStatusFilter("completed")}
+        >
+          Completed {counts.completed}
         </button>
       </div>
 
@@ -114,6 +141,7 @@ export function BacklogEventsList({
               <div className="backlog-row-top">
                 <strong>{row.event_type}</strong>
                 <div className="backlog-row-top-right">
+                  <span className={`backlog-inline-status is-${row.status || "pending"}`}>{row.status || "pending"}</span>
                   <div className="backlog-list-delete-wrap">
                     <button
                       type="button"

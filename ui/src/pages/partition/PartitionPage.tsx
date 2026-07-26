@@ -7,45 +7,32 @@ import {
   getPartition,
   getPartitionFacetSchema,
   getPartitionSemanticIndex,
-  listPartitionCases,
+  getPartitionQueryStatistics,
+  getPartitionCaseStatistics,
   type PartitionFacetDefinition,
   type PartitionSemanticKeyStat,
+  type PartitionQueryStatistics,
+  type PartitionCaseStatistics,
 } from "../../shared/api";
+import { PartitionQuerySignals, type PartitionSchemaEntry } from "./PartitionQuerySignals";
 
-type SchemaEntry = {
-  key: string;
-  description: string;
-  count: number;
-  values: Array<{ value: string; count: number }>;
-  status?: "stable" | "review" | "elevated";
-  source: "facet" | "semantic";
-};
+type SchemaEntry = PartitionSchemaEntry;
 
 function PanelMark({ children }: { children: ReactNode }) {
   return <span className="partition-panel-mark">{children}</span>;
 }
 
-function buildFacetRows(definitions: PartitionFacetDefinition[], cases: Array<{ facets?: Record<string, string[]> }>): SchemaEntry[] {
+function buildFacetRows(definitions: PartitionFacetDefinition[], statistics: PartitionCaseStatistics): SchemaEntry[] {
   return definitions.map((definition) => {
-    const counts = new Map<string, number>();
-    let caseCount = 0;
-    for (const item of cases) {
-      const values = item.facets?.[definition.key] ?? [];
-      if (values.length > 0) {
-        caseCount += 1;
-      }
-      for (const value of values) {
-        counts.set(value, (counts.get(value) ?? 0) + 1);
-      }
-    }
-    const values = Array.from(counts.entries())
+    const keyRef = `facet:${definition.key}`;
+    const values = Object.entries(statistics.case_value_stats[keyRef] ?? {})
       .sort((left, right) => right[1] - left[1])
       .slice(0, 8)
       .map(([value, count]) => ({ value, count }));
     return {
       key: definition.key,
       description: definition.description || definition.display_name || definition.key,
-      count: caseCount,
+      count: statistics.case_key_stats[keyRef] ?? 0,
       values,
       status: definition.enabled ? "stable" : "review",
       source: "facet",
@@ -53,14 +40,40 @@ function buildFacetRows(definitions: PartitionFacetDefinition[], cases: Array<{ 
   });
 }
 
-function buildSemanticRows(stats: PartitionSemanticKeyStat[]): SchemaEntry[] {
-  return stats.map((item) => ({
-    key: item.key,
-    description: item.aliases.length > 0 ? item.aliases.join(", ") : item.key,
-    count: item.count,
-    values: item.sample_values.map((value) => ({ value: value.value, count: value.count })),
-    source: "semantic",
-  }));
+function buildSemanticRows(indexStats: PartitionSemanticKeyStat[], statistics: PartitionCaseStatistics): SchemaEntry[] {
+  const aliases = new Map(indexStats.map((item) => [item.key, item.aliases]));
+  return Object.entries(statistics.case_key_stats)
+    .filter(([key]) => key.startsWith("semantic_profile:"))
+    .map(([key, count]) => {
+      const semanticKey = key.slice("semantic_profile:".length);
+      return {
+        key: semanticKey,
+        description: aliases.get(semanticKey)?.join(", ") || semanticKey,
+        count,
+        values: Object.entries(statistics.case_value_stats[key] ?? {})
+          .sort((left, right) => right[1] - left[1])
+          .slice(0, 8)
+          .map(([value, valueCount]) => ({ value, count: valueCount })),
+        source: "semantic" as const,
+      };
+    })
+    .sort((left, right) => right.count - left.count);
+}
+
+function buildQueryRows(statistics: PartitionQueryStatistics | null): SchemaEntry[] {
+  if (!statistics) return [];
+  return Object.entries(statistics.query_key_stats)
+    .map(([key, count]) => ({
+      key,
+      description: "Query-derived signal. This statistic does not change the partition schema.",
+      count,
+      values: Object.entries(statistics.query_value_stats[key] ?? {})
+        .sort((left, right) => right[1] - left[1])
+        .slice(0, 8)
+        .map(([value, valueCount]) => ({ value, count: valueCount })),
+      source: "query" as const,
+    }))
+    .sort((left, right) => right.count - left.count);
 }
 
 export function PartitionPage({ activePartition }: { activePartition: string | null }) {
@@ -68,7 +81,8 @@ export function PartitionPage({ activePartition }: { activePartition: string | n
   const [semanticRows, setSemanticRows] = useState<SchemaEntry[]>([]);
   const [selectedEntry, setSelectedEntry] = useState<SchemaEntry | null>(null);
   const [partitionDescription, setPartitionDescription] = useState("");
-  const [caseCount, setCaseCount] = useState(0);
+  const [partitionStatus, setPartitionStatus] = useState("");
+  const [queryStatistics, setQueryStatistics] = useState<PartitionQueryStatistics | null>(null);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -79,7 +93,8 @@ export function PartitionPage({ activePartition }: { activePartition: string | n
       setSemanticRows([]);
       setSelectedEntry(null);
       setPartitionDescription("");
-      setCaseCount(0);
+      setPartitionStatus("");
+      setQueryStatistics(null);
       setErrorMessage("");
       setLoading(false);
       return () => {
@@ -92,16 +107,18 @@ export function PartitionPage({ activePartition }: { activePartition: string | n
       getPartition(activePartition),
       getPartitionFacetSchema(activePartition),
       getPartitionSemanticIndex(activePartition),
-      listPartitionCases(activePartition),
+      getPartitionCaseStatistics(activePartition),
+      getPartitionQueryStatistics(activePartition),
     ])
-      .then(([partition, facetSchema, semanticIndex, cases]) => {
+      .then(([partition, facetSchema, semanticIndex, caseStats, queryStats]) => {
         if (cancelled) {
           return;
         }
-        const nextFacetRows = buildFacetRows(facetSchema.facet_schema.definitions, cases);
-        const nextSemanticRows = buildSemanticRows(semanticIndex.semantic_index.key_stats);
+        const nextFacetRows = buildFacetRows(facetSchema.facet_schema.definitions, caseStats);
+        const nextSemanticRows = buildSemanticRows(semanticIndex.semantic_index.key_stats, caseStats);
         setPartitionDescription(partition.scenario_description || "");
-        setCaseCount(cases.length);
+        setPartitionStatus(partition.status || "");
+        setQueryStatistics(queryStats);
         setFacetRows(nextFacetRows);
         setSemanticRows(nextSemanticRows);
         setSelectedEntry((current) => {
@@ -121,7 +138,8 @@ export function PartitionPage({ activePartition }: { activePartition: string | n
         setSemanticRows([]);
         setSelectedEntry(null);
         setPartitionDescription("");
-        setCaseCount(0);
+        setPartitionStatus("");
+        setQueryStatistics(null);
         setErrorMessage(error instanceof Error ? error.message : "Failed to load partition.");
       })
       .finally(() => {
@@ -135,11 +153,15 @@ export function PartitionPage({ activePartition }: { activePartition: string | n
   }, [activePartition]);
 
   const detailTitle = useMemo(() => selectedEntry?.key || "Value List", [selectedEntry]);
+  const queryRows = buildQueryRows(queryStatistics);
   return (
     <section className="partition-page">
       <header className="partition-page-header">
         <div className="partition-page-copy">
-          <h2>Partition</h2>
+          <div className="partition-title-line">
+            <h2>{activePartition || "Partition"}</h2>
+            {partitionStatus ? <span className={"partition-inline-status is-" + partitionStatus}>{partitionStatus}</span> : null}
+          </div>
           {partitionDescription ? <p>{partitionDescription}</p> : null}
         </div>
       </header>
@@ -242,6 +264,13 @@ export function PartitionPage({ activePartition }: { activePartition: string | n
               </div>
             </div>
           </article>
+
+          <PartitionQuerySignals
+            rows={queryRows}
+            selectedEntry={selectedEntry}
+            onSelect={setSelectedEntry}
+            loading={loading}
+          />
         </div>
 
         <article className="skeleton-card partition-detail-card">
@@ -254,7 +283,7 @@ export function PartitionPage({ activePartition }: { activePartition: string | n
             </div>
             {selectedEntry ? (
               <span className="partition-inline-note">
-                {selectedEntry.source === "facet" ? "Facet" : "Semantic"}
+                {selectedEntry.source === "facet" ? "Facet" : selectedEntry.source === "semantic" ? "Semantic" : "Query"}
               </span>
             ) : null}
           </div>
@@ -264,7 +293,7 @@ export function PartitionPage({ activePartition }: { activePartition: string | n
               <div className="partition-detail-block">
                 <p>{selectedEntry.description}</p>
                 <div className="partition-detail-meta">
-                  <span>{selectedEntry.count} cases</span>
+                  <span>{selectedEntry.count} {selectedEntry.source === "query" ? "queries" : "cases"}</span>
                   <span>{selectedEntry.values.length} listed values</span>
                 </div>
               </div>

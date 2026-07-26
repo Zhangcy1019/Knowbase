@@ -5,7 +5,6 @@ import "./overview.css";
 import { ConfirmDeletePopover } from "../../shared/component/confirm";
 import { IconBacklog, IconOverview, IconPartition, IconRuns, IconTraceList } from "../../shared/icons";
 import {
-  createPartition,
   deletePartition,
   listBacklogEvents,
   listPartitionCases,
@@ -16,6 +15,7 @@ import {
   type PartitionDocument,
   type RuntimeRunSummary,
 } from "../../shared/api";
+import { PartitionCreateModal } from "./PartitionCreateModal";
 
 type OverviewPartitionRow = {
   name: string;
@@ -31,7 +31,7 @@ type OverviewRecentChange = {
   timestamp: string | null;
 };
 
-type ManagerMode = "view" | "create" | "edit";
+type ManagerMode = "view" | "edit";
 
 function PanelMark({ children }: { children: ReactNode }) {
   return <span className="overview-panel-mark">{children}</span>;
@@ -126,10 +126,10 @@ export function OverviewPage({
   const [errorMessage, setErrorMessage] = useState("");
   const [selectedPartitionName, setSelectedPartitionName] = useState("");
   const [managerMode, setManagerMode] = useState<ManagerMode>("view");
+  const [createModalOpen, setCreateModalOpen] = useState(false);
   const [managerError, setManagerError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [formName, setFormName] = useState("");
   const [formDescription, setFormDescription] = useState("");
   const [formStatus, setFormStatus] = useState<PartitionDocument["status"]>("active");
 
@@ -234,12 +234,9 @@ export function OverviewPage({
   ];
 
   function enterCreateMode() {
-    setManagerMode("create");
+    setCreateModalOpen(true);
     setManagerError("");
     setDeleteConfirmOpen(false);
-    setFormName("");
-    setFormDescription("");
-    setFormStatus("active");
   }
 
   function enterEditMode() {
@@ -249,7 +246,6 @@ export function OverviewPage({
     setManagerMode("edit");
     setManagerError("");
     setDeleteConfirmOpen(false);
-    setFormName(selectedPartition.partition_name);
     setFormDescription(selectedPartition.scenario_description || "");
     setFormStatus(selectedPartition.status);
   }
@@ -261,34 +257,21 @@ export function OverviewPage({
   }
 
   async function handleSubmitManager() {
-    const nextName = formName.trim();
-    if (!nextName) {
-      setManagerError("Partition name is required.");
+    if (managerMode !== "edit" || !selectedPartition) {
       return;
     }
     try {
       setSubmitting(true);
       setManagerError("");
-      if (managerMode === "create") {
-        const created = await createPartition({
-          partition_name: nextName,
-          scenario_description: formDescription.trim(),
-          status: formStatus,
-        });
-        await loadOverview();
-        setSelectedPartitionName(created.partition_name);
-        onActivatePartition(created.partition_name);
-      } else if (managerMode === "edit" && selectedPartition) {
-        const updated = await updatePartition(selectedPartition.partition_name, {
-          partition_name: selectedPartition.partition_name,
-          scenario_description: formDescription.trim(),
-          status: formStatus,
-        });
-        await loadOverview();
-        setSelectedPartitionName(updated.partition_name);
-        if (activePartition === updated.partition_name && updated.status !== "active") {
-          onActivatePartition(null);
-        }
+      const updated = await updatePartition(selectedPartition.partition_name, {
+        partition_name: selectedPartition.partition_name,
+        scenario_description: formDescription.trim(),
+        status: formStatus,
+      });
+      await loadOverview();
+      setSelectedPartitionName(updated.partition_name);
+      if (activePartition === updated.partition_name && updated.status !== "active") {
+        onActivatePartition(null);
       }
       setManagerMode("view");
     } catch (error: unknown) {
@@ -296,6 +279,12 @@ export function OverviewPage({
     } finally {
       setSubmitting(false);
     }
+  }
+
+  async function handleCreatedPartition(created: PartitionDocument) {
+    await loadOverview();
+    setSelectedPartitionName(created.partition_name);
+    onActivatePartition(created.partition_name);
   }
 
   async function handleDeleteSelected() {
@@ -448,11 +437,7 @@ export function OverviewPage({
                 <IconPartition />
               </PanelMark>
               <h3>
-                {managerMode === "create"
-                  ? "Create Partition"
-                  : managerMode === "edit"
-                    ? "Edit Partition"
-                      : "Partition Detail"}
+                {managerMode === "edit" ? "Edit Partition" : "Partition Detail"}
               </h3>
             </div>
             {managerMode === "view" && selectedPartition ? (
@@ -488,14 +473,13 @@ export function OverviewPage({
             ) : null}
           </div>
 
-          {managerMode === "create" || managerMode === "edit" ? (
+          {managerMode === "edit" ? (
             <div className="overview-manager-form">
               <label className="overview-create-field">
                 <span>Name</span>
                 <input
-                  disabled={submitting || managerMode === "edit"}
-                  value={formName}
-                  onChange={(event) => setFormName(event.target.value)}
+                  disabled
+                  value={selectedPartition?.partition_name || ""}
                   placeholder="Claims"
                 />
               </label>
@@ -568,7 +552,7 @@ export function OverviewPage({
                 </article>
               </div>
             ) : (
-              <div className="overview-empty-state">Select a partition to inspect or create a new one.</div>
+              <div className="overview-empty-state">Select a partition to inspect.</div>
             )
           ) : null}
         </article>
@@ -621,6 +605,12 @@ export function OverviewPage({
           </div>
         </article>
       </section>
+
+      <PartitionCreateModal
+        open={createModalOpen}
+        onClose={() => setCreateModalOpen(false)}
+        onCreated={handleCreatedPartition}
+      />
     </section>
   );
 }

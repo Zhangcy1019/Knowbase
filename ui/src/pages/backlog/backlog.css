@@ -1,5 +1,4 @@
 .backlog-page,
-.backlog-control-grid,
 .backlog-workbench,
 .backlog-center-stack,
 .backlog-summary-grid,
@@ -14,12 +13,70 @@
 .backlog-page {
   min-height: 100%;
   height: 100%;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto auto auto minmax(0, 1fr);
   overflow: hidden;
 }
 
 .backlog-page-header {
-  display: block;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.backlog-page-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.backlog-page-partition {
+  padding-bottom: 4px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.backlog-page-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.backlog-drain-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  border: 1px solid rgba(211, 111, 43, 0.28);
+  border-radius: 7px;
+  padding: 0 12px;
+  background: #e88b3c;
+  color: #fffaf3;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.backlog-drain-button svg {
+  width: 15px;
+  height: 15px;
+}
+
+.backlog-drain-button:hover:not(:disabled) {
+  background: #dc7a2a;
+}
+
+.backlog-drain-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.56;
+}
+
+.backlog-action-note {
+  overflow: hidden;
+  color: #255875;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .backlog-page-copy h2 {
@@ -35,7 +92,6 @@
   grid-template-columns: minmax(300px, 0.88fr) minmax(480px, 1.32fr);
 }
 
-.backlog-control-card,
 .backlog-rail-card,
 .backlog-summary-card,
 .backlog-detail-card {
@@ -44,7 +100,6 @@
   padding: 16px 18px;
 }
 
-.backlog-control-card,
 .backlog-rail-card {
   grid-template-rows: auto auto minmax(0, 1fr);
 }
@@ -59,9 +114,187 @@
   grid-template-rows: auto minmax(0, 1fr);
 }
 
-.backlog-control-card {
+.backlog-overview {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
   gap: 8px;
-  padding: 12px 14px;
+  min-height: 62px;
+}
+
+.backlog-overview-title {
+  color: var(--text-strong);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.backlog-overview-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(80px, 1fr));
+  gap: 8px;
+}
+
+.backlog-overview-metric {
+  display: grid;
+  align-content: center;
+  gap: 8px;
+  min-height: 48px;
+  border: 1px solid rgba(40, 71, 104, 0.1);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.backlog-overview-metric span {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.backlog-overview-metric strong {
+  font-family: var(--font-display);
+  font-size: 20px;
+}
+
+.backlog-overview-metric.is-pending { border-color: rgba(208, 138, 59, 0.45); }
+.backlog-overview-metric.is-failed { border-color: rgba(185, 88, 88, 0.45); }
+.backlog-overview-metric.is-completed { border-color: rgba(92, 155, 121, 0.45); }
+
+.backlog-resource-tabs {
+  display: flex;
+  align-items: end;
+  gap: 6px;
+  border-bottom: 1px solid rgba(40, 71, 104, 0.12);
+}
+
+.backlog-resource-tabs button {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 7px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  padding: 8px 12px 9px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.backlog-resource-tabs button span {
+  font-size: 10px;
+  font-weight: 500;
+  opacity: 0.72;
+}
+
+.backlog-resource-tabs button.is-active {
+  border-color: #d87935;
+  color: var(--text-strong);
+}
+
+.backlog-task-skeleton {
+  display: grid;
+  grid-template-columns: minmax(320px, 0.95fr) minmax(420px, 1.5fr);
+  min-height: 0;
+  gap: 12px;
+}
+
+.backlog-task-skeleton-list,
+.backlog-task-detail-placeholder {
+  min-height: 0;
+  padding: 16px 18px;
+  border: 1px solid rgba(40, 71, 104, 0.08);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.46);
+}
+
+.backlog-task-skeleton-list {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+
+.backlog-task-skeleton-head {
+  display: flex;
+  justify-content: space-between;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(40, 71, 104, 0.1);
+  color: var(--text-strong);
+  font-family: var(--font-display);
+  font-weight: 700;
+}
+
+.backlog-task-skeleton-head code {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.backlog-task-placeholder {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(40, 71, 104, 0.07);
+}
+
+.backlog-task-placeholder > div {
+  display: grid;
+  gap: 3px;
+}
+
+.backlog-task-placeholder strong { font-size: 13px; }
+.backlog-task-placeholder span:not(.backlog-placeholder-dot) {
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.backlog-task-placeholder em {
+  color: #8a571f;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.backlog-task-placeholder.is-muted { opacity: 0.58; }
+
+.backlog-placeholder-dot {
+  width: 8px;
+  height: 8px;
+  margin-top: 4px;
+  border-radius: 50%;
+  background: rgba(40, 71, 104, 0.24);
+}
+
+.backlog-placeholder-dot.is-queued {
+  background: #d08a3b;
+  box-shadow: 0 0 0 4px rgba(208, 138, 59, 0.12);
+}
+
+.backlog-task-detail-placeholder {
+  display: grid;
+  align-content: center;
+  justify-items: start;
+  gap: 8px;
+}
+
+.backlog-task-detail-placeholder strong {
+  font-family: var(--font-display);
+  font-size: 22px;
+  letter-spacing: -0.04em;
+}
+
+.backlog-task-detail-placeholder p {
+  max-width: 360px;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.6;
 }
 
 .backlog-panel-head {
@@ -105,6 +338,32 @@
   font-size: 17px;
   font-weight: 600;
   letter-spacing: -0.03em;
+}
+
+.backlog-panel-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  min-width: 0;
+}
+
+.backlog-panel-actions .backlog-action-note {
+  max-width: 180px;
+}
+
+.backlog-task-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.backlog-task-title svg {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  color: #3b82a6;
+  stroke-width: 1.8;
 }
 
 .backlog-panel-head code {
@@ -155,93 +414,6 @@
   color: #255875;
 }
 
-.backlog-control-grid {
-  grid-template-columns: minmax(260px, 0.9fr) minmax(220px, 0.8fr) auto;
-  align-items: stretch;
-  gap: 10px;
-}
-
-.backlog-control-section {
-  display: grid;
-  gap: 8px;
-  min-height: 0;
-  border: 1px solid rgba(40, 71, 104, 0.08);
-  border-radius: 7px;
-  background: rgba(255, 255, 255, 0.52);
-  padding: 10px 11px;
-}
-
-.backlog-control-actions {
-  display: grid;
-  align-self: stretch;
-  height: 100%;
-  width: 100%;
-  aspect-ratio: 1 / 1;
-  gap: 8px;
-}
-
-.backlog-control-actions button {
-  display: inline-flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  width: 100%;
-  min-width: 0;
-  height: 100%;
-  min-height: 0;
-  border: 1px solid var(--line-strong);
-  background: rgba(255, 255, 255, 0.82);
-  color: var(--text-strong);
-  border-radius: 7px;
-  padding: 14px 12px;
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-  text-align: center;
-  transition: background 160ms ease, border-color 160ms ease, color 160ms ease,
-    transform 120ms ease, opacity 160ms ease;
-}
-
-.backlog-control-actions button svg {
-  width: 32px;
-  height: 32px;
-  stroke-width: 2;
-}
-
-.backlog-control-actions button:hover:not(:disabled) {
-  border-color: rgba(59, 130, 166, 0.18);
-  background: rgba(238, 246, 250, 0.8);
-  color: #255875;
-}
-
-.backlog-control-actions button:active:not(:disabled) {
-  transform: translateY(1px);
-}
-
-.backlog-control-actions button:disabled {
-  opacity: 0.56;
-  cursor: not-allowed;
-}
-
-.backlog-control-actions button.is-primary {
-  border-color: rgba(224, 122, 48, 0.32);
-  background: #e88b3c;
-  color: #fffaf3;
-  box-shadow: none;
-}
-
-.backlog-control-actions button.is-primary:hover:not(:disabled) {
-  border-color: rgba(207, 106, 33, 0.36);
-  background: #dc7a2a;
-  color: #ffffff;
-}
-
-.backlog-control-actions button.is-primary svg {
-  color: currentColor;
-}
-
-.backlog-console-note,
 .backlog-empty-state {
   border: 1px dashed rgba(40, 71, 104, 0.16);
   border-radius: 7px;
@@ -249,12 +421,6 @@
   color: var(--text-muted);
   font-size: 13px;
   background: rgba(255, 255, 255, 0.4);
-}
-
-.backlog-console-note {
-  border-style: solid;
-  background: rgba(238, 246, 250, 0.72);
-  color: #255875;
 }
 
 .backlog-drain-confirm-shell {
@@ -401,6 +567,13 @@
   color: #235d7a;
 }
 
+.backlog-inline-status.is-queued,
+.backlog-inline-status.is-running,
+.backlog-inline-status.is-pending {
+  background: rgba(208, 138, 59, 0.16);
+  color: #8a571f;
+}
+
 .backlog-inline-status.is-failed {
   background: rgba(210, 134, 58, 0.16);
   color: #8a571f;
@@ -414,6 +587,11 @@
 .backlog-inline-status.is-completed {
   background: rgba(61, 133, 98, 0.12);
   color: #2c6a52;
+}
+
+.backlog-inline-status.is-cancelled {
+  background: rgba(98, 110, 122, 0.14);
+  color: #5e6872;
 }
 
 .backlog-summary-grid {
@@ -635,35 +813,46 @@
   gap: 4px;
 }
 
-.backlog-compact-list {
-  display: grid;
-  gap: 8px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.backlog-compact-list li {
-  border: 1px solid rgba(40, 71, 104, 0.08);
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.52);
-  padding: 7px 9px;
-  font-size: 11px;
-  font-weight: 600;
-  color: #30465d;
-}
-
 @media (max-width: 1280px) {
-  .backlog-control-grid,
-  .backlog-workbench {
+  .backlog-workbench,
+  .backlog-task-skeleton {
     grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 1080px) {
+  .backlog-page-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .backlog-page-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .backlog-overview {
+    grid-template-columns: 1fr;
+  }
+
   .backlog-workbench,
   .backlog-summary-stats,
   .backlog-mini-stats {
     grid-template-columns: 1fr;
+  }
+
+  .backlog-overview-metrics {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .backlog-overview-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .backlog-resource-tabs button {
+    flex: 1;
+    justify-content: center;
   }
 }

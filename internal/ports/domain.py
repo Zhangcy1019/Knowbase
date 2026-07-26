@@ -166,6 +166,7 @@ class CaseWritePort(Protocol):
     def create_case(
         self,
         *,
+        case_id: str | None = None,
         partition_name: str,
         title: str,
         source_content: str,
@@ -191,6 +192,15 @@ class CaseWritePort(Protocol):
         raw_text: str | None = None,
         case_detail: str | None = None,
     ) -> tuple[KnowbaseCaseDocument, KnowbaseCaseDocument, list[str]]:
+        ...
+
+    def delete_case(self, *, case_id: str) -> KnowbaseCaseDocument:
+        ...
+
+    async def update_case_queued(self, **kwargs: Any) -> tuple[KnowbaseCaseDocument, KnowbaseCaseDocument, list[str]]:
+        ...
+
+    async def delete_case_queued(self, *, case_id: str) -> KnowbaseCaseDocument:
         ...
 
 

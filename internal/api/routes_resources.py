@@ -61,7 +61,7 @@ def register_resource_routes(app: FastAPI, *, deps: KnowbaseRouteDeps) -> None:
     @app.put("/api/knowbase/cases/{case_id}", response_model=KnowbaseCaseDocument)
     async def update_knowbase_case(case_id: str, req: CaseUpdateRequest) -> KnowbaseCaseDocument:
         try:
-            existing, updated, changed_fields = deps.case_write_service.update_case(
+            existing, updated, changed_fields = await deps.case_write_service.update_case_queued(
                 case_id=case_id,
                 title=req.title,
                 source_content=req.source_content,
@@ -75,6 +75,8 @@ def register_resource_routes(app: FastAPI, *, deps: KnowbaseRouteDeps) -> None:
             )
         except ValueError as exc:
             raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except RuntimeError as exc:
+            raise HTTPException(status_code=500, detail=str(exc)) from exc
         await deps.event_publisher.publish(
             KnowbaseEvent(
                 event_type=KnowbaseEventType.CASE_UPDATED,
@@ -119,10 +121,12 @@ def register_resource_routes(app: FastAPI, *, deps: KnowbaseRouteDeps) -> None:
 
     @app.delete("/api/knowbase/cases/{case_id}")
     async def delete_knowbase_case(case_id: str) -> dict[str, str]:
-        existing = deps.case_repository.get(case_id)
-        if existing is None:
-            raise HTTPException(status_code=404, detail=f"case not found: {case_id}")
-        deps.case_repository.delete(case_id)
+        try:
+            existing = await deps.case_write_service.delete_case_queued(case_id=case_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except RuntimeError as exc:
+            raise HTTPException(status_code=500, detail=str(exc)) from exc
         await deps.event_publisher.publish(
             KnowbaseEvent(
                 event_type=KnowbaseEventType.CASE_DELETED,

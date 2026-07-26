@@ -8,6 +8,8 @@ startup:
 storage:
   backend: es # es or local
   local_root: ".data/knowbase"
+  version_control_backend: git # git
+  version_control_auto_init: true
 
 web:
   ui:

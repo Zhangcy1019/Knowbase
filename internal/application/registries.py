@@ -14,10 +14,10 @@ from internal.ports import (
     PartitionProfileWritePort,
 )
 from internal.runtime.skills import SkillRegistry
-from internal.knowledge.skills.case import RebuildCaseSkill, RefreshCaseFacetsSkill
-from internal.knowledge.skills.partition import RefreshSelectedCasesFacetsSkill
+from internal.knowledge.capability.skills.case import RebuildCaseSkill, RefreshCaseFacetsSkill
+from internal.knowledge.capability.skills.partition import RefreshSelectedCasesFacetsSkill
 from internal.runtime.tools import ToolRegistry
-from internal.knowledge.tools import GetCaseTool, GetPartitionTool, ListCasesTool
+from internal.knowledge.capability.tools import GetCaseTool, GetPartitionTool, ListCasesTool
 from internal.utils.config import RuntimeConfig
 
 
