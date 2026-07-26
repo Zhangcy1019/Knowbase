@@ -3,7 +3,7 @@ type KnowledgeAuditRuntimeCardProps = {
   payload: unknown;
 };
 
-export function KnowledgeAuditRuntimeCard({ onOpen }: KnowledgeAuditRuntimeCardProps) {
+export function KnowledgeAuditRuntimeCard({ onOpen, payload }: KnowledgeAuditRuntimeCardProps) {
   return (
     <button
       type="button"

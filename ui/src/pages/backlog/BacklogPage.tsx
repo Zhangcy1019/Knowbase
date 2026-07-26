@@ -85,7 +85,7 @@ export function BacklogPage({ activePartition }: { activePartition: string | nul
   const [events, setEvents] = useState<EventRecordResponse[]>([]);
   const [selectedEventId, setSelectedEventId] = useState("");
   const [selectedEvent, setSelectedEvent] = useState<EventRecordResponse | null>(null);
-  const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "failed">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "failed" | "completed">("all");
   const [loadingEvents, setLoadingEvents] = useState(false);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [actionPending, setActionPending] = useState("");
@@ -105,7 +105,10 @@ export function BacklogPage({ activePartition }: { activePartition: string | nul
     if (statusFilter === "pending") {
       return events.filter((event) => event.status === "pending");
     }
-    return events.filter((event) => event.status === "failed");
+    if (statusFilter === "failed") {
+      return events.filter((event) => event.status === "failed");
+    }
+    return events.filter((event) => event.status === "completed");
   }, [events, statusFilter]);
 
   useEffect(() => {

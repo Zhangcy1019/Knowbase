@@ -131,14 +131,14 @@ class GitRepository:
         if staged.returncode == 0:
             logger.info(
                 "Git commit skipped because there are no changes.",
-                extra={"workspace": str(self._root.resolve()), "message": message},
+                extra={"workspace": str(self._root.resolve()), "commit_message": message},
             )
             return VersionCommit(revision=self.current_revision(), message=message, paths=[])
         logger.info(
             "Creating Git commit.",
             extra={
                 "workspace": str(self._root.resolve()),
-                "message": message,
+                "commit_message": message,
                 "paths": paths,
             },
         )
@@ -146,7 +146,7 @@ class GitRepository:
         revision = self.current_revision()
         logger.info(
             "Git commit created.",
-            extra={"workspace": str(self._root.resolve()), "revision": revision, "message": message},
+            extra={"workspace": str(self._root.resolve()), "revision": revision, "commit_message": message},
         )
         return VersionCommit(revision=revision, message=message, paths=list(paths))
 

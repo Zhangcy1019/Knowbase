@@ -59,10 +59,16 @@ class PartitionProfileStore:
         facet_schema: PartitionFacetSchema,
     ) -> PartitionFacetSchemaDocument:
         current = self._facet_schema_repository.get(partition_name)
+        normalized_schema = PartitionFacetSchema.model_validate(facet_schema)
+        if current is not None and current.facet_schema == normalized_schema:
+            # A governance pass may accept the current schema without proposing
+            # a mutation. Do not touch updated_at in that case: the no-op must
+            # remain invisible to partition Git cleanliness checks.
+            return current
         now = datetime.now(timezone.utc)
         document = PartitionFacetSchemaDocument(
             partition_name=partition_name,
-            facet_schema=facet_schema,
+            facet_schema=normalized_schema,
             created_at=current.created_at if current is not None else now,
             updated_at=now,
         )

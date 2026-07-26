@@ -118,12 +118,8 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   align-items: center;
-  gap: 18px;
-  min-height: 68px;
-  padding: 10px 14px;
-  border: 1px solid rgba(40, 71, 104, 0.08);
-  border-radius: 9px;
-  background: rgba(255, 255, 255, 0.42);
+  gap: 8px;
+  min-height: 62px;
 }
 
 .backlog-overview-title {
@@ -141,12 +137,14 @@
 }
 
 .backlog-overview-metric {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
+  display: grid;
+  align-content: center;
   gap: 8px;
-  border-left: 2px solid rgba(40, 71, 104, 0.12);
-  padding: 2px 8px;
+  min-height: 48px;
+  border: 1px solid rgba(40, 71, 104, 0.1);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.72);
 }
 
 .backlog-overview-metric span {
@@ -159,9 +157,9 @@
   font-size: 20px;
 }
 
-.backlog-overview-metric.is-pending { border-color: #d08a3b; }
-.backlog-overview-metric.is-failed { border-color: #b95858; }
-.backlog-overview-metric.is-completed { border-color: #5c9b79; }
+.backlog-overview-metric.is-pending { border-color: rgba(208, 138, 59, 0.45); }
+.backlog-overview-metric.is-failed { border-color: rgba(185, 88, 88, 0.45); }
+.backlog-overview-metric.is-completed { border-color: rgba(92, 155, 121, 0.45); }
 
 .backlog-resource-tabs {
   display: flex;
@@ -570,7 +568,8 @@
 }
 
 .backlog-inline-status.is-queued,
-.backlog-inline-status.is-running {
+.backlog-inline-status.is-running,
+.backlog-inline-status.is-pending {
   background: rgba(208, 138, 59, 0.16);
   color: #8a571f;
 }

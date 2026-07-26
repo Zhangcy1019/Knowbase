@@ -3,7 +3,7 @@ type KnowledgeDecisionCardProps = {
   payload: unknown;
 };
 
-export function KnowledgeDecisionCard({ onOpen }: KnowledgeDecisionCardProps) {
+export function KnowledgeDecisionCard({ onOpen, payload }: KnowledgeDecisionCardProps) {
   return (
     <button
       type="button"

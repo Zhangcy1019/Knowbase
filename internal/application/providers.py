@@ -126,6 +126,11 @@ def build_core_providers(*, runtime_cfg: RuntimeConfig) -> CoreProviders:
         semantic_index_repository=persistence.partition_semantic_index_repository,
         versioning_manager=partition_versioning,
     )
+    # Validate all existing partition workspaces while the application is
+    # assembling. A dirty partition must block startup, not the next write.
+    partition_versioning.initialize_existing_partitions(
+        [item.partition_name for item in partition_service.list_partitions()]
+    )
     statistics_store = StatisticsStore(repository=persistence.statistics_snapshot_repository)
     statistics_service = KnowledgeStatisticsService(
         reader=StatisticsReader(store=statistics_store),

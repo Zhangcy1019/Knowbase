@@ -3,7 +3,7 @@ type KnowledgePatchDiffCardProps = {
   payload: unknown;
 };
 
-export function KnowledgePatchDiffCard({ onOpen }: KnowledgePatchDiffCardProps) {
+export function KnowledgePatchDiffCard({ onOpen, payload }: KnowledgePatchDiffCardProps) {
   return (
     <button
       type="button"

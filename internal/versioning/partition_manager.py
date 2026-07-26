@@ -42,6 +42,20 @@ class PartitionVersioningManager:
         """Initialize or validate a partition repository and return its revision."""
         return self.repository(partition).initialize()
 
+    def initialize_existing_partitions(self, partitions: list[str]) -> list[str]:
+        """Validate every partition repository during application startup."""
+        known_partitions = {self._validate_partition(partition) for partition in partitions}
+        if self._partitions_root.exists():
+            known_partitions.update(
+                child.name
+                for child in self._partitions_root.iterdir()
+                if child.is_dir() and (child / ".git").exists()
+            )
+        revisions: list[str] = []
+        for partition in sorted(known_partitions):
+            revisions.append(self.initialize_partition(partition))
+        return revisions
+
     @staticmethod
     def _validate_partition(partition: str) -> str:
         normalized = str(partition).strip()

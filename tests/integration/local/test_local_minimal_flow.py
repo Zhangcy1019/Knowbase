@@ -27,7 +27,6 @@ from internal.domain.case.ingestor import KnowbaseCaseIngestor
 from internal.knowledge.service import KnowbaseKnowledgeService
 from internal.knowledge.workflow import KnowledgeDrainWorkflow
 from internal.knowledge.batch import BatchContextBuilder, BatchWorkingSetBuilder
-from internal.knowledge.facet_governance.models import FacetGovernanceResult
 from internal.models import IngestRequest, PartitionDocument, PartitionFacetSchema
 from internal.models.semantic_profile import CaseSemanticProfile
 from internal.runtime.contracts import RuntimeDecision
@@ -83,15 +82,6 @@ class _StaticTurnPlanner(RuntimeTurnPlannerPort):
         )
 
 
-class _StaticFacetGovernance:
-    def assess(self, *, current_schema, **kwargs):
-        _ = kwargs
-        return FacetGovernanceResult(
-            decision="accepted",
-            accepted_schema=current_schema,
-        )
-
-
 class LocalMinimalFlowIntegrationTest(unittest.TestCase):
     def setUp(self) -> None:
         self._runtime_cfg = load_test_runtime_config()
@@ -116,7 +106,7 @@ class LocalMinimalFlowIntegrationTest(unittest.TestCase):
                 working_set_builder=BatchWorkingSetBuilder(),
                 partition_service=core.partition_service,
                 statistics=core.statistics_service,
-                facet_governance=_StaticFacetGovernance(),
+                facet_governance=core.facet_governance,
                 projection=core.projection_service,
                 mutation_executor=core.mutation_executor,
             ),

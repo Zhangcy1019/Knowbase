@@ -5,6 +5,7 @@ from tempfile import TemporaryDirectory
 import unittest
 
 from internal.infrastructure.coordination import PartitionMutationLock
+from internal.infrastructure.version_control.git import GitRepository
 from internal.versioning import PartitionVersioningManager
 
 
@@ -28,6 +29,17 @@ class PartitionVersioningTest(unittest.TestCase):
                 self.assertTrue(metadata.exists())
                 self.assertIn('"operation_id": "op-1"', metadata.read_text(encoding="utf-8"))
             self.assertFalse(metadata.exists())
+
+    def test_startup_validation_rejects_dirty_existing_partition(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            manager = PartitionVersioningManager(local_root=root)
+            repository = GitRepository(root=manager.partition_root("CI"))
+            repository.initialize()
+            (manager.partition_root("CI") / "dirty.json").write_text("{}\n", encoding="utf-8")
+
+            with self.assertRaisesRegex(RuntimeError, "uncommitted changes"):
+                manager.initialize_existing_partitions(["CI"])
 
 
 if __name__ == "__main__":

@@ -3,7 +3,7 @@ type KnowledgeMutationPlanCardProps = {
   payload: unknown;
 };
 
-export function KnowledgeMutationPlanCard({ onOpen }: KnowledgeMutationPlanCardProps) {
+export function KnowledgeMutationPlanCard({ onOpen, payload }: KnowledgeMutationPlanCardProps) {
   return (
     <button
       type="button"

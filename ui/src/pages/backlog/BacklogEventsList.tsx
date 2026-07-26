@@ -10,8 +10,9 @@ type BacklogEventsListProps = {
     total: number;
     pending: number;
     failed: number;
+    completed: number;
   };
-  statusFilter: "all" | "pending" | "failed";
+  statusFilter: "all" | "pending" | "failed" | "completed";
   filteredEvents: EventRecordResponse[];
   selectedEventId: string;
   loadingEvents: boolean;
@@ -22,7 +23,7 @@ type BacklogEventsListProps = {
   deletePopoverPosition: { top: number; left: number } | null;
   deletePopoverRef: RefObject<HTMLDivElement | null>;
   onSelectEvent: (eventId: string) => void;
-  onChangeStatusFilter: (filter: "all" | "pending" | "failed") => void;
+  onChangeStatusFilter: (filter: "all" | "pending" | "failed" | "completed") => void;
   onToggleDelete: (eventId: string, event: MouseEvent<HTMLButtonElement>) => void;
   onCancelDelete: () => void;
   onConfirmDelete: (eventId: string) => void;
@@ -106,6 +107,13 @@ export function BacklogEventsList({
         >
           Failed {counts.failed}
         </button>
+        <button
+          type="button"
+          className={`backlog-chip backlog-chip-button${statusFilter === "completed" ? " is-active" : ""}`}
+          onClick={() => onChangeStatusFilter("completed")}
+        >
+          Completed {counts.completed}
+        </button>
       </div>
 
       <div className="backlog-list-scroll">
@@ -133,6 +141,7 @@ export function BacklogEventsList({
               <div className="backlog-row-top">
                 <strong>{row.event_type}</strong>
                 <div className="backlog-row-top-right">
+                  <span className={`backlog-inline-status is-${row.status || "pending"}`}>{row.status || "pending"}</span>
                   <div className="backlog-list-delete-wrap">
                     <button
                       type="button"

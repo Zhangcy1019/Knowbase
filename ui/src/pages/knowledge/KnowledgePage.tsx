@@ -16,6 +16,7 @@ import { KnowledgeAuditRuntimeCard } from "./KnowledgeAuditRuntimeCard";
 import { KnowledgeDecisionCard } from "./KnowledgeDecisionCard";
 import { KnowledgeMutationPlanCard } from "./KnowledgeMutationPlanCard";
 import { KnowledgePatchDiffCard } from "./KnowledgePatchDiffCard";
+import { KnowledgeDetailModal } from "./KnowledgeDetailModal";
 import "./knowledge.css";
 
 function PanelMark({ children }: { children: ReactNode }) {
@@ -149,37 +150,19 @@ export function KnowledgePage({ activePartition }: { activePartition: string | n
           <div className="knowledge-process-list">
             <KnowledgeDecisionCard onOpen={openDebugSection} payload={selectedDrain?.governance_result} />
             <KnowledgeMutationPlanCard onOpen={openDebugSection} payload={selectedDrain?.mutation_plan} />
-            <KnowledgePatchDiffCard onOpen={openDebugSection} payload={selectedDrain?.applied_revision || selectedDrain?.base_revision} />
+            <KnowledgePatchDiffCard onOpen={openDebugSection} payload={selectedDrain} />
             <KnowledgeAuditRuntimeCard onOpen={openDebugSection} payload={selectedDrain} />
           </div>
         </article>
       </section>
 
       {selectedDebugSection ? (
-        <div className="knowledge-modal-backdrop" role="presentation" onClick={() => setSelectedDebugSection(null)}>
-          <section
-            className="knowledge-modal-card"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="knowledge-modal-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="knowledge-modal-head">
-              <div>
-                <span className="knowledge-section-kicker">Selected Drain · {selectedDebugSection.title}</span>
-                <h3 id="knowledge-modal-title">{selectedDebugSection.title}</h3>
-              </div>
-              <button type="button" className="knowledge-modal-close" onClick={() => setSelectedDebugSection(null)}>
-                Close
-              </button>
-            </div>
-            <p>{selectedDebugSection.description}</p>
-            <div className="knowledge-modal-placeholder">
-              <span>Detailed payload</span>
-              <pre>{JSON.stringify(selectedDebugSection.payload ?? {}, null, 2)}</pre>
-            </div>
-          </section>
-        </div>
+        <KnowledgeDetailModal
+          title={selectedDebugSection.title}
+          description={selectedDebugSection.description}
+          payload={selectedDebugSection.payload}
+          onClose={() => setSelectedDebugSection(null)}
+        />
       ) : null}
     </section>
   );
