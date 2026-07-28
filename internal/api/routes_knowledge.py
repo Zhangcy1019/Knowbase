@@ -7,6 +7,7 @@ from fastapi import FastAPI, HTTPException
 from internal.api.schemas import (
     KnowledgeDrainDetailResponse,
     KnowledgeDrainSummaryResponse,
+    KnowledgeReviewActionRequest,
     KnowledgeOverviewResponse,
     CaseStatisticsResponse,
     QueryStatisticsResponse,
@@ -37,6 +38,41 @@ def register_knowledge_routes(app: FastAPI, *, deps: KnowbaseRouteDeps) -> None:
         if record is None:
             raise HTTPException(status_code=404, detail=f"knowledge drain not found: {decision_id}")
         return _to_detail(record)
+
+    @app.post(
+        "/api/knowbase/knowledge/drains/{decision_id}/review",
+        response_model=KnowledgeDrainDetailResponse,
+    )
+    async def review_knowledge_drain(
+        decision_id: str,
+        request: KnowledgeReviewActionRequest,
+    ) -> KnowledgeDrainDetailResponse:
+        if deps.decision_service is None:
+            raise HTTPException(status_code=404, detail="knowledge decision service is unavailable")
+        record = deps.decision_service.get(decision_id)
+        if record is None:
+            raise HTTPException(status_code=404, detail=f"knowledge drain not found: {decision_id}")
+        if record.status != "requires_review":
+            raise HTTPException(
+                status_code=409,
+                detail=f"knowledge drain is not waiting for review: {record.status}",
+            )
+        target_status = {
+            "approve": "approved",
+            "discard": "discarded",
+            "retry": "retry_requested",
+        }[request.action]
+        try:
+            updated = deps.decision_service.transition(
+                decision_id=decision_id,
+                status=target_status,
+                reviewer=request.reviewer.strip() or "manual",
+                reason=request.reason.strip(),
+                actor="manual_review",
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        return _to_detail(updated)
 
     @app.get(
         "/api/knowbase/knowledge/overview",
@@ -93,26 +129,30 @@ def register_knowledge_routes(app: FastAPI, *, deps: KnowbaseRouteDeps) -> None:
 
 
 def _to_summary(record) -> KnowledgeDrainSummaryResponse:
-    mutation_plan = record.mutation_plan or {}
-    governance = record.governance_result or {}
-    proposal = governance.get("proposal") or {}
+    execution = record.execution
+    plan = execution.plan if execution is not None else None
+    plan = plan or {}
+    outcome = record.outcome
+    accepted_schema = outcome.accepted_schema
+    transition_error = next(
+        (item.error for item in reversed(record.status_history) if item.error),
+        None,
+    )
     return KnowledgeDrainSummaryResponse(
         decision_id=record.decision_id,
+        runtime_run_id=record.runtime_run_id or "",
         partition=record.partition,
         batch_id=record.batch_id,
         status=record.status,
         created_at=record.created_at,
         updated_at=record.updated_at,
-        base_revision=record.base_revision,
-        applied_revision=record.applied_revision,
-        mutation_plan_id=str(mutation_plan.get("plan_id", "")),
-        change_count=len(mutation_plan.get("case_changes", [])),
-        schema_changed=any(
-            proposal.get(name, [])
-            for name in ("suggested_new_keys", "suggested_updated_keys", "suggested_removed_keys")
-        ),
+        base_revision=record.input.base_revision or "",
+        applied_revision=(record.execution.applied_revision if record.execution is not None else None) or "",
+        mutation_plan_id=str(plan.get("plan_id", "")),
+        change_count=len(plan.get("case_changes", [])),
+        schema_changed=accepted_schema is not None,
         requires_review=record.status == "requires_review",
-        error_message=record.error_message,
+        error_message=transition_error or (execution.error if execution is not None else None) or "",
     )
 
 
@@ -120,11 +160,11 @@ def _to_detail(record) -> KnowledgeDrainDetailResponse:
     summary = _to_summary(record)
     return KnowledgeDrainDetailResponse(
         **summary.model_dump(),
-        statistics_fingerprint=record.statistics_fingerprint,
-        statistics_snapshot=record.statistics_snapshot,
-        working_set_snapshot=record.working_set_snapshot,
-        governance_result=record.governance_result,
-        mutation_plan=record.mutation_plan,
+        input=record.input.model_dump(mode="json"),
+        stages={key: value.model_dump(mode="json") for key, value in record.stages.items()},
+        outcome=record.outcome.model_dump(mode="json"),
+        execution=record.execution.model_dump(mode="json") if record.execution is not None else None,
+        status_history=[item.model_dump(mode="json") for item in record.status_history],
         reviewer=record.reviewer,
         review_reason=record.review_reason,
         supersedes_decision_id=record.supersedes_decision_id,

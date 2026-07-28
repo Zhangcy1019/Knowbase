@@ -22,6 +22,8 @@ class GitRepository:
         self._root.mkdir(parents=True, exist_ok=True)
         discovered_root = self._discover_root()
         local_git_dir = self._root / ".git"
+
+        # if the workspace is nested inside another Git repository, fail unless the local .git directory exists
         if discovered_root is not None and discovered_root != self._root.resolve() and not local_git_dir.exists():
             logger.error(
                 "Git workspace is nested inside another repository; startup is blocked.",
@@ -34,6 +36,8 @@ class GitRepository:
                 f"local workspace is inside another Git repository: {self._root} "
                 f"(repository root: {discovered_root})"
             )
+        
+        # if the workspace is not yet a Git repository, initialize it and create an initial commit
         if discovered_root is None:
             logger.info(
                 "Initializing Git workspace.",
@@ -54,6 +58,7 @@ class GitRepository:
             )
         try:
             self.current_revision()
+        # if the workspace has no commits yet, create an initial empty commit to establish a baseline
         except subprocess.CalledProcessError:
             logger.info(
                 "Creating initial Git workspace baseline commit.",

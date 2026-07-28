@@ -344,15 +344,42 @@ class RuntimeDecisionNormalizer:
             "notes": list(draft.notes),
             **dict(draft.metadata),
         }
+        contract_error = self._validate_output_contract(
+            turn_input=turn_input,
+            should_stop=should_stop,
+            metadata=metadata,
+        )
+        requires_review = draft.requires_review
+        if contract_error:
+            requires_review = True
+            metadata["output_contract_error"] = contract_error
         return RuntimeDecision(
             decision_id=f"{run.run_id}:decision:{turn_input.turn_index}",
             objective=turn_input.task.objective,
             reasoning_summary=draft.reasoning_summary or "planner produced a decision",
             actions=actions,
             should_stop=should_stop,
-            requires_review=draft.requires_review,
+            requires_review=requires_review,
             metadata=metadata,
         )
+
+    @staticmethod
+    def _validate_output_contract(
+        *,
+        turn_input: RuntimeTurnInput,
+        should_stop: bool,
+        metadata: dict[str, Any],
+    ) -> str:
+        if not should_stop:
+            return ""
+        contract = dict(turn_input.task.output_contract)
+        required_metadata = contract.get("required_metadata", [])
+        if not isinstance(required_metadata, list):
+            return "output contract required_metadata must be a list"
+        for key in required_metadata:
+            if not isinstance(key, str) or not isinstance(metadata.get(key), dict):
+                return f"missing required metadata object: {key}"
+        return ""
 
     def _normalize_actions(
         self,

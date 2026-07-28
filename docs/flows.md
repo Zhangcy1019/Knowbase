@@ -45,7 +45,11 @@ EventRecord
   -> assemble BacklogBatch
   -> enqueue knowledge_drain
   -> capture case statistics snapshot
-  -> FacetGovernanceService.assess()
+  -> Governance preparation
+  -> proposal plugins
+  -> Runtime / LLM（有有效 proposal 时）
+  -> validation
+  -> GovernanceService.assess()
   -> no_change / requires_review / accepted
   -> ProjectionService.plan()
   -> KnowledgeMutationExecutor.apply()

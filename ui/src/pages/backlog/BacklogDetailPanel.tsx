@@ -96,7 +96,7 @@ export function BacklogDetailPanel({
                 <button
                   type="button"
                   onClick={onRequeue}
-                  disabled={actionPending === "requeue" || !selectedEvent.run_id}
+                  disabled={actionPending === "requeue"}
                 >
                   {actionPending === "requeue" ? "Requeueing..." : "Requeue"}
                 </button>

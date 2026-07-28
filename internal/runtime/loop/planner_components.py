@@ -36,6 +36,7 @@ class RuntimePlannerContext:
     source_type: str = ""
     source_ref: str = ""
     input_context: dict[str, object] = field(default_factory=dict)
+    output_contract: dict[str, object] = field(default_factory=dict)
     acceptance: dict[str, object] = field(default_factory=dict)
     verification: dict[str, object] = field(default_factory=dict)
     stop_policy: dict[str, object] = field(default_factory=dict)
@@ -129,6 +130,7 @@ class DefaultRuntimeObservationAssembler:
             source_type=turn_input.task.source_type,
             source_ref=turn_input.task.source_ref,
             input_context=dict(turn_input.task.input_context),
+            output_contract=dict(turn_input.task.output_contract),
             acceptance=turn_input.task.acceptance.model_dump(mode="json"),
             verification=turn_input.task.verification.model_dump(mode="json"),
             stop_policy=turn_input.task.stop_policy.model_dump(mode="json"),

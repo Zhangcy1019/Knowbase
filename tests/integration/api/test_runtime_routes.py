@@ -28,8 +28,8 @@ from internal.domain.case.facet_resolver import KnowbaseCaseFacetResolver
 from internal.domain.case.ingestor import KnowbaseCaseIngestor
 from internal.knowledge.service import KnowbaseKnowledgeService
 from internal.knowledge.workflow import KnowledgeDrainWorkflow
-from internal.knowledge.batch import BatchContextBuilder, BatchWorkingSetBuilder
-from internal.knowledge.facet_governance.models import FacetGovernanceResult
+from internal.knowledge.batch import BatchWorkingSetBuilder
+from internal.knowledge.governance.models import GovernanceResult
 from internal.models import IngestRequest, PartitionDocument
 from internal.runtime.service import KnowbaseRuntimeService
 from internal.runtime.skills import SkillRuntime
@@ -54,10 +54,10 @@ class _StubQueryFlow:
         raise RuntimeError(f"query flow is not enabled in this test: {request}")
 
 
-class _StaticFacetGovernance:
-    def assess(self, *, current_schema, **kwargs):
+class _StaticGovernance:
+    def assess_deterministic(self, *, current_schema, **kwargs):
         _ = kwargs
-        return FacetGovernanceResult(
+        return GovernanceResult(
             decision="accepted",
             accepted_schema=current_schema,
         )
@@ -82,7 +82,7 @@ class RuntimeRoutesIntegrationTest(unittest.TestCase):
                 working_set_builder=BatchWorkingSetBuilder(),
                 partition_service=self._core.partition_service,
                 statistics=self._core.statistics_service,
-                facet_governance=_StaticFacetGovernance(),
+                governance=_StaticGovernance(),
                 projection=self._core.projection_service,
                 mutation_executor=self._core.mutation_executor,
             ),

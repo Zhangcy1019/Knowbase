@@ -297,7 +297,7 @@ class EventRecordRepository:
 
     @staticmethod
     def build_index_mapping() -> dict[str, Any]:
-        return {"mappings": {"properties": {"event_id": {"type": "keyword"}, "event_type": {"type": "keyword"}, "partition": {"type": "keyword"}, "resource_type": {"type": "keyword"}, "resource_id": {"type": "keyword"}, "payload": {"type": "flattened"}, "status": {"type": "keyword"}, "priority": {"type": "integer"}, "policy_id": {"type": "keyword"}, "ready_at": {"type": "date"}, "next_retry_at": {"type": "date"}, "last_run_at": {"type": "date"}, "run_id": {"type": "keyword"}, "batch_key": {"type": "keyword"}, "attempt_count": {"type": "integer"}, "error_message": {"type": "text"}, "occurred_at": {"type": "date"}, "created_at": {"type": "date"}, "updated_at": {"type": "date"}, "metadata": {"type": "flattened"}}}}
+        return {"mappings": {"properties": {"event_id": {"type": "keyword"}, "event_type": {"type": "keyword"}, "partition": {"type": "keyword"}, "resource_type": {"type": "keyword"}, "resource_id": {"type": "keyword"}, "payload": {"type": "flattened"}, "status": {"type": "keyword"}, "priority": {"type": "integer"}, "next_retry_at": {"type": "date"}, "last_run_at": {"type": "date"}, "run_id": {"type": "keyword"}, "attempt_count": {"type": "integer"}, "error_message": {"type": "text"}, "occurred_at": {"type": "date"}, "created_at": {"type": "date"}, "updated_at": {"type": "date"}, "metadata": {"type": "flattened"}}}}
 
 
 class AgentRunRepository:

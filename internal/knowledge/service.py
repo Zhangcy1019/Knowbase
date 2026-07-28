@@ -11,6 +11,7 @@ from typing import Any
 
 from internal.ports.backlog import PartitionTaskQueuePort
 from internal.utils.logger import get_logger
+from internal.knowledge.decision.review_lock import PartitionReviewBlockedError
 
 
 logger = get_logger("knowbase.knowledge.service")
@@ -99,6 +100,21 @@ class KnowbaseKnowledgeService(KnowledgeBatchNotificationPort):
             self._backlog_service.complete_batch(
                 event_ids=batch.event_ids,
                 run_id=workflow_result.committed_revision or workflow_result.mutation_plan_id,
+                last_run_at=batch.assembled_at,
+            )
+        except PartitionReviewBlockedError as exc:
+            logger.warning(
+                "Knowledge batch deferred because partition review is pending.",
+                extra={
+                    "batch_id": batch.batch_id,
+                    "partition": batch.partition,
+                    "decision_id": exc.decision_id,
+                },
+            )
+            self._backlog_service.fail_batch(
+                event_ids=batch.event_ids,
+                error_message=str(exc),
+                next_retry_at=(batch.assembled_at + timedelta(minutes=15)) if batch.assembled_at else None,
                 last_run_at=batch.assembled_at,
             )
         except Exception as exc:

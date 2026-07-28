@@ -70,7 +70,10 @@ export function RunsPage({ activePartition }: { activePartition: string | null }
           return;
         }
         setRuns(items);
-        setSelectedRunId(items[0]?.run_id ?? "");
+        const requestedRunId = new URLSearchParams(window.location.search).get("run_id") ?? "";
+        setSelectedRunId(items.some((item) => item.run_id === requestedRunId)
+          ? requestedRunId
+          : items[0]?.run_id ?? "");
       })
       .catch((error: unknown) => {
         if (cancelled) {

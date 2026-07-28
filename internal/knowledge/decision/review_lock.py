@@ -9,10 +9,22 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
+class PartitionReviewBlockedError(RuntimeError):
+    """Raised when a partition is frozen by an unresolved review decision."""
+
+    def __init__(self, *, partition: str, decision_id: str):
+        self.partition = partition
+        self.decision_id = decision_id
+        super().__init__(
+            f"partition already has a review decision: {partition} ({decision_id})"
+        )
+
+
 class PartitionReviewLock:
     """Persist one review lock per partition outside Git."""
 
     def __init__(self, *, local_root: Path):
+        # use file system to persist review locks
         self._root = local_root.expanduser().resolve() / "audit" / "review_locks"
         self._root.mkdir(parents=True, exist_ok=True)
 
@@ -25,7 +37,10 @@ class PartitionReviewLock:
     def acquire(self, *, partition: str, decision_id: str) -> None:
         existing = self.get(partition=partition)
         if existing is not None and existing.get("decision_id") != decision_id:
-            raise RuntimeError(f"partition already has a review decision: {partition}")
+            raise PartitionReviewBlockedError(
+                partition=partition,
+                decision_id=str(existing.get("decision_id") or "unknown"),
+            )
         self._write(
             partition=partition,
             payload={
@@ -60,4 +75,4 @@ class PartitionReviewLock:
                 os.unlink(temporary_name)
 
 
-__all__ = ["PartitionReviewLock"]
+__all__ = ["PartitionReviewBlockedError", "PartitionReviewLock"]

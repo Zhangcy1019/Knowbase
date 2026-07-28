@@ -1,5 +1,8 @@
 """Cross-cutting coordination primitives."""
 
-from internal.infrastructure.coordination.partition_mutation_lock import PartitionMutationLock
+from internal.infrastructure.coordination.partition_mutation_lock import (
+    PartitionMutationLock,
+    PartitionMutationLockProvider,
+)
 
-__all__ = ["PartitionMutationLock"]
+__all__ = ["PartitionMutationLock", "PartitionMutationLockProvider"]

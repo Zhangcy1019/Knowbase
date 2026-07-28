@@ -19,6 +19,9 @@ class KnowledgeWorkflowResult:
     applied_case_ids: list[str] = field(default_factory=list)
     requires_review: bool = False
     error_message: str = ""
+    mutation_kind: str = "none"
+    projection_status: str = "not_run"
+    apply_status: str = "not_run"
 
 
 __all__ = ["KnowledgeWorkflowResult"]

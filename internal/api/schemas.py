@@ -192,12 +192,9 @@ class EventRecordResponse(BaseModel):
     resource_id: str = ""
     status: EventRecordStatus
     priority: int = 100
-    policy_id: str = ""
-    ready_at: datetime | None = None
     next_retry_at: datetime | None = None
     last_run_at: datetime | None = None
     run_id: str = ""
-    batch_key: str = ""
     attempt_count: int = 0
     error_message: str = ""
     occurred_at: datetime | None = None
@@ -223,6 +220,7 @@ class KnowledgeDrainSummaryResponse(BaseModel):
     """One persisted Knowledge governance attempt for the console."""
 
     decision_id: str
+    runtime_run_id: str = ""
     partition: str
     batch_id: str
     status: str
@@ -240,14 +238,22 @@ class KnowledgeDrainSummaryResponse(BaseModel):
 class KnowledgeDrainDetailResponse(KnowledgeDrainSummaryResponse):
     """Full persisted Knowledge decision payload for debugging and audit."""
 
-    statistics_fingerprint: str = ""
-    statistics_snapshot: dict[str, Any] = Field(default_factory=dict)
-    working_set_snapshot: dict[str, Any] = Field(default_factory=dict)
-    governance_result: dict[str, Any] = Field(default_factory=dict)
-    mutation_plan: dict[str, Any] | None = None
-    reviewer: str = ""
-    review_reason: str = ""
-    supersedes_decision_id: str = ""
+    input: dict[str, Any]
+    stages: dict[str, Any] = Field(default_factory=dict)
+    outcome: dict[str, Any]
+    execution: dict[str, Any] | None = None
+    status_history: list[dict[str, Any]] = Field(default_factory=list)
+    reviewer: str | None = None
+    review_reason: str | None = None
+    supersedes_decision_id: str | None = None
+
+
+class KnowledgeReviewActionRequest(BaseModel):
+    """Manual action applied to a Knowledge decision waiting for review."""
+
+    action: Literal["approve", "discard", "retry"]
+    reviewer: str = "manual"
+    reason: str = ""
 
 
 class KnowledgeOverviewResponse(BaseModel):

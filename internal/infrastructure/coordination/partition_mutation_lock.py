@@ -67,4 +67,14 @@ class PartitionMutationLock:
                 self._metadata_path.unlink()
 
 
-__all__ = ["PartitionMutationLock"]
+class PartitionMutationLockProvider:
+    """Create partition-scoped mutation locks from one workspace root."""
+
+    def __init__(self, *, local_root: Path):
+        self._local_root = local_root
+
+    def lock(self, partition: str) -> PartitionMutationLock:
+        return PartitionMutationLock(local_root=self._local_root, partition=partition)
+
+
+__all__ = ["PartitionMutationLock", "PartitionMutationLockProvider"]

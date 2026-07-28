@@ -5,6 +5,8 @@ from tempfile import TemporaryDirectory
 import unittest
 
 from internal.knowledge.decision import (
+    KnowledgeDecisionInput,
+    KnowledgeDecisionOutcome,
     KnowledgeDecisionRecord,
     KnowledgeDecisionRepository,
     KnowledgeDecisionService,
@@ -22,7 +24,13 @@ class KnowledgeDecisionTest(unittest.TestCase):
                 partition="CI",
                 batch_id="batch-1",
                 status="requires_review",
-                statistics_snapshot={"case_count": 2},
+                input=KnowledgeDecisionInput(
+                    statistics_snapshot={"case_count": 2},
+                ),
+                outcome=KnowledgeDecisionOutcome(
+                    outcome="requires_review",
+                    reasons=["manual review"],
+                ),
             )
 
             service.create(record)
@@ -38,10 +46,22 @@ class KnowledgeDecisionTest(unittest.TestCase):
             repository = KnowledgeDecisionRepository(local_root=root)
             lock = PartitionReviewLock(local_root=root)
             service = KnowledgeDecisionService(repository=repository, review_lock=lock)
-            service.create(KnowledgeDecisionRecord(partition="CI", batch_id="batch-1", status="requires_review"))
+            service.create(KnowledgeDecisionRecord(
+                partition="CI",
+                batch_id="batch-1",
+                status="requires_review",
+                input=KnowledgeDecisionInput(),
+                outcome=KnowledgeDecisionOutcome(outcome="requires_review"),
+            ))
 
             with self.assertRaisesRegex(RuntimeError, "already has"):
-                service.create(KnowledgeDecisionRecord(partition="CI", batch_id="batch-2", status="requires_review"))
+                service.create(KnowledgeDecisionRecord(
+                    partition="CI",
+                    batch_id="batch-2",
+                    status="requires_review",
+                    input=KnowledgeDecisionInput(),
+                    outcome=KnowledgeDecisionOutcome(outcome="requires_review"),
+                ))
 
 
 if __name__ == "__main__":

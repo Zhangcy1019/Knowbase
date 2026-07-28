@@ -6,11 +6,12 @@
 2. [flows.md](flows.md)：在线写入、query、后台 drain
 3. [code_structure.md](code_structure.md)：代码目录和依赖方向
 4. [knowledge.md](knowledge.md)：Knowledge 主链路
-5. [runtime.md](runtime.md)：Runtime harness 和能力调用
-6. [partition.md](partition.md)：partition、Git、队列和并发
-7. [facet.md](facet.md)：facet 与 semantic profile
-8. [semantic_index.md](semantic_index.md)：statistics 和 semantic index
-9. [agent.md](agent.md)：agent、tool、skill 的关系
+5. [governance.md](governance.md)：治理准备、proposal、validation 和参数
+6. [runtime.md](runtime.md)：Runtime harness 和能力调用
+7. [partition.md](partition.md)：partition、Git、队列和并发
+8. [facet.md](facet.md)：facet 与 semantic profile
+9. [semantic_index.md](semantic_index.md)：statistics 和 semantic index
+10. [agent.md](agent.md)：agent、tool、skill 的关系
 
 ## 文档规则
 

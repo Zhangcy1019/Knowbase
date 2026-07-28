@@ -9,7 +9,7 @@ KnowbaseSource = Literal["user", "runtime"]
 KnowbaseStatus = Literal["draft", "published", "archived"]
 RunRiskLevel = Literal["low", "medium", "high", "critical"]
 AgentRunMode = Literal["deterministic", "plan", "agent"]
-AgentRunStatus = Literal["pending", "running", "completed", "failed", "cancelled"]
+AgentRunStatus = Literal["pending", "running", "completed", "failed", "cancelled", "requires_review"]
 RuntimeRunMode = Literal["deterministic", "plan", "agent"]
 AgentRuntimeStage = Literal["prepare", "execute", "finalize"]
 
@@ -18,9 +18,6 @@ class KnowbaseEventType(str, Enum):
     CASE_CREATED = "case.created"
     CASE_UPDATED = "case.updated"
     CASE_DELETED = "case.deleted"
-    PARTITION_CASE_VOLUME_THRESHOLD_REACHED = "partition.case_volume_threshold_reached"
-    PARTITION_BECAME_IDLE = "partition.became_idle"
-    BACKLOG_REQUESTED = "backlog.requested"
 
 
 ChangeActionType = Literal[

@@ -1,5 +1,8 @@
 .history/
 .pytest_cache/
+.codex/
+.agents/
+
 __pycache__/
 node_modules/
 dist/

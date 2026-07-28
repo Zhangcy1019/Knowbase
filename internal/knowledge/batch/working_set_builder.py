@@ -18,26 +18,22 @@ class BatchWorkingSetBuilder:
 
     def build(self, *, batch: BacklogBatch) -> BatchWorkingSet:
         grouped: dict[tuple[str, str, str], list[NormalizedEvent]] = defaultdict(list)
-        normalized_events = self._normalize_events(batch=batch)
+        normalized_events = self._extract_event_signals(batch=batch)
         for normalized in normalized_events:
             grouped[(normalized.partition, normalized.resource_type, normalized.resource_id)].append(normalized)
 
         resource_groups = self._build_resource_groups(grouped=grouped)
-        resource_groups = self._propagate_related_resources(resource_groups=resource_groups)
+        # sort by priority, then latest event time, then group id for deterministic ordering
         resource_groups.sort(key=lambda item: (item.priority, item.latest_event_at or datetime.min, item.group_id))
 
         affected_case_ids: list[str] = []
-        affected_facet_keys: list[str] = []
-        affected_resource_refs: list[str] = []
+        observed_facet_keys: list[str] = []
         for group in resource_groups:
             if group.resource_type == "case" and group.resource_id not in affected_case_ids:
                 affected_case_ids.append(group.resource_id)
             for facet_key in group.observed_facets:
-                if facet_key not in affected_facet_keys:
-                    affected_facet_keys.append(facet_key)
-            for ref in [f"{group.resource_type}:{group.resource_id}", *group.related_resource_refs]:
-                if ref not in affected_resource_refs:
-                    affected_resource_refs.append(ref)
+                if facet_key not in observed_facet_keys:
+                    observed_facet_keys.append(facet_key)
 
         working_set = BatchWorkingSet(
             batch_id=batch.batch_id,
@@ -45,11 +41,9 @@ class BatchWorkingSetBuilder:
             trigger_source=batch.trigger_source,
             event_count=batch.event_count,
             event_type_counts=batch.event_type_counts,
-            normalized_events=normalized_events,
             resource_groups=resource_groups,
             affected_case_ids=affected_case_ids,
-            affected_facet_keys=affected_facet_keys,
-            affected_resource_refs=affected_resource_refs,
+            observed_facet_keys=observed_facet_keys,
             summary=self._build_batch_summary(batch=batch, resource_groups=resource_groups),
             metadata=batch.metadata,
         )
@@ -62,16 +56,17 @@ class BatchWorkingSetBuilder:
                 "normalized_event_count": len(normalized_events),
                 "resource_group_count": len(resource_groups),
                 "affected_case_count": len(affected_case_ids),
-                "affected_facet_key_count": len(affected_facet_keys),
+                "observed_facet_key_count": len(observed_facet_keys),
             },
         )
         return working_set
 
-    def _normalize_events(self, *, batch: BacklogBatch) -> list[NormalizedEvent]:
+    def _extract_event_signals(self, *, batch: BacklogBatch) -> list[NormalizedEvent]:
         normalized_events: list[NormalizedEvent] = []
+        # sort by occurred_at ascending, then event_id ascending for deterministic ordering
         for item in sorted(batch.events, key=lambda event: (event.occurred_at or datetime.min, event.event_id)):
-            payload = item.payload.model_dump(mode="json") if hasattr(item.payload, "model_dump") else dict(item.payload or {})
-            related_targets = payload.get("related_targets", []) if isinstance(payload, dict) else []
+            payload = item.payload.model_dump(mode="json")
+            related_targets = payload.get("related_targets", [])
             normalized_events.append(
                 NormalizedEvent(
                     event_id=item.event_id,
@@ -81,18 +76,19 @@ class BatchWorkingSetBuilder:
                     resource_id=item.resource_id,
                     change_kind=str(payload.get("change_kind", "")).strip(),
                     occurred_at=item.occurred_at,
-                    changed_fields=list(payload.get("changed_fields", [])) if isinstance(payload, dict) else [],
-                    field_changes=dict(payload.get("field_changes", {})) if isinstance(payload, dict) else {},
-                    related_resource_refs=self._normalize_related_targets(related_targets),
+                    changed_fields=list(payload.get("changed_fields", [])),
+                    field_changes=dict(payload.get("field_changes", {})),
+                    related_resource_refs=self._normalize_related_refs(related_targets),
+                    observed_facets=self._normalize_observed_facets(payload.get("observed_facets", {})),
                     priority=self._resolve_event_priority(
                         resource_type=item.resource_type,
                         change_kind=str(payload.get("change_kind", "")).strip(),
                     ),
-                    payload=payload if isinstance(payload, dict) else {},
                 )
             )
         return normalized_events
 
+    # group by (partition, resource_type, resource_id) and collapse events for the same resource into one
     def _build_resource_groups(
         self,
         *,
@@ -110,22 +106,12 @@ class BatchWorkingSetBuilder:
             for event in events:
                 changed_fields = _merge_string_lists(changed_fields, event.changed_fields)
                 related_resource_refs = _merge_string_lists(related_resource_refs, event.related_resource_refs)
-                if isinstance(event.payload, dict):
-                    for facet_key, values in (event.payload.get("observed_facets", {}) or {}).items():
-                        normalized_key = str(facet_key).strip()
-                        if not normalized_key:
-                            continue
-                        merged = observed_facets.setdefault(normalized_key, [])
-                        for value in values:
-                            normalized_value = str(value).strip()
-                            if normalized_value and normalized_value not in merged:
-                                merged.append(normalized_value)
+                for facet_key, values in event.observed_facets.items():
+                    merged = observed_facets.setdefault(facet_key, [])
+                    for value in values:
+                        if value not in merged:
+                            merged.append(value)
             latest_event_at = max((event.occurred_at for event in events if event.occurred_at is not None), default=None)
-            dominant_change_kind = self._resolve_group_change_kind(
-                has_create=has_create,
-                has_update=has_update,
-                has_delete=has_delete,
-            )
             priority = min((event.priority for event in events), default=100)
             is_cancelled_out = has_create and has_delete and not has_update
             resource_groups.append(
@@ -135,64 +121,18 @@ class BatchWorkingSetBuilder:
                     resource_type=resource_type,
                     resource_id=resource_id,
                     event_ids=[event.event_id for event in events],
-                    event_types=[event.event_type for event in events],
-                    dominant_change_kind=dominant_change_kind,
                     changed_fields=changed_fields,
                     related_resource_refs=related_resource_refs,
                     latest_event_at=latest_event_at,
                     priority=priority,
-                    collapsed_event_count=len(events),
-                    has_create=has_create,
-                    has_update=has_update,
-                    has_delete=has_delete,
                     is_cancelled_out=is_cancelled_out,
                     observed_facets=observed_facets,
-                    summary=self._build_group_summary(
-                        resource_type=resource_type,
-                        resource_id=resource_id,
-                        event_count=len(events),
-                        dominant_change_kind=dominant_change_kind,
-                        changed_fields=changed_fields,
-                        is_cancelled_out=is_cancelled_out,
-                    ),
                 )
             )
         return resource_groups
 
-    def _propagate_related_resources(self, *, resource_groups: list[ResourceEventGroup]) -> list[ResourceEventGroup]:
-        existing_refs = {f"{group.resource_type}:{group.resource_id}" for group in resource_groups}
-        synthetic_groups: list[ResourceEventGroup] = []
-        for group in resource_groups:
-            for related_ref in group.related_resource_refs:
-                if related_ref in existing_refs:
-                    continue
-                target_type, _, target_id = related_ref.partition(":")
-                if not target_type or not target_id:
-                    continue
-                synthetic_groups.append(
-                    ResourceEventGroup(
-                        group_id=f"{group.partition}:{target_type}:{target_id}:related",
-                        partition=group.partition,
-                        resource_type=target_type,
-                        resource_id=target_id,
-                        event_ids=list(group.event_ids),
-                        event_types=["related.inferred"],
-                        dominant_change_kind="related",
-                        changed_fields=[],
-                        related_resource_refs=[f"{group.resource_type}:{group.resource_id}"],
-                        latest_event_at=group.latest_event_at,
-                        priority=min(group.priority + 5, 99),
-                        collapsed_event_count=0,
-                        has_create=False,
-                        has_update=True,
-                        has_delete=False,
-                        is_cancelled_out=False,
-                        summary=f"related impact inferred for {target_type}:{target_id} from {group.resource_type}:{group.resource_id}.",
-                    )
-                )
-                existing_refs.add(related_ref)
-        return [*resource_groups, *synthetic_groups]
-
+    # collapse events for the same resource into one, preserving the latest event and merging changed fields
+    # example: if a resource has events [create, update, update, delete], the result will be [delete] with all changed fields merged
     @staticmethod
     def _collapse_events(events: list[NormalizedEvent]) -> list[NormalizedEvent]:
         if len(events) <= 1:
@@ -216,8 +156,11 @@ class BatchWorkingSetBuilder:
                             previous.related_resource_refs,
                             event.related_resource_refs,
                         ),
+                        "observed_facets": _merge_observed_facets(
+                            previous.observed_facets,
+                            event.observed_facets,
+                        ),
                         "priority": min(previous.priority, event.priority),
-                        "payload": _merge_payloads(previous.payload, event.payload),
                     }
                 )
                 continue
@@ -225,20 +168,23 @@ class BatchWorkingSetBuilder:
         return collapsed
 
     @staticmethod
-    def _normalize_related_targets(targets: list[dict[str, str]] | list[object]) -> list[str]:
-        refs: list[str] = []
-        for item in targets:
-            if isinstance(item, dict):
-                target_type = str(item.get("type") or "").strip()
-                target_id = str(item.get("id") or "").strip()
-            else:
-                target_type = str(getattr(item, "type", "")).strip()
-                target_id = str(getattr(item, "id", "")).strip()
-            if target_type and target_id:
-                ref = f"{target_type}:{target_id}"
-                if ref not in refs:
-                    refs.append(ref)
-        return refs
+    def _normalize_related_refs(refs: list[object]) -> list[str]:
+        return list(dict.fromkeys(str(ref).strip() for ref in refs if str(ref).strip()))
+
+    @staticmethod
+    def _normalize_observed_facets(value: object) -> dict[str, list[str]]:
+        if not isinstance(value, dict):
+            return {}
+        normalized: dict[str, list[str]] = {}
+        for key, values in value.items():
+            normalized_key = str(key).strip()
+            if not normalized_key:
+                continue
+            raw_values = values if isinstance(values, list) else [values]
+            normalized_values = [str(item).strip() for item in raw_values if str(item).strip()]
+            if normalized_values:
+                normalized[normalized_key] = list(dict.fromkeys(normalized_values))
+        return normalized
 
     @staticmethod
     def _resolve_event_priority(*, resource_type: str, change_kind: str) -> int:
@@ -248,36 +194,8 @@ class BatchWorkingSetBuilder:
             return 20
         if change_kind == "create":
             return 30
+        # if change_kind == "update":
         return 50
-
-    @staticmethod
-    def _resolve_group_change_kind(*, has_create: bool, has_update: bool, has_delete: bool) -> str:
-        if has_create and has_delete:
-            return "cancelled"
-        if has_delete:
-            return "delete"
-        if has_create:
-            return "create"
-        if has_update:
-            return "update"
-        return "unknown"
-
-    @staticmethod
-    def _build_group_summary(
-        *,
-        resource_type: str,
-        resource_id: str,
-        event_count: int,
-        dominant_change_kind: str,
-        changed_fields: list[str],
-        is_cancelled_out: bool,
-    ) -> str:
-        if is_cancelled_out:
-            return f"{resource_type}:{resource_id} cancelled out across {event_count} event(s)."
-        field_summary = ", ".join(changed_fields[:5])
-        if field_summary:
-            return f"{resource_type}:{resource_id} {dominant_change_kind} across {event_count} event(s); changed_fields={field_summary}."
-        return f"{resource_type}:{resource_id} {dominant_change_kind} across {event_count} event(s)."
 
     @staticmethod
     def _build_batch_summary(*, batch: BacklogBatch, resource_groups: list[ResourceEventGroup]) -> str:
@@ -296,34 +214,13 @@ def _merge_string_lists(existing: list[str], incoming: list[str]) -> list[str]:
     return merged
 
 
-def _merge_payloads(left: dict[str, object], right: dict[str, object]) -> dict[str, object]:
-    merged = dict(left)
-    for key, value in right.items():
-        if key == "changed_fields":
-            merged[key] = _merge_string_lists(list(merged.get(key, [])), list(value if isinstance(value, list) else []))
-            continue
-        if key == "related_targets":
-            existing = list(merged.get(key, [])) if isinstance(merged.get(key), list) else []
-            additions = list(value) if isinstance(value, list) else []
-            merged[key] = existing + [item for item in additions if item not in existing]
-            continue
-        if key == "observed_facets" and isinstance(value, dict):
-            current = dict(merged.get(key, {})) if isinstance(merged.get(key), dict) else {}
-            for facet_key, facet_values in value.items():
-                existing_values = list(current.get(facet_key, [])) if isinstance(current.get(facet_key), list) else []
-                for facet_value in facet_values:
-                    normalized = str(facet_value).strip()
-                    if normalized and normalized not in existing_values:
-                        existing_values.append(normalized)
-                current[facet_key] = existing_values
-            merged[key] = current
-            continue
-        if key == "field_changes" and isinstance(value, dict):
-            current = dict(merged.get(key, {})) if isinstance(merged.get(key), dict) else {}
-            current.update(value)
-            merged[key] = current
-            continue
-        merged[key] = value
+def _merge_observed_facets(
+    left: dict[str, list[str]],
+    right: dict[str, list[str]],
+) -> dict[str, list[str]]:
+    merged = {key: list(values) for key, values in left.items()}
+    for key, values in right.items():
+        merged[key] = _merge_string_lists(merged.get(key, []), values)
     return merged
 
 

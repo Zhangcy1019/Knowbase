@@ -6,11 +6,13 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 from internal.infrastructure.ai.embedding_contracts import EmbeddingProvider
+from internal.infrastructure.coordination import PartitionMutationLockProvider
 from internal.domain.case.facet_resolver import KnowbaseCaseFacetResolver
 from internal.domain.case.ingestor import KnowbaseCaseIngestor
 from internal.models import CaseFacetProfile, CaseSemanticProfile, KnowbaseCaseDocument, KnowbaseCaseDraft, KnowbaseCaseMetadata
 from internal.domain.partition.service import PartitionService
 from internal.utils.logger import get_logger
+from internal.versioning.partition_manager import PartitionVersioningManager
 
 
 logger = get_logger(__name__)
@@ -28,9 +30,9 @@ class KnowbaseCaseWriteService:
         facet_resolver: KnowbaseCaseFacetResolver | None = None,
         embedding_provider: EmbeddingProvider | None = None,
         statistics=None,
-        versioning_factory=None,
+        versioning: PartitionVersioningManager | None = None,
         task_queue=None,
-        mutation_lock_factory=None,
+        mutation_lock_provider: PartitionMutationLockProvider | None = None,
     ):
         self._repository = repository
         self._partition_service = partition_service
@@ -40,9 +42,9 @@ class KnowbaseCaseWriteService:
             raise ValueError("KnowbaseCaseWriteService requires an explicit embedding_provider")
         self._embedding_provider = embedding_provider
         self._statistics = statistics
-        self._versioning_factory = versioning_factory
+        self._versioning = versioning
         self._task_queue = task_queue
-        self._mutation_lock_factory = mutation_lock_factory
+        self._mutation_lock_provider = mutation_lock_provider
 
     async def update_case_queued(self, **kwargs):
         """Serialize an update through the shared partition task queue."""
@@ -55,9 +57,8 @@ class KnowbaseCaseWriteService:
         result: dict[str, object] = {}
 
         async def handler(_task) -> None:
-            lock = self._mutation_lock_factory(existing.partition) if self._mutation_lock_factory else _NullContext()
+            lock = self._mutation_lock_provider.lock(existing.partition) if self._mutation_lock_provider else _NullContext()
             with lock:
-                self._prepare_versioning(existing.partition)
                 result["value"] = self.update_case(**kwargs)
 
         task = self._task_queue.enqueue(
@@ -81,9 +82,8 @@ class KnowbaseCaseWriteService:
         result: dict[str, object] = {}
 
         async def handler(_task) -> None:
-            lock = self._mutation_lock_factory(existing.partition) if self._mutation_lock_factory else _NullContext()
+            lock = self._mutation_lock_provider.lock(existing.partition) if self._mutation_lock_provider else _NullContext()
             with lock:
-                self._prepare_versioning(existing.partition)
                 result["value"] = self.delete_case(case_id=case_id)
 
         task = self._task_queue.enqueue(
@@ -114,11 +114,11 @@ class KnowbaseCaseWriteService:
         if partition is None:
             raise ValueError(f"partition not found: {partition_name}")
         facet_definitions = self._partition_service.list_facet_definitions(partition_name)
-        normalized_facets = self._normalize_facets(
-            facets=self._facet_resolver.normalize(
-                facets=facets or {},
-                facet_definitions=facet_definitions,
-            )
+        # Facets are a projection of the semantic profile under the current
+        # partition schema. Caller-provided facets are not accepted as truth.
+        normalized_facets = self._facet_resolver.project_from_semantic_profile(
+            semantic_profile=semantic_profile,
+            facet_definitions=facet_definitions,
         )
         now = datetime.now(timezone.utc)
         case_document = KnowbaseCaseDocument(
@@ -137,7 +137,9 @@ class KnowbaseCaseWriteService:
             facets=normalized_facets,
         )
         self._enrich_document(case_document)
-        return self._repository.upsert(case_document)
+        persisted = self._repository.upsert(case_document)
+        self._refresh_partition_indexes(partition_name=partition_name)
+        return persisted
 
     def update_case(
         self,
@@ -159,7 +161,7 @@ class KnowbaseCaseWriteService:
         partition = self._partition_service.get_partition(existing.partition)
         if partition is None:
             raise ValueError(f"partition not found: {existing.partition}")
-        self._prepare_versioning(existing.partition)
+        versioning = self._prepare_versioning(existing.partition)
         facet_definitions = self._partition_service.list_facet_definitions(existing.partition)
 
         resolved_source_content = existing.source_content
@@ -179,9 +181,12 @@ class KnowbaseCaseWriteService:
             else CaseSemanticProfile.model_validate(semantic_profile)
         )
         next_metadata = existing.metadata if metadata is None else metadata
-        resolved_facets = CaseFacetProfile.model_validate(existing.facets)
-        if facets is not None:
-            resolved_facets = self._normalize_facets(facets=facets)
+        # Always re-project, including updates that do not explicitly change
+        # semantic_profile, so stale facets cannot survive a schema change.
+        resolved_facets = self._facet_resolver.project_from_semantic_profile(
+            semantic_profile=next_semantic_profile,
+            facet_definitions=facet_definitions,
+        )
         changed_fields: list[str] = []
         if next_title != existing.title:
             changed_fields.append("title")
@@ -212,7 +217,8 @@ class KnowbaseCaseWriteService:
         )
         self._enrich_document(updated)
         persisted = self._repository.upsert(updated)
-        self._record_update(existing=existing, updated=persisted)
+        self._refresh_partition_indexes(partition_name=existing.partition)
+        self._record_update(existing=existing, updated=persisted, versioning=versioning)
         return existing, persisted, changed_fields
 
     def delete_case(self, *, case_id: str) -> KnowbaseCaseDocument:
@@ -220,11 +226,12 @@ class KnowbaseCaseWriteService:
         existing = self._repository.get(case_id)
         if existing is None:
             raise ValueError(f"case not found: {case_id}")
-        self._prepare_versioning(existing.partition)
+        versioning = self._prepare_versioning(existing.partition)
         self._repository.delete(case_id)
         try:
+            self._refresh_partition_indexes(partition_name=existing.partition)
             self._remove_statistics(existing)
-            self._commit_case(existing)
+            self._commit_case(existing, versioning=versioning)
         except Exception as exc:
             logger.exception(
                 "Case delete side effects failed after persistence.",
@@ -233,14 +240,14 @@ class KnowbaseCaseWriteService:
             raise RuntimeError(f"case delete side effects failed for {case_id}: {exc}") from exc
         return existing
 
-    def _record_update(self, *, existing: KnowbaseCaseDocument, updated: KnowbaseCaseDocument) -> None:
+    def _record_update(self, *, existing: KnowbaseCaseDocument, updated: KnowbaseCaseDocument, versioning=None) -> None:
         try:
             if self._statistics is not None:
                 self._statistics.replace_case_observation(
                     old_observation=self._observation(existing),
                     new_observation=self._observation(updated),
                 )
-            self._commit_case(updated)
+            self._commit_case(updated, versioning=versioning)
         except Exception as exc:
             logger.exception(
                 "Case update side effects failed after persistence.",
@@ -252,18 +259,36 @@ class KnowbaseCaseWriteService:
         if self._statistics is not None:
             self._statistics.remove_observation(observation=self._observation(document))
 
-    def _commit_case(self, document: KnowbaseCaseDocument) -> None:
-        if self._versioning_factory is not None:
-            self._versioning_factory(document.partition).commit_case_ingest(
+    def _commit_case(self, document: KnowbaseCaseDocument, *, versioning=None) -> None:
+        coordinator = versioning
+        if coordinator is None and self._versioning is not None:
+            coordinator = self._versioning.prepare(document.partition)
+        if coordinator is not None:
+            coordinator.commit_case_ingest(
                 case_id=document.case_id,
                 paths=[
                     f"cases/{document.case_id}.json",
+                    "facet_index.json",
+                    "semantic_index.json",
                 ],
             )
 
-    def _prepare_versioning(self, partition: str) -> None:
-        if self._versioning_factory is not None:
-            self._versioning_factory(partition)
+    def _refresh_partition_indexes(self, *, partition_name: str) -> None:
+        """Keep materialized profile indexes aligned with the case collection."""
+        case_documents = self._repository.list_by_partition(partition_name)
+        self._partition_service.refresh_facet_index(
+            partition_name=partition_name,
+            case_documents=case_documents,
+        )
+        self._partition_service.refresh_semantic_index(
+            partition_name=partition_name,
+            case_documents=case_documents,
+        )
+
+    def _prepare_versioning(self, partition: str):
+        if self._versioning is not None:
+            return self._versioning.prepare(partition)
+        return None
 
     @staticmethod
     def _observation(document: KnowbaseCaseDocument):
