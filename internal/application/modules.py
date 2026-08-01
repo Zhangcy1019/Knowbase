@@ -9,7 +9,7 @@ from internal.agents.product import AnswerSynthesisAgent
 from internal.backlog.events.queue import KnowbaseEventBacklogService
 from internal.backlog.events.worker import KnowbaseEventWorker
 from internal.knowledge.service import KnowbaseKnowledgeService
-from internal.infrastructure.coordination import PartitionMutationLock
+from internal.infrastructure.coordination import PartitionMutationLockProvider
 from internal.knowledge.workflow import KnowledgeDrainWorkflow
 from internal.knowledge.batch import BatchWorkingSetBuilder
 from internal.ports import EventBacklogPort, EventWorkerPort, IngestUseCase, QueryUseCase, RuntimeRunPort
@@ -26,9 +26,14 @@ from internal.runtime.loop.turn_planner import RuntimeTurnPlanner
 from internal.infrastructure.ai import DefaultOpenAIClient
 from internal.runtime.llm.model_adapter import DefaultRuntimeModelAdapter
 from internal.runtime.skills import SkillRuntime
+from internal.runtime.skills.registry import SkillRegistry
 from internal.runtime.service import KnowbaseRuntimeService
 from internal.runtime.trace import RuntimeTraceRecorder
 from internal.runtime.tools import ToolRuntime
+from internal.runtime.tools.registry import ToolRegistry
+from internal.knowledge.capability.tools import GetCaseTool, GetPartitionTool, ListCasesTool
+from internal.knowledge.capability.skills.partition import ValidateGovernanceSkill
+from internal.knowledge.governance import GovernanceRuntimeAgent
 from internal.utils.config import RuntimeConfig
 
 from internal.application.providers import CoreProviders, IngestProviders
@@ -70,6 +75,7 @@ def build_runtime_module(
         trace_recorder=trace_recorder,
         llm_config=runtime_cfg.llm,
     )
+    planner = RuntimeTurnPlanner(decision_generator=decision_generator)
     runtime_service = KnowbaseRuntimeService(
         partition_service=core.partition_service,
         case_repository=core.case_repository,
@@ -78,22 +84,52 @@ def build_runtime_module(
         artifact_repository=core.artifact_repository,
         tool_runtime=tool_runtime,
         skill_runtime=skill_runtime,
-        planner=RuntimeTurnPlanner(decision_generator=decision_generator),
+        planner=planner,
         trace_recorder=trace_recorder,
     )
+    if hasattr(core.governance, "set_runtime_agent"):
+        governance_tool_registry = ToolRegistry()
+        governance_tool_registry.register(GetCaseTool(repository=core.case_repository))
+        governance_tool_registry.register(ListCasesTool(repository=core.case_repository))
+        governance_tool_registry.register(GetPartitionTool(service=core.partition_service))
+        governance_skill_registry = SkillRegistry()
+        governance_fit_metrics = getattr(core.governance, "fit_metrics", None)
+        governance_validation_pipeline = getattr(core.governance, "validation_pipeline", None)
+        if governance_validation_pipeline is None:
+            raise ValueError("knowledge governance validation pipeline is not configured")
+        governance_skill_registry.register(
+            ValidateGovernanceSkill(validation_pipeline=governance_validation_pipeline)
+        )
+        governance_runtime = KnowbaseRuntimeService(
+            partition_service=core.partition_service,
+            case_repository=core.case_repository,
+            run_repository=core.run_repository,
+            step_repository=core.step_repository,
+            artifact_repository=core.artifact_repository,
+            tool_runtime=ToolRuntime(registry=governance_tool_registry),
+            skill_runtime=SkillRuntime(registry=governance_skill_registry),
+            planner=planner,
+            trace_recorder=trace_recorder,
+        )
+        core.governance.set_runtime_agent(
+            GovernanceRuntimeAgent(
+                runtime=governance_runtime,
+                fit_metrics=governance_fit_metrics,
+            )
+        )
     event_backlog_service = KnowbaseEventBacklogService(repository=core.event_record_repository)
     knowledge_workflow = KnowledgeDrainWorkflow(
         working_set_builder=BatchWorkingSetBuilder(),
         partition_service=core.partition_service,
+        case_repository=core.case_repository,
         statistics=core.statistics_service,
-        versioning_factory=core.partition_versioning.prepare,
+        versioning=core.partition_versioning,
         projection=core.projection_service,
-        facet_governance=core.facet_governance,
+        governance=core.governance,
         mutation_executor=core.mutation_executor,
         decision_service=core.decision_service,
-        mutation_lock_factory=lambda partition: PartitionMutationLock(
+        mutation_lock_provider=PartitionMutationLockProvider(
             local_root=Path(runtime_cfg.storage.local_root),
-            partition=partition,
         ),
     )
     knowledge_service = KnowbaseKnowledgeService(
@@ -127,11 +163,10 @@ def build_ingest_service(
         semantic_profile_extractor=ingest.semantic_profile_extractor,
         facet_resolver=ingest.facet_resolver,
         statistics=core.statistics_service,
-        versioning_factory=core.partition_versioning.prepare,
+        versioning=core.partition_versioning,
         task_queue=core.task_queue,
-        mutation_lock_factory=lambda partition: PartitionMutationLock(
+        mutation_lock_provider=PartitionMutationLockProvider(
             local_root=Path(core.runtime_cfg.storage.local_root),
-            partition=partition,
         ),
     )
 

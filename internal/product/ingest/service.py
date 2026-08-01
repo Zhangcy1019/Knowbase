@@ -9,7 +9,6 @@ from internal.domain.case.facet_resolver import KnowbaseCaseFacetResolver
 from internal.domain.case.semantic_profile_extractor import KnowbaseSemanticProfileExtractor
 from internal.domain.case.summary_extractor import KnowbaseCaseSummaryExtractor
 from internal.models import (
-    CaseEventPayload,
     CaseEventSnapshot,
     IngestRequest,
     IngestResult,
@@ -17,6 +16,8 @@ from internal.models import (
     KnowbaseEventType,
 )
 from internal.knowledge.statistics import CaseObservation
+from internal.infrastructure.coordination import PartitionMutationLockProvider
+from internal.versioning.partition_manager import PartitionVersioningManager
 from internal.ports import (
     CaseWritePort,
     EventPublisherPort,
@@ -42,9 +43,9 @@ class KnowbaseIngestService:
         summary_extractor: KnowbaseCaseSummaryExtractor | None = None,
         facet_resolver: KnowbaseCaseFacetResolver | None = None,
         statistics=None,
-        versioning_factory=None,
+        versioning: PartitionVersioningManager | None = None,
         task_queue: PartitionTaskQueuePort | None = None,
-        mutation_lock_factory=None,
+        mutation_lock_provider: PartitionMutationLockProvider | None = None,
     ):
         self._validator = validator
         self._draft_builder = draft_builder
@@ -55,11 +56,11 @@ class KnowbaseIngestService:
         self._summary_extractor = summary_extractor or KnowbaseCaseSummaryExtractor()
         self._facet_resolver = facet_resolver or KnowbaseCaseFacetResolver()
         self._statistics = statistics
-        self._versioning_factory = versioning_factory
+        self._versioning = versioning
         if task_queue is None:
             raise ValueError("KnowbaseIngestService requires a partition task queue")
         self._task_queue = task_queue
-        self._mutation_lock_factory = mutation_lock_factory
+        self._mutation_lock_provider = mutation_lock_provider
 
     async def ingest(self, request: IngestRequest) -> IngestResult:
         request = self._validator.validate(request)
@@ -108,14 +109,14 @@ class KnowbaseIngestService:
 
     async def _execute_case_input(self, *, task, case_id: str, draft) -> None:
         lock_context = (
-            self._mutation_lock_factory(draft.partition)
-            if self._mutation_lock_factory is not None
+            self._mutation_lock_provider.lock(draft.partition)
+            if self._mutation_lock_provider is not None
             else _NullContext()
         )
         with lock_context:
             versioning = (
-                self._versioning_factory(draft.partition)
-                if self._versioning_factory is not None
+                self._versioning.prepare(draft.partition)
+                if self._versioning is not None
                 else None
             )
             case_document = self._case_write_service.create_case(
@@ -143,33 +144,34 @@ class KnowbaseIngestService:
             if versioning is not None:
                 versioning.commit_case_ingest(
                     case_id=case_document.case_id,
-                    paths=[f"cases/{case_document.case_id}.json"],
+                    paths=[
+                        f"cases/{case_document.case_id}.json",
+                        "facet_index.json",
+                        "semantic_index.json",
+                    ],
                 )
         await self._event_publisher.publish(
-            KnowbaseEvent(
+            KnowbaseEvent.for_case(
                 event_type=KnowbaseEventType.CASE_CREATED,
+                change_kind="create",
                 partition=draft.partition,
-                resource_type="case",
-                resource_id=case_document.case_id,
+                case_id=case_document.case_id,
                 occurred_at=case_document.created_at,
-                payload=CaseEventPayload(
-                    change_kind="create",
-                    after=CaseEventSnapshot(
-                        title=case_document.title,
-                        facet_count=sum(len(values) for values in case_document.facets.values()),
-                        facets=case_document.facets.model_dump(),
-                    ),
-                    changed_fields=[
-                        "title",
-                        "source_content",
-                        "source_refs",
-                        "summary_text",
-                        "semantic_profile",
-                        "metadata",
-                        "facets",
-                    ],
-                    observed_facets=case_document.facets.model_dump(),
+                after=CaseEventSnapshot(
+                    title=case_document.title,
+                    facet_count=sum(len(values) for values in case_document.facets.values()),
+                    facets=case_document.facets.model_dump(),
                 ),
+                changed_fields=[
+                    "title",
+                    "source_content",
+                    "source_refs",
+                    "summary_text",
+                    "semantic_profile",
+                    "metadata",
+                    "facets",
+                ],
+                observed_facets=case_document.facets.model_dump(),
             )
         )
 

@@ -105,6 +105,9 @@ class DefaultOpenAIClient:
         }
         if include_response_format:
             request_kwargs["response_format"] = self._build_response_format(request=request)
+        extra_body = self._build_extra_body(request=request)
+        if extra_body:
+            request_kwargs["extra_body"] = extra_body
         return self._client.chat.completions.create(**request_kwargs)
 
     def _build_response(
@@ -165,6 +168,20 @@ class DefaultOpenAIClient:
     def _build_response_format(self, *, request: OpenAIChatRequest) -> dict[str, Any]:
         del request
         return {"type": "json_object"}
+
+    @staticmethod
+    def _build_extra_body(*, request: OpenAIChatRequest) -> dict[str, Any]:
+        """Disable MiniMax-M3 thinking for bounded structured responses.
+
+        MiniMax-M3 enables thinking by default. The OpenAI-compatible API
+        accepts this provider-specific option through ``extra_body``. Keep it
+        scoped to M3 so the shared client remains compatible with other
+        OpenAI-style providers and models.
+        """
+        model = request.model.strip().lower()
+        if model == "minimax-m3":
+            return {"thinking": {"type": "disabled"}}
+        return {}
 
     @staticmethod
     def _build_api_metadata(*, request: OpenAIChatRequest) -> dict[str, str]:

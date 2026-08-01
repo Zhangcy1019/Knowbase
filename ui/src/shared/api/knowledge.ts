@@ -2,6 +2,7 @@ import { requestJson } from "./base";
 
 export type KnowledgeDrainSummary = {
   decision_id: string;
+  runtime_run_id: string;
   partition: string;
   batch_id: string;
   status: string;
@@ -17,14 +18,26 @@ export type KnowledgeDrainSummary = {
 };
 
 export type KnowledgeDrainDetail = KnowledgeDrainSummary & {
-  statistics_fingerprint: string;
-  statistics_snapshot: Record<string, unknown>;
-  working_set_snapshot: Record<string, unknown>;
-  governance_result: Record<string, unknown>;
-  mutation_plan: Record<string, unknown> | null;
-  reviewer: string;
-  review_reason: string;
-  supersedes_decision_id: string;
+  input: {
+    base_revision: string | null;
+    statistics_fingerprint: string | null;
+    statistics_snapshot: Record<string, unknown> | null;
+    working_set: Record<string, unknown> | null;
+  };
+  stages: Record<string, {
+    status: string;
+    input?: Record<string, unknown> | null;
+    output?: Record<string, unknown> | null;
+    reasons?: string[];
+    error?: string | null;
+    captured_at?: string;
+  }>;
+  outcome: Record<string, unknown>;
+  execution: Record<string, unknown> | null;
+  status_history: Array<Record<string, unknown>>;
+  reviewer: string | null;
+  review_reason: string | null;
+  supersedes_decision_id: string | null;
 };
 
 export type KnowledgeOverview = {
@@ -47,6 +60,23 @@ export function listKnowledgeDrains(partition: string) {
 export function getKnowledgeDrain(decisionId: string) {
   return requestJson<KnowledgeDrainDetail>(
     `/api/knowbase/knowledge/drains/${encodeURIComponent(decisionId)}`,
+  );
+}
+
+export type KnowledgeReviewAction = "approve" | "discard" | "retry";
+
+export function reviewKnowledgeDrain(
+  decisionId: string,
+  action: KnowledgeReviewAction,
+  reason = "",
+) {
+  return requestJson<KnowledgeDrainDetail>(
+    `/api/knowbase/knowledge/drains/${encodeURIComponent(decisionId)}/review`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action, reviewer: "manual", reason }),
+    },
   );
 }
 

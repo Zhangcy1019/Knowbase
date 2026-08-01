@@ -1,9 +1,8 @@
 """Knowbase Knowledge capabilities."""
 
-from internal.knowledge.facet_governance import (
-    FacetFreezePolicy,
-    FacetKeyConvergencePlanner,
-    KnowledgeCircuitBreaker,
+from internal.knowledge.governance import (
+    FreezePolicy,
+    CircuitBreaker,
     PartitionFitMetrics,
 )
 from internal.knowledge.model import (
@@ -26,25 +25,25 @@ from internal.knowledge.statistics import (
     StatisticsObservationNormalizer,
 )
 from internal.knowledge.execution import KnowledgeMutationExecutor
-from internal.knowledge.batch import BatchContextBuilder, BatchWorkingSetBuilder
+from internal.knowledge.batch import BatchWorkingSetBuilder
+from internal.knowledge.governance import GovernanceContextBuilder
 from internal.knowledge.service import KnowbaseKnowledgeService
 from internal.knowledge.projection import CaseFacetProjector
 from internal.knowledge.projection import KnowledgeProjectionService
-from internal.knowledge.facet_governance import FacetGovernanceService
+from internal.knowledge.governance import GovernanceService
 from internal.knowledge.statistics import KnowledgeStatisticsService
 from internal.knowledge.workflow import KnowledgeDrainWorkflow
 
 __all__ = [
-    "BatchContextBuilder",
     "BatchWorkingSetBuilder",
+    "GovernanceContextBuilder",
     "CaseFacetProjector",
     "CaseSemanticCandidate",
     "CaseObservation",
     "CaseSupportQuery",
-    "FacetFreezePolicy",
-    "FacetKeyConvergencePlanner",
+    "FreezePolicy",
     "KnowledgeMutationExecutor",
-    "KnowledgeCircuitBreaker",
+    "CircuitBreaker",
     "KnowledgeMutationPlan",
     "KnowledgeProjectionService",
     "KnowbaseKnowledgeService",
@@ -61,6 +60,6 @@ __all__ = [
     "StatisticsSupportFilter",
     "StatisticsObservationNormalizer",
     "KnowledgeDrainWorkflow",
-    "FacetGovernanceService",
+    "GovernanceService",
     "KnowledgeStatisticsService",
 ]

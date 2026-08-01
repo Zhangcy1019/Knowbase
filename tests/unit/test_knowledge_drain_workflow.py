@@ -2,14 +2,18 @@
 
 import asyncio
 from types import SimpleNamespace
+from pathlib import Path
+from tempfile import TemporaryDirectory
 import unittest
 
 from internal.backlog.events.models import BacklogBatch
-from internal.knowledge.facet_governance.models import (
-    FacetGovernanceResult,
+from internal.knowledge.governance.models import (
+    GovernanceResult,
     PartitionFacetSchemaProposal,
     PartitionRebuildRecommendation,
 )
+from internal.knowledge.decision import KnowledgeDecisionRepository, KnowledgeDecisionService
+from internal.knowledge.decision.review_lock import PartitionReviewLock
 from internal.knowledge.projection.models import CaseProjectionChange, ProjectionPlan
 from internal.knowledge.workflow import KnowledgeDrainWorkflow
 
@@ -19,7 +23,7 @@ class _Governance:
         self.result = result
         self.current_schema = None
 
-    def assess(self, *, statistics, current_schema, working_set):
+    def assess_deterministic(self, *, statistics, current_schema, working_set):
         self.current_schema = current_schema
         return self.result
 
@@ -64,7 +68,7 @@ class KnowledgeDrainWorkflowTest(unittest.TestCase):
 
     def test_accepted_governance_applies_mutation_without_runtime(self) -> None:
         governance = _Governance(
-            FacetGovernanceResult(
+            GovernanceResult(
                 decision="accepted",
                 accepted_schema={"definitions": []},
                 proposal=PartitionFacetSchemaProposal(
@@ -79,7 +83,7 @@ class KnowledgeDrainWorkflowTest(unittest.TestCase):
         )
         executor = _Executor()
         workflow = KnowledgeDrainWorkflow(
-            facet_governance=governance,
+                governance=governance,
             partition_service=_PartitionService(),
             projection=_Projection(),
             mutation_executor=executor,
@@ -96,9 +100,10 @@ class KnowledgeDrainWorkflowTest(unittest.TestCase):
     def test_rejected_governance_does_not_write(self) -> None:
         executor = _Executor()
         workflow = KnowledgeDrainWorkflow(
-            facet_governance=_Governance(
-                FacetGovernanceResult(decision="rejected", reasons=["insufficient support"])
+            governance=_Governance(
+                GovernanceResult(decision="rejected", reasons=["insufficient support"])
             ),
+            partition_service=_PartitionService(),
             mutation_executor=executor,
         )
 
@@ -106,6 +111,50 @@ class KnowledgeDrainWorkflowTest(unittest.TestCase):
 
         self.assertEqual(result.status, "completed")
         self.assertIsNone(executor.plan)
+
+    def test_persists_stage_oriented_applied_audit(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            decision_service = KnowledgeDecisionService(
+                repository=KnowledgeDecisionRepository(local_root=root),
+                review_lock=PartitionReviewLock(local_root=root),
+            )
+            governance = _Governance(
+                GovernanceResult(
+                    decision="accepted",
+                    accepted_schema={"definitions": []},
+                    proposal=PartitionFacetSchemaProposal(
+                        partition="ci", suggested_new_keys=["Area"]
+                    ),
+                    rebuild=PartitionRebuildRecommendation(
+                        partition="ci", rebuild_scope="partial", target_case_ids=["case-1"]
+                    ),
+                )
+            )
+            workflow = KnowledgeDrainWorkflow(
+                governance=governance,
+                partition_service=_PartitionService(),
+                projection=_Projection(),
+                mutation_executor=_Executor(),
+                decision_service=decision_service,
+            )
+
+            result = asyncio.run(workflow.run_batch(batch=self._batch()))
+            record = decision_service.get(result.decision_id)
+
+            self.assertEqual(result.status, "completed")
+            self.assertEqual(record.status, "applied")
+            self.assertEqual(
+                [item.to_status for item in record.status_history],
+                ["accepted", "applying", "applied"],
+            )
+            self.assertEqual(
+                set(record.stages),
+                {"preparation", "proposal", "projection", "mutation_plan", "apply"},
+            )
+            self.assertEqual(record.outcome.outcome, "accepted")
+            self.assertTrue(record.input.statistics_fingerprint is None)
+            self.assertEqual(record.execution.updated_case_ids, ["case-1"])
 
 
 if __name__ == "__main__":

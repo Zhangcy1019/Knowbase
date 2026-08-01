@@ -26,7 +26,7 @@ class KnowbaseEventBacklogService:
 
     def mark_ready(self, *, event_id: str) -> EventRecord:
         record = self._require_event(event_id)
-        return self._repository.save(record.model_copy(update={"status": "pending", "error_message": "", "ready_at": datetime.now(timezone.utc), "next_retry_at": None}))
+        return self._repository.save(record.model_copy(update={"status": "pending", "error_message": "", "next_retry_at": None}))
 
     def mark_ignored(self, *, event_id: str) -> EventRecord:
         record = self._require_event(event_id)

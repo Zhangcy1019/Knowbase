@@ -22,12 +22,9 @@ from internal.models.facet import (
     PartitionFacetValueListChangeRecord,
 )
 from internal.models.events import (
-    BacklogRequestPayload,
     CaseEventPayload,
     CaseEventSnapshot,
-    EventRelatedTarget,
     KnowbaseEvent,
-    KnowbaseEventPayload,
     TextFieldChange,
 )
 from internal.models.event_record import EventRecord, EventRecordStatus
@@ -77,7 +74,6 @@ __all__ = [
     "CaseSemanticProfile",
     "DynamicSemanticProfile",
     "SemanticFieldSet",
-    "EventRelatedTarget",
     "EventRecord",
     "EventRecordStatus",
     "RuntimeRunConfig",
@@ -95,7 +91,6 @@ __all__ = [
     "IngestRequest",
     "IngestResult",
     "KnowbaseEvent",
-    "KnowbaseEventPayload",
     "KnowbaseEventType",
     "KnowbaseCaseDocument",
     "KnowbaseCaseDraft",
@@ -137,5 +132,4 @@ __all__ = [
     "ToolCall",
     "ToolResult",
     "ToolSpec",
-    "BacklogRequestPayload",
 ]

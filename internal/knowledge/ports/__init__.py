@@ -1,7 +1,7 @@
 """Knowledge-local composition ports."""
 
 from internal.knowledge.ports.projection import KnowledgeProjectionPort
-from internal.knowledge.ports.facet_governance import KnowledgeFacetGovernancePort
+from internal.knowledge.ports.governance import KnowledgeGovernancePort
 from internal.knowledge.ports.workflow import KnowledgeDrainPort
 from internal.knowledge.ports.statistics import (
     KnowledgeStatisticsReaderPort,
@@ -14,7 +14,7 @@ __all__ = [
     "KnowledgeBatchNotificationPort",
     "KnowledgeDrainPort",
     "KnowledgeProjectionPort",
-    "KnowledgeFacetGovernancePort",
+    "KnowledgeGovernancePort",
     "KnowledgeStatisticsReaderPort",
     "KnowledgeStatisticsStorePort",
     "KnowledgeStatisticsWriterPort",

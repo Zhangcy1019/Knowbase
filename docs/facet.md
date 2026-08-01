@@ -29,7 +29,8 @@ case 原文
 - 优先评估 facet key，再评估 value。
 - promote 需要长期统计、覆盖率和语义稳定性证据。
 - 单个 batch 的偶然信号不足以改变主轴。
-- 高风险变化经过 freeze/circuit-breaker 后才能 accepted。
+- 治理流程分为 `governance/preparation`、`governance/proposal` 和 `governance/validation` 三层。
+- 当前只启用 `fit_metrics` validation；freeze/circuit-breaker 暂不注册。
 - governance 只返回结论，不写文件。
 
 schema accepted 后，`ProjectionService` 为受影响 case 生成 facet changes；execution 再统一落盘。

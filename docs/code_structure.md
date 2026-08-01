@@ -20,9 +20,12 @@ internal/
     persistence/               local / Elasticsearch stores
     version_control/           Git adapter
   knowledge/
-    batch/                     working set and preparation inputs
+    batch/                     event normalization and BatchWorkingSet
     statistics/                case/query statistics
-    facet_governance/          schema governance boundary
+    governance/                schema governance boundary
+      preparation/             evidence, signals, coverage, action candidates
+      proposal/                proposal context, plugins, merge/conflict pipeline
+      validation/              pluggable fit/freeze/circuit constraints
     projection/                case facet projection
     execution/                 mutation plan application
     decision/                  decision audit and review lock

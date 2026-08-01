@@ -80,6 +80,7 @@ class RuntimeMemoryManager:
                 source_ref=request.source_ref,
                 work=work_profile.model_copy(),
                 input_context=dict(work_profile.input_context),
+                output_contract=dict(work_profile.output_contract),
                 acceptance=request.acceptance.model_copy(),
                 verification=verification_profile,
                 stop_policy=request.stop_policy.model_copy(),

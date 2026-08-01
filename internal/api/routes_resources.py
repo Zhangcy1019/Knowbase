@@ -5,7 +5,6 @@ from datetime import datetime, timezone
 from fastapi import FastAPI, HTTPException
 
 from internal.models import (
-    CaseEventPayload,
     CaseEventSnapshot,
     IngestRequest,
     KnowbaseCaseDocument,
@@ -78,43 +77,40 @@ def register_resource_routes(app: FastAPI, *, deps: KnowbaseRouteDeps) -> None:
         except RuntimeError as exc:
             raise HTTPException(status_code=500, detail=str(exc)) from exc
         await deps.event_publisher.publish(
-            KnowbaseEvent(
+            KnowbaseEvent.for_case(
                 event_type=KnowbaseEventType.CASE_UPDATED,
+                change_kind="update",
                 partition=updated.partition,
-                resource_type="case",
-                resource_id=updated.case_id,
+                case_id=updated.case_id,
                 occurred_at=updated.updated_at,
-                payload=CaseEventPayload(
-                    change_kind="update",
-                    before=CaseEventSnapshot(
-                        title=existing.title,
-                        facet_count=sum(len(values) for values in existing.facets.values()),
-                        facets=existing.facets,
-                    ),
-                    after=CaseEventSnapshot(
-                        title=updated.title,
-                        facet_count=sum(len(values) for values in updated.facets.values()),
-                        facets=updated.facets,
-                    ),
-                    changed_fields=changed_fields,
-                    field_changes={
-                        key: value
-                        for key, value in {
-                            "source_content": TextFieldChange(
-                                change_type="text_updated",
-                                before_length=len(existing.source_content or ""),
-                                after_length=len(updated.source_content or ""),
-                            ) if "source_content" in changed_fields else None,
-                            "summary_text": TextFieldChange(
-                                change_type="text_updated",
-                                before_length=len(existing.summary_text or ""),
-                                after_length=len(updated.summary_text or ""),
-                            ) if "summary_text" in changed_fields else None,
-                        }.items()
-                        if value is not None
-                    },
-                    observed_facets=updated.facets,
+                before=CaseEventSnapshot(
+                    title=existing.title,
+                    facet_count=sum(len(values) for values in existing.facets.values()),
+                    facets=existing.facets.model_dump(),
                 ),
+                after=CaseEventSnapshot(
+                    title=updated.title,
+                    facet_count=sum(len(values) for values in updated.facets.values()),
+                    facets=updated.facets.model_dump(),
+                ),
+                changed_fields=changed_fields,
+                field_changes={
+                    key: value
+                    for key, value in {
+                        "source_content": TextFieldChange(
+                            change_type="text_updated",
+                            before_length=len(existing.source_content or ""),
+                            after_length=len(updated.source_content or ""),
+                        ) if "source_content" in changed_fields else None,
+                        "summary_text": TextFieldChange(
+                            change_type="text_updated",
+                            before_length=len(existing.summary_text or ""),
+                            after_length=len(updated.summary_text or ""),
+                        ) if "summary_text" in changed_fields else None,
+                    }.items()
+                    if value is not None
+                },
+                observed_facets=updated.facets.model_dump(),
             )
         )
         return updated
@@ -128,21 +124,18 @@ def register_resource_routes(app: FastAPI, *, deps: KnowbaseRouteDeps) -> None:
         except RuntimeError as exc:
             raise HTTPException(status_code=500, detail=str(exc)) from exc
         await deps.event_publisher.publish(
-            KnowbaseEvent(
+            KnowbaseEvent.for_case(
                 event_type=KnowbaseEventType.CASE_DELETED,
+                change_kind="delete",
                 partition=existing.partition,
-                resource_type="case",
-                resource_id=case_id,
+                case_id=case_id,
                 occurred_at=datetime.now(timezone.utc),
-                payload=CaseEventPayload(
-                    change_kind="delete",
-                    before=CaseEventSnapshot(
-                        title=existing.title,
-                        facet_count=sum(len(values) for values in existing.facets.values()),
-                        facets=existing.facets,
-                    ),
-                    observed_facets=existing.facets,
+                before=CaseEventSnapshot(
+                    title=existing.title,
+                    facet_count=sum(len(values) for values in existing.facets.values()),
+                    facets=existing.facets.model_dump(),
                 ),
+                observed_facets=existing.facets.model_dump(),
             )
         )
         return {"deleted_type": "case", "deleted_id": case_id}

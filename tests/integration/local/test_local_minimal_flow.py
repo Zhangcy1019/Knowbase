@@ -26,7 +26,7 @@ from internal.domain.case.facet_resolver import KnowbaseCaseFacetResolver
 from internal.domain.case.ingestor import KnowbaseCaseIngestor
 from internal.knowledge.service import KnowbaseKnowledgeService
 from internal.knowledge.workflow import KnowledgeDrainWorkflow
-from internal.knowledge.batch import BatchContextBuilder, BatchWorkingSetBuilder
+from internal.knowledge.batch import BatchWorkingSetBuilder
 from internal.models import IngestRequest, PartitionDocument, PartitionFacetSchema
 from internal.models.semantic_profile import CaseSemanticProfile
 from internal.runtime.contracts import RuntimeDecision
@@ -106,7 +106,7 @@ class LocalMinimalFlowIntegrationTest(unittest.TestCase):
                 working_set_builder=BatchWorkingSetBuilder(),
                 partition_service=core.partition_service,
                 statistics=core.statistics_service,
-                facet_governance=core.facet_governance,
+                governance=core.governance,
                 projection=core.projection_service,
                 mutation_executor=core.mutation_executor,
             ),

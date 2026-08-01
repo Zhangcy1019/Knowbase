@@ -37,4 +37,6 @@ Runtime    -> loop / tool / skill / trace
 
 ## 当前状态
 
-Knowledge 的 `FacetGovernanceService` 已完成依赖和主链路接入，但 `assess()` 内部治理算法仍是骨架。生产 drain 在治理算法实现前会安全地停止，而不是直接执行修改。
+Knowledge 的 `GovernanceService` 已接入 preparation、proposal、runtime 和 validation 主链路。
+当前治理约束只启用 `fit_metrics`；没有有效 proposal 时不会调用 Runtime，也不会产生 mutation。
+完整策略见 [`knowledge.md`](knowledge.md) 和 [`governance.md`](governance.md)。

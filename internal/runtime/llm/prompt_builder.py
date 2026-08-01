@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
@@ -46,6 +47,7 @@ class DefaultRuntimePromptBuilder:
             "source_type": planner_context.source_type,
             "source_ref": planner_context.source_ref,
             "input_context": dict(planner_context.input_context),
+            "output_contract": dict(planner_context.output_contract),
             "acceptance": dict(planner_context.acceptance),
             "stop_policy": dict(planner_context.stop_policy),
             "risk_policy": dict(planner_context.risk_policy),
@@ -76,141 +78,153 @@ class DefaultRuntimePromptBuilder:
         return RuntimeDecisionPrompt(
             model=self._model,
             system=(
-                "You are a knowbase runtime planning agent. "
-                "Return exactly one JSON object that matches the provided schema. "
-                "Choose only actions that are explicitly allowed by the planner context budgets and whitelists."
+                "你是 Knowbase runtime 的规划 agent。"
+                "必须严格返回一个符合给定 schema 的 JSON 对象。"
+                "只能选择 planner context 的预算和白名单明确允许的 action。"
             ),
-            instruction=self._build_instruction(digest_payload=digest_payload),
+            instruction=self._build_instruction(
+                digest_payload=digest_payload,
+                planner_context=planner_context,
+            ),
             response_schema=response_schema,
             temperature=self._temperature,
             max_output_tokens=self._max_output_tokens,
             context=context_payload,
         )
 
-    def _build_instruction(self, *, digest_payload: dict[str, Any]) -> str:
+    def _build_instruction(
+        self,
+        *,
+        digest_payload: dict[str, Any],
+        planner_context: RuntimePlannerContext,
+    ) -> str:
         if digest_payload["runtime_mode"] == "analysis_only":
             return self._build_analysis_only_instruction(digest_payload=digest_payload)
 
         lines = [
-            "Inspect the runtime planner digest and produce the next runtime decision.",
+            "检查 runtime planner digest，并生成下一步 runtime decision。",
             "",
-            "Rules:",
-            "- Prefer the smallest safe next step.",
-            "- Do not invent capability_id outside the allowed lists.",
-            "- When invoking a capability, satisfy every required input field from its schema.",
-            "- Reuse concrete values from input_context whenever a capability input clearly maps to them.",
-            "- If no safe action is available, set should_stop=true.",
-            "- Keep reasoning_summary and action_plan_summary concise.",
-            "- Do not emit summary-only, respond, or stop actions.",
-            "- Return JSON only.",
+            "规则：",
+            "- 优先选择最小且安全的下一步。",
+            "- 不得使用允许列表之外的 capability_id。",
+            "- 调用 capability 时，必须满足其 schema 中的所有必填输入。",
+            "- 当 capability 输入能明确映射到 input_context 时，复用其中的具体值。",
+            "- 没有安全 action 时，设置 should_stop=true。",
+            "- reasoning_summary 和 action_plan_summary 保持简洁。",
+            "- 不要输出 summary-only、respond 或 stop action。",
+            "- 只返回 JSON。",
             "",
-            "RuntimeDigest:",
-            f"Objective: {digest_payload['objective']}",
-            f"Mission: {digest_payload['mission_summary']}",
-            f"Mode: {digest_payload['runtime_mode']}",
-            f"Partition: {digest_payload['partition'] or '--'}",
-            f"Source: {digest_payload['source_type']} / {digest_payload['source_ref'] or '--'}",
+            "RuntimeDigest：",
+            f"目标：{digest_payload['objective']}",
+            f"任务：{digest_payload['mission_summary']}",
+            f"模式：{digest_payload['runtime_mode']}",
+            f"分区：{digest_payload['partition'] or '--'}",
+            f"来源：{digest_payload['source_type']} / {digest_payload['source_ref'] or '--'}",
             "",
-            "Bounds:",
-            f"- allowed_tools: {self._join_items(digest_payload['allowed_tools'])}",
-            f"- allowed_skills: {self._join_items(digest_payload['allowed_skills'])}",
-            f"- remaining_steps: {digest_payload['remaining_step_budget']}",
-            f"- remaining_tool_calls: {digest_payload['remaining_tool_budget']}",
-            f"- remaining_skill_calls: {digest_payload['remaining_skill_budget']}",
-            f"- risk_level: {digest_payload['risk_level']}",
-            f"- requires_review: {self._format_bool(digest_payload['requires_review'])}",
+            "边界：",
+            f"- 允许的 tools：{self._join_items(digest_payload['allowed_tools'])}",
+            f"- 允许的 skills：{self._join_items(digest_payload['allowed_skills'])}",
+            f"- 剩余步骤预算：{digest_payload['remaining_step_budget']}",
+            f"- 剩余 tool 调用预算：{digest_payload['remaining_tool_budget']}",
+            f"- 剩余 skill 调用预算：{digest_payload['remaining_skill_budget']}",
+            f"- 风险等级：{digest_payload['risk_level']}",
+            f"- 是否需要审查：{self._format_bool(digest_payload['requires_review'])}",
             "",
-            "Available Tools:",
+            "可用 Tools：",
             *[f"- {item}" for item in digest_payload["tool_spec_summary"]],
             "",
-            "Available Skills:",
+            "可用 Skills：",
             *[f"- {item}" for item in digest_payload["skill_spec_summary"]],
             "",
-            "Input Context:",
+            "输入上下文：",
             *[f"- {item}" for item in digest_payload["input_context_summary"]],
+            *self._build_detailed_input_context_lines(planner_context=planner_context),
             "",
-            "Acceptance:",
+            "输出契约：",
+            *self._build_output_contract_lines(planner_context=planner_context),
+            "",
+            "验收条件：",
             *[f"- {item}" for item in digest_payload["acceptance_summary"]],
             "",
-            "Stop Policy:",
+            "停止策略：",
             *[f"- {item}" for item in digest_payload["stop_policy_summary"]],
             "",
-            "Task Summary:",
+            "任务摘要：",
             *[f"- {item}" for item in digest_payload["task_summary"]],
             "",
-            "Top Candidates:",
+            "主要候选：",
             *[f"- {item}" for item in digest_payload["candidate_summary"]],
             "",
-            "Recent Progress:",
+            "最近进展：",
             *[f"- {item}" for item in digest_payload["progress_summary"]],
             "",
-            "Recent Failures:",
+            "最近失败：",
             *[f"- {item}" for item in digest_payload["failure_summary"]],
             "",
-            "Hints:",
+            "提示：",
             *[f"- {item}" for item in digest_payload["hint_summary"]],
         ]
         return "\n".join(lines)
 
     def _build_analysis_only_instruction(self, *, digest_payload: dict[str, Any]) -> str:
         lines = [
-            "Inspect the runtime planner digest and produce the next runtime decision.",
+            "检查 runtime planner digest，并生成下一步 runtime decision。",
             "",
-            "Execution mode:",
-            "- analysis_only",
+            "执行模式：",
+            "- analysis_only（仅分析）",
             "",
-            "Hard constraints:",
-            "- No executable capability actions are allowed.",
-            "- Do not invent capability_id outside the allowed lists.",
-            "- Any future executable action must satisfy all required capability inputs.",
-            "- Do not emit summary-only, respond, or stop actions.",
-            "- If no executable action exists, set should_stop=true.",
-            "- Keep reasoning_summary and action_plan_summary concise.",
-            "- Return JSON only.",
+            "硬性约束：",
+            "- 不允许执行任何 capability action。",
+            "- 不得使用允许列表之外的 capability_id。",
+            "- 未来的可执行 action 必须满足 capability 的全部必填输入。",
+            "- 不要输出 summary-only、respond 或 stop action。",
+            "- 不存在可执行 action 时，设置 should_stop=true。",
+            "- reasoning_summary 和 action_plan_summary 保持简洁。",
+            "- 只返回 JSON。",
             "",
-            "Decision expectation:",
-            "- Decide whether this batch needs follow-up work in a non-analysis runtime.",
-            "- Use reasoning_summary and action_plan_summary to summarize what matters.",
-            "- Do not propose non-executable actions in this mode.",
+            "决策要求：",
+            "- 判断该 batch 是否需要在非分析 runtime 中继续处理。",
+            "- 使用 reasoning_summary 和 action_plan_summary 概括关键内容。",
+            "- 不要在此模式下提出不可执行的 action。",
             "",
-            "RuntimeDigest:",
-            f"Objective: {digest_payload['objective']}",
-            f"Mission: {digest_payload['mission_summary']}",
-            f"Partition: {digest_payload['partition'] or '--'}",
-            f"Source: {digest_payload['source_type']} / {digest_payload['source_ref'] or '--'}",
+            "RuntimeDigest：",
+            f"目标：{digest_payload['objective']}",
+            f"任务：{digest_payload['mission_summary']}",
+            f"分区：{digest_payload['partition'] or '--'}",
+            f"来源：{digest_payload['source_type']} / {digest_payload['source_ref'] or '--'}",
             "",
-            "Bounds:",
-            f"- remaining_steps: {digest_payload['remaining_step_budget']}",
-            f"- remaining_tool_calls: {digest_payload['remaining_tool_budget']}",
-            f"- remaining_skill_calls: {digest_payload['remaining_skill_budget']}",
-            f"- risk_level: {digest_payload['risk_level']}",
-            f"- requires_review: {self._format_bool(digest_payload['requires_review'])}",
+            "边界：",
+            f"- 剩余步骤预算：{digest_payload['remaining_step_budget']}",
+            f"- 剩余 tool 调用预算：{digest_payload['remaining_tool_budget']}",
+            f"- 剩余 skill 调用预算：{digest_payload['remaining_skill_budget']}",
+            f"- 风险等级：{digest_payload['risk_level']}",
+            f"- 是否需要审查：{self._format_bool(digest_payload['requires_review'])}",
             "",
-            "Available capabilities:",
+            "可用能力：",
             *[f"- {item}" for item in digest_payload["capability_spec_summary"]],
             "",
-            "Input context:",
+            "输入上下文：",
             *[f"- {item}" for item in digest_payload["input_context_summary"]],
             "",
-            "Acceptance:",
+            "验收条件：",
             *[f"- {item}" for item in digest_payload["acceptance_summary"]],
             "",
-            "Stop policy:",
+            "停止策略：",
             *[f"- {item}" for item in digest_payload["stop_policy_summary"]],
             "",
-            "Batch facts:",
+            "Batch 事实：",
             *[f"- {item}" for item in digest_payload["task_summary"]],
             "",
-            "Potential follow-up work:",
+            "潜在后续工作：",
             *[f"- {item}" for item in digest_payload["candidate_summary"]],
             "",
-            "Recent progress:",
+            "最近进展：",
             *[f"- {item}" for item in digest_payload["progress_summary"]],
             "",
-            "Recent failures:",
+            "最近失败：",
             *[f"- {item}" for item in digest_payload["failure_summary"]],
             "",
-            "Hints:",
+            "提示：",
             *[f"- {item}" for item in digest_payload["hint_summary"]],
         ]
         return "\n".join(lines)
@@ -261,10 +275,29 @@ class DefaultRuntimePromptBuilder:
             or ["none"],
             "capability_spec_summary": [*tool_spec_summary, *skill_spec_summary] or ["none"],
             "input_context_summary": input_context_summary or ["none"],
+            "output_contract": dict(planner_context.output_contract),
             "acceptance_summary": acceptance_summary or ["none"],
             "stop_policy_summary": stop_policy_summary or ["none"],
             "event_type_counts": dict(batch_event_type_counts),
         }
+
+    @staticmethod
+    def _build_detailed_input_context_lines(*, planner_context: RuntimePlannerContext) -> list[str]:
+        if not planner_context.output_contract:
+            return []
+        return [
+            "输入上下文 JSON：",
+            json.dumps(dict(planner_context.input_context), ensure_ascii=False, default=str, indent=2),
+        ]
+
+    @staticmethod
+    def _build_output_contract_lines(*, planner_context: RuntimePlannerContext) -> list[str]:
+        if not planner_context.output_contract:
+            return ["none"]
+        return [
+            json.dumps(dict(planner_context.output_contract), ensure_ascii=False, default=str, indent=2),
+            "停止时必须满足输出契约：缺少必填输出必须按 requires_review 处理。",
+        ]
 
     def _extract_task_summary(self, *, input_context: dict[str, Any]) -> list[str]:
         summary: list[str] = []

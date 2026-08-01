@@ -8,12 +8,9 @@ export type EventRecordResponse = {
   resource_id: string;
   status: string;
   priority: number;
-  policy_id: string;
-  ready_at: string | null;
   next_retry_at: string | null;
   last_run_at: string | null;
   run_id: string;
-  batch_key: string;
   attempt_count: number;
   error_message: string;
   occurred_at: string | null;

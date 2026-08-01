@@ -59,6 +59,7 @@ class RuntimeWorkProfile(BaseModel):
     instructions: list[str] = Field(default_factory=list)
     input_context: dict[str, Any] = Field(default_factory=dict)
     capability_hints: list[dict[str, Any]] = Field(default_factory=list)
+    output_contract: dict[str, Any] = Field(default_factory=dict)
     allowed_skills: list[str] = Field(default_factory=list)
     allowed_tools: list[str] = Field(default_factory=list)
     max_steps: int = 16
@@ -147,6 +148,7 @@ class RuntimeTaskContext(BaseModel):
     source_ref: str = ""
     work: RuntimeWorkProfile = Field(default_factory=RuntimeWorkProfile)
     input_context: dict[str, Any] = Field(default_factory=dict)
+    output_contract: dict[str, Any] = Field(default_factory=dict)
     acceptance: RuntimeAcceptanceSpec = Field(default_factory=RuntimeAcceptanceSpec)
     verification: RuntimeVerificationProfile = Field(default_factory=RuntimeVerificationProfile)
     stop_policy: RuntimeStopPolicy = Field(default_factory=RuntimeStopPolicy)

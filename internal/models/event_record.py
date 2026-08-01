@@ -7,7 +7,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from internal.models.events import KnowbaseEventPayload
+from internal.models.events import CaseEventPayload, KnowbaseEvent
 from internal.models.types import KnowbaseEventType
 
 
@@ -22,18 +22,35 @@ class EventRecord(BaseModel):
     partition: str = ""
     resource_type: str = ""
     resource_id: str = ""
-    payload: KnowbaseEventPayload | dict[str, Any]
+    payload: CaseEventPayload
     status: EventRecordStatus = "pending"
     priority: int = 100
-    policy_id: str = ""
-    ready_at: datetime | None = None
     next_retry_at: datetime | None = None
     last_run_at: datetime | None = None
     run_id: str = ""
-    batch_key: str = ""
     attempt_count: int = 0
     error_message: str = ""
     occurred_at: datetime | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @classmethod
+    def from_event(cls, event: KnowbaseEvent) -> "EventRecord":
+        """Convert a published domain event into persisted inbox state."""
+        return cls(
+            event_type=event.event_type,
+            partition=event.partition,
+            resource_type=event.resource_type,
+            resource_id=event.resource_id,
+            payload=event.payload,
+            occurred_at=event.occurred_at,
+            status="pending",
+            priority=100,
+            next_retry_at=None,
+            last_run_at=None,
+            metadata={
+                "source": "event_inbox",
+                "intake_mode": "default_queue",
+            },
+        )

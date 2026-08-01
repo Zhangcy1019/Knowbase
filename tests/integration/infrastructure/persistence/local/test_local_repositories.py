@@ -235,6 +235,17 @@ class LocalRepositoriesIntegrationTest(unittest.TestCase):
                 created_at=now,
             )
         )
+        review_run = self._bundle.run_repository.save(
+            AgentRun(
+                partition="CI",
+                agent_id="runtime-agent",
+                status="requires_review",
+                requires_review=True,
+                source_type="knowledge",
+                objective="Await governance review",
+                created_at=now,
+            )
+        )
         step = self._bundle.step_repository.save(
             RunStep(
                 run_id=run.run_id,
@@ -264,6 +275,11 @@ class LocalRepositoriesIntegrationTest(unittest.TestCase):
             [event.event_id],
         )
         self.assertEqual(self._bundle.run_repository.get(run.run_id).status, "completed")
+        self.assertEqual(self._bundle.run_repository.get(review_run.run_id).status, "requires_review")
+        self.assertEqual(
+            [item.run_id for item in self._bundle.run_repository.list(partition="CI", status="requires_review")],
+            [review_run.run_id],
+        )
         self.assertEqual(
             [item.step_id for item in self._bundle.step_repository.list_for_run(run.run_id)],
             [step.step_id],
@@ -276,6 +292,7 @@ class LocalRepositoriesIntegrationTest(unittest.TestCase):
         self._bundle.step_repository.delete_for_run(run.run_id)
         self._bundle.artifact_repository.delete_for_run(run.run_id)
         self._bundle.run_repository.delete(run.run_id)
+        self._bundle.run_repository.delete(review_run.run_id)
         self._bundle.event_record_repository.delete(event.event_id)
 
         self.assertEqual(self._bundle.step_repository.list_for_run(run.run_id), [])

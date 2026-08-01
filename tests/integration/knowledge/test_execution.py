@@ -148,6 +148,5 @@ class KnowledgeMutationExecutorIntegrationTest(unittest.TestCase):
             self.assertEqual(repository.get("case-1").facets.model_dump(), {"Area": ["Old"]})
             self.assertEqual(partition_service.saved, [])
 
-
 if __name__ == "__main__":
     unittest.main()
